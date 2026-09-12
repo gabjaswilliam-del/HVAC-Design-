@@ -1,0 +1,21 @@
+[project]
+name = "hvac-agent"
+version = "0.0.0"
+description = "An LLM agent that helps chiller-plant operators run their plant."
+requires-python = ">=3.11"
+
+# No runtime dependencies yet, on purpose. The agent framework, the LLM provider and
+# the data store are open decisions (PRODUCT.md §7). Add them here when they are made.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# Nothing is importable yet, so there is no package to install — only the dev
+# dependencies above. Add packages here when there is code to import.
+[tool.setuptools]
+packages = []

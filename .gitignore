@@ -1,0 +1,149 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Plant data and credentials must never be committed.
+#
+# We have not decided what data belongs in this repo (PRODUCT.md §7), so for now
+# none of it does. The patterns below are deliberately broad. If you ever need to
+# commit a file one of them catches, that is a decision to make on purpose and
+# write down — not a case for `git add -f` in passing.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Credentials and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.crt
+credentials*
+secrets*
+service-account*.json
+.aws/
+.ssh/
+*token*.json
+
+# Plant data — BMS logs, trends, exports, local databases
+data/
+datasets/
+raw/
+*.csv
+*.tsv
+*.parquet
+*.feather
+*.arrow
+*.xls
+*.xlsx
+*.h5
+*.hdf5
+*.nc
+*.mat
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+
+# Customer CAD drawings
+*.dwg
+*.dxf
+*.rvt
+*.ifc
+
+# Model weights, checkpoints, training runs
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.gguf
+*.onnx
+*.bin
+checkpoints/
+runs/
+wandb/
+mlruns/
+.cache/huggingface/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Python
+# ─────────────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+sdist/
+wheels/
+*.egg-info/
+*.egg
+.eggs/
+.installed.cfg
+MANIFEST
+
+# Virtualenvs
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Test / type / lint caches
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.mypy_cache/
+.dmypy.json
+.pyre/
+.ruff_cache/
+.hypothesis/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JavaScript / Node
+# ─────────────────────────────────────────────────────────────────────────────
+node_modules/
+.npm/
+.yarn/
+.pnp.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build output
+.next/
+.nuxt/
+.svelte-kit/
+.parcel-cache/
+.vite/
+.turbo/
+out/
+coverage/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Editors
+# ─────────────────────────────────────────────────────────────────────────────
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OS
+# ─────────────────────────────────────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
