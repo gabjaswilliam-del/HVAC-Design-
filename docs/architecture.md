@@ -8,6 +8,25 @@ The simulation foundation is the owner's selected modified PHYVAC. Workflow less
 from `openclaw-hvac` and the proposed development sequence are documented in
 [reference-review.md](reference-review.md); no implementation is copied from it.
 
+## Local product boundary
+
+All product services, compute, and storage reside on the same DGX Spark. This
+includes local LLM/image/embedding serving, CAD generation, retrieval and memory,
+databases, prediction/adaptation, modified PHYVAC, pilot, and planned training jobs.
+Separate modules or local processes do not imply separate machines. Product build,
+installation, and validation must target the DGX's ARM64/GPU environment.
+
+Site telemetry devices and operator browsers can communicate over the LAN. They
+are external inputs/clients, not hosts for required product services. Installed
+operation must work without internet or another compute server. Software/model
+provisioning is an explicit installation/update step with locally staged artifacts
+supported; it must not become a hidden runtime download or cloud fallback.
+
+The installer owns reproducible provisioning and commissioning; the application
+owns ongoing operation. Installation and lifecycle requirements are defined in
+[deployment guidance](../deployment/dgx-spark/README.md). No installer or service
+manager is implemented by this documentation.
+
 ## Ownership
 
 | Location | Owns | Does not own |

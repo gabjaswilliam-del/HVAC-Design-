@@ -5,6 +5,11 @@ NVIDIA DGX Spark installation**. The planned product combines an animated CAD-ba
 monitoring dashboard, an agent harness, a site-configured simulator, cooling
 forecasts, an AI pilot, and a curated knowledge base.
 
+All product compute and storage run locally on the DGX, including LLM/image models,
+CAD installation jobs, and modified PHYVAC. The product will include a repeatable
+[installation and commissioning procedure](deployment/dgx-spark/README.md), with no
+required cloud services or separate compute machines for installed operation.
+
 **Status:** repository structure only. No application, model, simulator, or equipment
 control is implemented yet.
 

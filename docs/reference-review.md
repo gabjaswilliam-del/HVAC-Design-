@@ -60,6 +60,10 @@ Paths in this table are relative to the reference repository, not this project.
 - **One DGX has a shared resource budget.** Do not inherit the prototype's split
   VM/GPU/remote-engine deployment or model selections. Schedule expensive inference,
   image generation, and adaptation so monitoring and simulation remain responsive.
+- **Installation is part of the deliverable.** The owner clarified that the whole
+  product, including local models, storage, and installation jobs, lives on one DGX.
+  Plan one repeatable installation/commissioning procedure and managed lifecycle;
+  the prototype's manual multi-machine setup is not the deployment model.
 
 ## Modified PHYVAC decision
 
@@ -93,6 +97,7 @@ do not assume upstream already models the whole data center.
 
 | Stage | Deliverable | Evidence needed before the next dependent stage |
 |---|---|---|
+| 0. Local packaging design | Artifact inventory, DGX preflight, installation steps, data locations, and lifecycle ownership | Every required service, model, and storage component has a local deployment path; no second host or cloud service is required |
 | 1. Site definition and contracts | Semantic topology, parameters, metric catalog, evidence/unknowns, revisions, and run/event boundaries | A reviewed synthetic site can be described without UI or simulator-specific IDs; physical and presentation changes are distinguished |
 | 2. Modified PHYVAC foundation | Pinned fork, required component changes, adapter, run lifecycle, and baseline scenarios on DGX | Repeatable initial conditions; plausible energy/flow/temperature behavior; explicit coverage and calibration limits |
 | 3. Installation and CAD workflow | Extract/review topology and sensor mappings; generate editable 2D scene and stateful assets | Equipment and connections are traceable to evidence; scene and simulator use the same validated site revision |
@@ -100,8 +105,11 @@ do not assume upstream already models the whole data center.
 | 5. Cooling prediction | Pretrained configuration-based path and historical-data adaptation path | Chronological backtests, baseline comparison, uncertainty, and clear demand/output/efficiency target definitions; no-history behavior is explicit |
 | 6. Simulation AI pilot | Issue lifecycle, grounded investigation, validated corrections, and outcomes | Reproducible matched scenarios; stale/invalid actions rejected; model delays do not block the simulation clock; outcomes measured rather than assumed |
 | 7. Domain LLM specialization | Domain evaluations and curated feedback, RLHF followed later by RLAIF | Measured gains and regressions against a baseline; feedback and model provenance; runtime fit within the DGX resource budget |
+| 8. Standalone release acceptance | Complete installer, commissioning, startup/restart, update, and backup/restore procedure | Fresh-install and restart checks on DGX; the integrated product works without internet or another compute server, with local site connections retained |
 
 This is a dependency guide, not a delivery schedule. Evaluation definitions and
 trace/feedback design should begin early; expensive model training follows usable
 workflows and adequate data. Stage 2 can use a reviewed synthetic configuration while
 the CAD workflow is developed. Do not begin these stages as part of this review.
+Packaging and installation work progress with the modules; stage 8 verifies the
+complete product rather than deferring all installation work to the end.

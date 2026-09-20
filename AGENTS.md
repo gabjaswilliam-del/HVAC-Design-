@@ -11,6 +11,15 @@ Reference-project findings and the development sequence are in
   dashboard. Data centers are the primary use case, including their HVAC systems.
 - One standalone NVIDIA DGX Spark installation serves exactly one data center.
   Do not add multi-site, fleet, tenant, or cloud-control-plane abstractions.
+- The complete product is local to that DGX: dashboard/API hosting, LLM and image
+  models, embeddings, RAG, memory, databases, modified PHYVAC, prediction, and pilot.
+  Installation, asset generation, adaptation, and planned training jobs also target
+  the DGX. Do not introduce a required cloud API, second compute host, or remote
+  database. Local site equipment and operator browsers may connect over the LAN.
+- Ship a repeatable installation and commissioning procedure, followed by managed
+  startup/restart, upgrades, and backup/restore. See `deployment/dgx-spark/README.md`.
+  This is an installable standalone product, not a collection of manually started
+  developer services. Installer implementation remains future work.
 - Installation-time AI CAD analysis produces a 2D design scene and equipment
   topology. Image-model integration generates sprites and animation assets. The
   animated site scene becomes the dashboard's primary monitoring screen.

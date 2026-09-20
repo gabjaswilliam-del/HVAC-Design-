@@ -13,8 +13,21 @@ simulations configured to represent the site's pump station and cooling equipmen
 Each installation runs standalone on **one NVIDIA DGX Spark for one data center**.
 There is no multi-data-center, fleet, or multi-tenant product. A single data center
 can contain many pumps, chillers, loops, rooms, and sensors; those are equipment
-within one site, not separate tenants. The deployed runtime should operate locally;
-provider choices and installation-time asset generation remain design decisions.
+within one site, not separate tenants.
+
+The complete product runs **locally on that DGX Spark**: dashboard/API hosting,
+agent and model serving, CAD/image generation, embeddings, RAG, memory, databases,
+modified PHYVAC, prediction, and pilot. Installation jobs and site adaptation also
+run there. Installed operation requires neither internet access nor another compute
+server; local equipment and operator browsers may connect over the site's LAN.
+
+A repeatable installation and commissioning procedure is part of the product:
+prepare the DGX, install software and model artifacts, configure the site, generate
+and validate its scene/simulation bindings, initialize knowledge and prediction,
+then verify and start the complete system. It must support restart, upgrades, and
+backup/restore. Installation artifacts can be pre-staged locally; any download step
+must be distinct from operational dependencies. See
+[deployment/dgx-spark/README.md](deployment/dgx-spark/README.md).
 
 ## 2. Product components
 
@@ -95,9 +108,10 @@ performance before making model capability claims.
 
 Backbone LLM training is separate from the installation-time adaptation of the
 cooling prediction model. Training recipes, feedback collection, evaluation, and
-artifact provenance belong in the training workstream. Model size, training location,
-and DGX resource scheduling need to be determined; standalone operation does not
-mean every foundation-model training job must run on the installed device.
+artifact provenance belong in the training workstream. Plan training and adaptation
+for the DGX as local jobs, separate from continuous operation. Select model sizes,
+training recipes, and resource schedules that fit measured device capacity; do not
+assume a second training server or silently add a cloud dependency.
 
 ### 2.8 Curated knowledge base and RAG
 
@@ -127,6 +141,9 @@ Operation on one DGX Spark
 ## 4. Constraints and boundaries
 
 - One installation, one data center, one standalone DGX Spark; no multi-site support.
+- All product compute and storage stay on the DGX. Repeatable installation and
+  commissioning are product capabilities; installed operation has no required
+  internet or separate-server dependency.
 - Dashboard, harness, simulation, prediction, pilot, CAD, knowledge, and training
   have explicit module boundaries; separate modules need not be separate services.
 - Core domain contracts keep site/equipment identities and data units consistent.

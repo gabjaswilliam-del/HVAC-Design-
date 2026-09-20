@@ -8,7 +8,9 @@ capability claims as goals that require measured evidence.
 Site-specific cooling predictor adaptation belongs in `prediction/`. Retrieval
 ingestion belongs in `knowledge/`. Runtime modules load versioned model artifacts
 through serving adapters; they do not import training jobs. Simulator-derived data,
-base models, training infrastructure, and compute requirements remain open choices.
+base models, training recipes, and compute requirements remain open choices within
+the local DGX constraint. Budget local training/adaptation against measured capacity
+and schedule it separately from continuous operation; do not assume remote compute.
 
 Placeholder only. Training datasets, feedback containing private information,
 checkpoints, and weights stay outside Git.
