@@ -1,137 +1,176 @@
 # HVAC Agent System — Product Description
 
-**Status:** draft · **Updated:** 2026-09-11 · Chinese mirror: `PRODUCT-zh.md`
+**Status:** planned product; repository scaffold only · **Updated:** 2026-09-20
+· Chinese mirror: [PRODUCT-zh.md](PRODUCT-zh.md)
 
----
+## 1. Product and deployment
 
-## 1. What it is
+A maintenance and operations agent system for a data center and its HVAC/cooling
+plant. An integrated dashboard and conversational agent harness help an operator
+understand the installation, investigate problems, forecast cooling needs, and run
+simulations configured to represent the site's pump station and cooling equipment.
 
-An LLM agent that helps a chiller-plant operator run their plant.
+Each installation runs standalone on **one NVIDIA DGX Spark for one data center**.
+There is no multi-data-center, fleet, or multi-tenant product. A single data center
+can contain many pumps, chillers, loops, rooms, and sensors; those are equipment
+within one site, not separate tenants.
 
-The operator asks in plain language — *"why is efficiency down today?"*, *"will I need a fourth
-chiller this afternoon?"*, *"is chiller 3 faulty?"* — and the agent pulls the relevant plant data,
-reasons over it, and answers with a recommendation.
+The complete product runs **locally on that DGX Spark**: dashboard/API hosting,
+agent and model serving, CAD/image generation, embeddings, RAG, memory, databases,
+modified PHYVAC, prediction, and pilot. Installation jobs and site adaptation also
+run there. Installed operation requires neither internet access nor another compute
+server; local equipment and operator browsers may connect over the site's LAN.
 
-**The agent advises; it does not actuate.** Every change to the plant is made by a human. This is a
-deliberate product decision, not a missing feature: it removes the safety-certification and
-liability burden that blocks autonomous control products, and it means the system can be deployed
-alongside an existing PLC rather than replacing it.
+A repeatable installation and commissioning procedure is part of the product:
+prepare the DGX, install software and model artifacts, configure the site, generate
+and validate its scene/simulation bindings, initialize knowledge and prediction,
+then verify and start the complete system. It must support restart, upgrades, and
+backup/restore. Installation artifacts can be pre-staged locally; any download step
+must be distinct from operational dependencies. See
+[deployment/dgx-spark/README.md](deployment/dgx-spark/README.md).
 
-## 2. The problem it addresses
+## 2. Product components
 
-A chiller plant is typically the largest single electrical load in a commercial building. It is
-usually run by a fixed PLC control policy — reactive IF-THEN rules plus PID loops, with no
-foresight — supervised by operators working from experience.
+### 2.1 CAD Studio and installation
 
-The information needed to do better already exists: the building management system logs chiller
-loads, flows, temperatures, and power continuously. But it sits in a database in a form nobody can
-act on in the moment. The gap is not sensing, and not (only) optimisation — it is that **no one can
-ask the plant a question and get an answer.**
+Accept a customer's CAD file, use AI to analyze it, and produce both a 2D design
+scene and a machine-readable equipment topology. Image-model integration generates
+sprites and animation assets during installation. The dashboard uses the resulting
+animated scene as its main monitoring screen.
 
-## 3. The parts
+Topology and equipment configuration also feed the simulator and forecasting model.
+CAD geometry alone cannot supply every operating parameter: installation must
+capture and validate missing equipment specifications, sensor mappings, operating
+limits, and other inputs needed to represent the actual pump station. Retain shared
+equipment identifiers across the visual scene, telemetry, simulation, and forecasts.
 
-The system has six parts. The first runs once at installation; the rest run continuously.
+### 2.2 Integrated dashboard and API
 
-### 3.1 CAD Studio — install-time, once
+The first screen shows the animated site view with operating state and telemetry.
+The dashboard also provides agent conversations, cooling forecasts, simulation
+controls and results, and AI pilot monitoring and correction history. A local API
+composes the backend capabilities for the dashboard. The agent should be able to
+present grounded charts, tables, and equipment highlights in this same workspace,
+with a clear path back to the monitoring scene.
 
-**In:** a CAD drawing of the customer's chiller plant.
-**Process:** an LLM vision step reads the drawing and extracts the plant layout.
-**Out:** a 2D visualisation of the plant that the operator recognises, and a machine-readable
-topology the rest of the system can reason over.
+### 2.3 Conversational agent harness
 
-Runs once per installation; it is not part of the runtime loop.
+A tool-using agent system, in the style of OpenClaw, Codex, or Claude Code, answers
+questions about the data center and its HVAC equipment. The harness manages the
+conversation, tool execution, task state, and agent memory. It can query site data,
+retrieve domain knowledge, request forecasts, and operate simulation workflows.
+Those products are references for interaction and capability, not chosen dependencies.
 
-### 3.2 Agent loop — the core
+### 2.4 Site-configured simulation
 
-A fine-tuned LLM running in an agent loop. It receives a natural-language question, decides which
-tools to call, calls them, and composes an answer with a recommendation.
+Simulation is a **shipped product capability**, available whenever an operator wants
+to run a scenario. Configure it from the CAD-derived topology and verified equipment
+parameters to model the specific station. The target is a faithful representation
+of that station; fidelity and calibration must be measured rather than assumed.
 
-Tools available to it include the forecasting capability (§3.3), direct data queries, and
-diagnostic checks. An agent-runtime harness and an agent-memory system are **optional
-infrastructure, not requirements** — the loop must work without them.
+Use a **modified version of [PHYVAC](https://github.com/ShoheiMiyata/phyvac)** as the
+simulation foundation. The maintained fork/revision and required modifications are
+still to be specified. Keep PHYVAC-specific assembly and stepping behind an adapter;
+site scenarios, run lifecycle, and results belong to our simulation module.
 
-### 3.3 Forecasting — cooling load
+Keep simulated state and actions distinct from real telemetry and equipment. The
+simulator also supports development and evaluation, including matched baseline versus
+pilot scenarios. Its state and clock must not depend on a dashboard tab staying open.
 
-Time-series foundation models forecast the plant's cooling load over a short horizon, so the
-operator knows what is coming before it arrives — how many chillers to stage, when the morning ramp
-starts. Exposed to the agent as a tool behind a defined interface.
+### 2.5 Cooling prediction
 
-### 3.4 Model training
+A separate predictive model forecasts future cooling demand and behavior. During
+installation, train or adapt it on historical site data when usable data exists.
+Without that history, start from our pretrained model conditioned on the site's
+configuration. Report uncertainty and limitations, particularly before site-specific
+validation is available. The model family, horizon, and accuracy targets remain open.
 
-Real operational data is the governing constraint: we have one plant and a short record. The plan
-is therefore staged — train a small model on the real data, use it to generate synthetic data, then
-fine-tune a larger model on the result. Pretraining on simulator output is under consideration but
-**not decided**. Alignment via RLHF or RLAIF.
+### 2.6 AI pilot
 
-### 3.5 PHYVAC simulator
+An HVAC-informed pilot monitors operating state in real time. While a simulation
+is running, it detects anomalies, applies corrective actions within the simulation,
+and records the observations, reasoning, actions, and outcomes for the operator.
+Track persistent issues through detection, investigation, correction, and resolution,
+rather than generating a new unrelated alert each tick. Slower model reasoning must
+not block the simulation clock; validate corrections against the current run state.
 
-A physics-based HVAC simulator (open source, BSD licence) that stands in for the customer's real
-plant during development and evaluation. It can be run faster than real time, driven with arbitrary
-load profiles, and configured into plants we have no access to — none of which is possible against a
-live building.
+Autonomous correction of **physical equipment** is not defined by this scope. Any
+future real-equipment write path requires a separate control design, authorization,
+and operating limits; simulation corrections do not imply that capability.
 
-It is a development and evaluation environment, **not a component of the shipped product**.
+### 2.7 Domain LLM and training
 
-### 3.6 Security and ethics
+Build a data-center-specialized backbone LLM through domain fine-tuning and
+reinforcement learning from human feedback (RLHF), followed later by reinforcement
+learning from AI feedback (RLAIF). Specialization is a development objective, not an
+existing capability or a claim established by this scaffold. Evaluate domain
+performance before making model capability claims.
 
-A later workstream. Scope is **not yet defined**.
+Backbone LLM training is separate from the installation-time adaptation of the
+cooling prediction model. Training recipes, feedback collection, evaluation, and
+artifact provenance belong in the training workstream. Plan training and adaptation
+for the DGX as local jobs, separate from continuous operation. Select model sizes,
+training recipes, and resource schedules that fit measured device capacity; do not
+assume a second training server or silently add a cloud dependency.
 
-## 4. How the parts fit together
+### 2.8 Curated knowledge base and RAG
 
-**At installation (once):**
+Build and maintain our own data-center/HVAC knowledge base. Ingest and retrieve
+curated domain material and site documentation with source provenance so the agent
+and pilot can ground their responses. Keep retrieval knowledge, conversational
+memory, telemetry history, and model training datasets as distinct responsibilities.
 
+## 3. Installation and operation
+
+```text
+Installation
+  CAD + equipment specifications + sensor mappings
+    -> validated site topology/configuration
+    -> 2D scene + generated sprites/animation assets
+    -> simulator configuration
+    -> prediction adaptation if history exists; pretrained fallback otherwise
+  Curated domain material + site documentation -> local retrieval knowledge
+
+Operation on one DGX Spark
+  Telemetry -> API -> animated dashboard
+  Operator -> agent harness -> knowledge / telemetry / forecasts / simulation
+  Simulation state -> AI pilot -> simulation corrections -> updated simulation state
+  Forecasts + simulation results + pilot events -> API -> dashboard
 ```
-CAD drawing ──► CAD Studio ──► plant visualisation + machine-readable topology
-```
 
-**At runtime (the loop):**
+## 4. Constraints and boundaries
 
-```
-operator question
-      │
-      ▼
-   agent loop ──► tools: forecasting · data queries · diagnostics
-      │
-      ▼
-answer + recommendation ──► operator decides ──► operator acts (or does not)
-```
+- One installation, one data center, one standalone DGX Spark; no multi-site support.
+- All product compute and storage stay on the DGX. Repeatable installation and
+  commissioning are product capabilities; installed operation has no required
+  internet or separate-server dependency.
+- Dashboard, harness, simulation, prediction, pilot, CAD, knowledge, and training
+  have explicit module boundaries; separate modules need not be separate services.
+- Core domain contracts keep site/equipment identities and data units consistent.
+- Expose missing tools, stale data, uncertainty, and model limitations rather than
+  inventing results.
+- Keep simulation actions and physical equipment integration separate.
+- Store customer data, generated site artifacts, credentials, indexes, and weights
+  outside Git. Track source, documentation, and sanitized examples.
+- Use the designated DGX Spark account `ghani` for project testing. Connection
+  details and passwords do not belong in tracked documentation.
 
-**In development (offline):**
+## 5. Current work and open decisions
 
-```
-real plant data ─┐
-                 ├──► train / evaluate models ──► deploy into the agent
-PHYVAC simulator ┘
-```
+This change establishes the folder structure and product context only. None of the
+components above is implemented. The architecture is documented in
+[docs/architecture.md](docs/architecture.md).
 
-## 5. Design constraints (deliberate, not accidental)
+The local `openclaw-hvac` project is a reference for workflow ideas and lessons, not
+an implementation to copy. Its legacy multi-station architecture, remote simulation
+API, model choices, and reported benchmark results are not adopted automatically.
+See [docs/reference-review.md](docs/reference-review.md) for source-based findings
+and the proposed implementation sequence. No reference code or assets are imported.
 
-- **Advisory, never autonomous.** The loop closes through a human. The agent has no write path to
-  the plant.
-- **The simulator is ours; the plant is the customer's.** Anything that must be tried repeatedly,
-  or tried on a plant we do not have, happens in PHYVAC.
-- **Data scarcity governs the architecture.** One plant and a short record is why the training plan
-  is staged, and why zero-shot foundation models are attractive for forecasting — they need no
-  per-plant training data.
-- **The agent must degrade gracefully.** If a tool is unavailable or a forecast is unreliable, the
-  agent says so rather than guessing.
-
-## 6. Current status (2026-09-11)
-
-| Part | Status |
-|---|---|
-| CAD Studio | Not started in this repo |
-| Agent loop | Not started in this repo |
-| Forecasting — cooling load | Not started in this repo |
-| Model training | Not started in this repo |
-| PHYVAC simulator | Not started in this repo |
-| Security and ethics | Not started in this repo |
-
-## 7. Not yet decided
-
-- Detailed product structure beyond the six parts above
-- Which agent-runtime framework (if any)
-- Whether to pretrain on simulated data
-- What data belongs in this repo
-- Scope of the security and ethics workstream
-- Deployment target and packaging
+Open choices include the dashboard framework, API transport, agent implementation,
+local LLM and image-model serving, PHYVAC fork/revision and modifications, forecast
+model, storage and retrieval backends, supported CAD formats, telemetry protocols,
+deployment packaging,
+resource budgets, and evaluation criteria. Detailed physical-control behavior is
+also outside the current definition. Do not select these technologies just to fill
+the scaffold.

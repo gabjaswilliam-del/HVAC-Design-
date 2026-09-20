@@ -1,50 +1,75 @@
 # hvac-agent
 
-An LLM agent that helps chiller-plant operators run their plant. It answers questions
-about the plant and recommends what to do; a human decides and acts.
+A standalone maintenance and operations agent system for **one data center per
+NVIDIA DGX Spark installation**. The planned product combines an animated CAD-based
+monitoring dashboard, an agent harness, a site-configured simulator, cooling
+forecasts, an AI pilot, and a curated knowledge base.
 
-Product description: `PRODUCT.md` (中文：`PRODUCT-zh.md`).
+All product compute and storage run locally on the DGX, including LLM/image models,
+CAD installation jobs, and modified PHYVAC. The product will include a repeatable
+[installation and commissioning procedure](deployment/dgx-spark/README.md), with no
+required cloud services or separate compute machines for installed operation.
+
+**Status:** repository structure only. No application, model, simulator, or equipment
+control is implemented yet.
+
+Product scope: [PRODUCT.md](PRODUCT.md) · [中文版](PRODUCT-zh.md).
+Module boundaries: [docs/architecture.md](docs/architecture.md).
+Reference-project lessons and plan: [docs/reference-review.md](docs/reference-review.md).
+Project context for coding agents: [AGENTS.md](AGENTS.md).
 
 ## Layout
 
-agent/          the agent loop — question in, answer + recommendation out
-prediction/     cooling-load forecasting
-cad/            CAD drawing → 2D plant view, runs once per install
-training/       model training, RLHF / RLAIF
-.github/        CI workflow
-
-PRODUCT.md      what we are building and why (中文：PRODUCT-zh.md)
-pyproject.toml  Python version, dependencies, dev tools
-test_smoke.py   placeholder so that pytest and CI have something to run
-.gitignore      what must never be committed — plant data and credentials above all
-
-Each folder has a README saying what belongs in it.
-
-## Getting started
-
-Requires Python 3.11 or newer.
-
-```sh
-pip install -e ".[dev]"
-pytest
+```text
+apps/
+  dashboard/              monitoring screen, animated site view, chat, simulation UI
+  api/                    local API and application composition
+src/hvac_agent/
+  core/                   site topology and shared domain contracts
+  cad/                    installation-time CAD analysis and 2D scene generation
+  agent/                  conversational harness, tools, sessions, agent memory
+  simulation/             site-configured simulation using modified PHYVAC
+  prediction/             cooling forecasts and site-specific model adaptation
+  pilot/                  real-time monitoring and corrections within simulations
+  knowledge/              curated knowledge ingestion, retrieval, and RAG
+  training/               backbone LLM fine-tuning, RLHF, then RLAIF
+  integrations/           adapters for telemetry, model providers, and external engines
+configs/site/             versioned configuration examples for a single installation
+deployment/dgx-spark/     standalone deployment and operating guidance
+scripts/                  setup, maintenance, and validation utilities
+tests/                    repository checks; future unit, integration, and evaluation tests
+docs/                     architecture and future design decisions
+.github/workflows/        CI
 ```
 
-CI runs those same two commands on every push and pull request. There are no runtime
-dependencies yet — `pyproject.toml` declares only pytest, and the one test just checks
-that the folders above exist.
+Each component has a README describing its responsibilities. These are modules in
+one repository and one installation, not a requirement to deploy separate services.
+The Python package markers establish import paths; they contain no runtime logic.
 
-Tests live with the code they cover — `agent/tests/`, `prediction/tests/`, and so on.
-`pytest` finds them with no configuration. Give test files unique names across folders
-(`test_agent_utils.py`, not a second `test_utils.py`), or collection fails on the
-duplicate module name.
+## Development and validation
 
-## Data and credentials
+Requires Python 3.11 or newer. Runtime dependencies and the frontend framework remain
+undecided. The only development dependency is pytest.
 
-No plant data, no BMS exports, no customer CAD drawings, no credentials, no model
-weights. None of it belongs in this repo, and `.gitignore` blocks the common shapes of
-each. What data belongs here, if any, is still open (`PRODUCT.md` §7) — committing
-something the ignore rules block is a decision to make deliberately and write down.
+Run project tests on the designated DGX Spark as `ghani`; its private connection
+details are kept outside version control. Use an isolated checkout and environment:
 
-## Status
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
+.venv/bin/python -m pytest
+```
 
-Nothing runs yet.
+GitHub CI also runs the lightweight scaffold check on Python 3.11. It does not
+replace DGX validation. Tests live under `tests/`; pytest uses importlib mode to
+allow duplicate test basenames in future module-specific test directories.
+
+## Site data and credentials
+
+Keep customer CAD files, telemetry, generated site scenes and sprites, RAG indexes,
+model weights, checkpoints, and credentials outside version control. Use ignored
+`var/` for installation runtime artifacts and `.local/` for workstation notes and
+private configuration. Commit only sanitized examples under `configs/site/`.
+
+The system manages one site's equipment. Multi-site routing, tenant abstractions,
+and fleet dashboards are outside the product scope.
