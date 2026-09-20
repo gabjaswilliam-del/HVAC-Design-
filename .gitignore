@@ -1,13 +1,14 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Plant data and credentials must never be committed.
 #
-# We have not decided what data belongs in this repo (PRODUCT.md §7), so for now
-# none of it does. The patterns below are deliberately broad. If you ever need to
+# Track source, documentation, and sanitized examples only. The patterns below
+# are deliberately broad. If you ever need to
 # commit a file one of them catches, that is a decision to make on purpose and
 # write down — not a case for `git add -f` in passing.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Credentials and secrets
+.local/
 .env
 .env.*
 !.env.example
@@ -25,6 +26,7 @@ service-account*.json
 *token*.json
 
 # Plant data — BMS logs, trends, exports, local databases
+/var/
 data/
 datasets/
 raw/
@@ -63,6 +65,7 @@ runs/
 wandb/
 mlruns/
 .cache/huggingface/
+.cache/
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Python
