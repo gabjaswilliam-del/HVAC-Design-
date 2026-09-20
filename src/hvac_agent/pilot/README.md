@@ -10,4 +10,10 @@ monitoring/correction decisions. Keep run identity, observation origin, action
 limits, and correction history explicit. Physical equipment actuation is a separate
 scope decision, not an implied consequence of enabling the simulation pilot.
 
+Carry an issue through detection, investigation, proposed/applied correction, and
+measured outcome. Repeated observations should update that issue rather than create
+unrelated alerts. Keep screening and deeper model reasoning off the simulation's
+step path, and validate run identity and observation freshness before corrections.
+The reference project's pilot is advisory; its code is not a ready-made correction loop.
+
 Placeholder only; no monitoring loop or control policy is implemented.

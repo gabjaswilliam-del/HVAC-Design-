@@ -36,7 +36,9 @@ equipment identifiers across the visual scene, telemetry, simulation, and foreca
 The first screen shows the animated site view with operating state and telemetry.
 The dashboard also provides agent conversations, cooling forecasts, simulation
 controls and results, and AI pilot monitoring and correction history. A local API
-composes the backend capabilities for the dashboard.
+composes the backend capabilities for the dashboard. The agent should be able to
+present grounded charts, tables, and equipment highlights in this same workspace,
+with a clear path back to the monitoring scene.
 
 ### 2.3 Conversational agent harness
 
@@ -53,9 +55,14 @@ to run a scenario. Configure it from the CAD-derived topology and verified equip
 parameters to model the specific station. The target is a faithful representation
 of that station; fidelity and calibration must be measured rather than assumed.
 
-Keep simulated state and actions distinct from real telemetry and equipment. PHYVAC
-is a candidate engine, not an established dependency. The simulator also supports
-development and evaluation.
+Use a **modified version of [PHYVAC](https://github.com/ShoheiMiyata/phyvac)** as the
+simulation foundation. The maintained fork/revision and required modifications are
+still to be specified. Keep PHYVAC-specific assembly and stepping behind an adapter;
+site scenarios, run lifecycle, and results belong to our simulation module.
+
+Keep simulated state and actions distinct from real telemetry and equipment. The
+simulator also supports development and evaluation, including matched baseline versus
+pilot scenarios. Its state and clock must not depend on a dashboard tab staying open.
 
 ### 2.5 Cooling prediction
 
@@ -70,6 +77,9 @@ validation is available. The model family, horizon, and accuracy targets remain 
 An HVAC-informed pilot monitors operating state in real time. While a simulation
 is running, it detects anomalies, applies corrective actions within the simulation,
 and records the observations, reasoning, actions, and outcomes for the operator.
+Track persistent issues through detection, investigation, correction, and resolution,
+rather than generating a new unrelated alert each tick. Slower model reasoning must
+not block the simulation clock; validate corrections against the current run state.
 
 Autonomous correction of **physical equipment** is not defined by this scope. Any
 future real-equipment write path requires a separate control design, authorization,
@@ -134,9 +144,16 @@ This change establishes the folder structure and product context only. None of t
 components above is implemented. The architecture is documented in
 [docs/architecture.md](docs/architecture.md).
 
+The local `openclaw-hvac` project is a reference for workflow ideas and lessons, not
+an implementation to copy. Its legacy multi-station architecture, remote simulation
+API, model choices, and reported benchmark results are not adopted automatically.
+See [docs/reference-review.md](docs/reference-review.md) for source-based findings
+and the proposed implementation sequence. No reference code or assets are imported.
+
 Open choices include the dashboard framework, API transport, agent implementation,
-local LLM and image-model serving, simulator engine, forecast model, storage and
-retrieval backends, supported CAD formats, telemetry protocols, deployment packaging,
+local LLM and image-model serving, PHYVAC fork/revision and modifications, forecast
+model, storage and retrieval backends, supported CAD formats, telemetry protocols,
+deployment packaging,
 resource budgets, and evaluation criteria. Detailed physical-control behavior is
 also outside the current definition. Do not select these technologies just to fill
 the scaffold.

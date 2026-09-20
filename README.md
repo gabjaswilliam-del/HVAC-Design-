@@ -10,6 +10,7 @@ control is implemented yet.
 
 Product scope: [PRODUCT.md](PRODUCT.md) · [中文版](PRODUCT-zh.md).
 Module boundaries: [docs/architecture.md](docs/architecture.md).
+Reference-project lessons and plan: [docs/reference-review.md](docs/reference-review.md).
 Project context for coding agents: [AGENTS.md](AGENTS.md).
 
 ## Layout
@@ -22,7 +23,7 @@ src/hvac_agent/
   core/                   site topology and shared domain contracts
   cad/                    installation-time CAD analysis and 2D scene generation
   agent/                  conversational harness, tools, sessions, agent memory
-  simulation/             site-configured simulation and scenario execution
+  simulation/             site-configured simulation using modified PHYVAC
   prediction/             cooling forecasts and site-specific model adaptation
   pilot/                  real-time monitoring and corrections within simulations
   knowledge/              curated knowledge ingestion, retrieval, and RAG

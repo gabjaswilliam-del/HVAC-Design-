@@ -10,5 +10,12 @@ simulator and inform forecasting. Surface missing parameters for installation-ti
 completion; do not infer physical fidelity from geometry alone. Scene generation
 belongs here; live rendering belongs in `apps/dashboard/`.
 
+Preserve a semantic design/site definition independently of the rendering format.
+Separate physical connections from visual placement, retain source evidence and
+unresolved findings, and validate structure after edits. Equipment counts alone do
+not establish actual pipe topology. Generate presentation artifacts and modified
+PHYVAC configuration from the same validated site revision. Generated artwork must
+retain meaningful running, stopped, fault, and unavailable-state indications.
+
 Placeholder only. CAD inputs and generated customer scenes/assets remain in ignored
 runtime storage. Formats and model providers are not chosen yet.

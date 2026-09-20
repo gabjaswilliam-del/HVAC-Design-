@@ -4,6 +4,10 @@ This is the intended structure, not an implemented system. The deployment unit i
 one data center on one DGX Spark. Directories express ownership and dependencies;
 they do not prescribe separate processes, containers, or services.
 
+The simulation foundation is the owner's selected modified PHYVAC. Workflow lessons
+from `openclaw-hvac` and the proposed development sequence are documented in
+[reference-review.md](reference-review.md); no implementation is copied from it.
+
 ## Ownership
 
 | Location | Owns | Does not own |
@@ -18,7 +22,7 @@ they do not prescribe separate processes, containers, or services.
 | `src/hvac_agent/pilot/` | Monitoring, anomaly assessment, simulation correction policy and history | Physics engine, implicit real-equipment control |
 | `src/hvac_agent/knowledge/` | Curated-source ingestion, retrieval, indexing and provenance | Agent conversation memory, raw telemetry storage |
 | `src/hvac_agent/training/` | Backbone LLM fine-tuning, RLHF/RLAIF, feedback and domain evaluations | Runtime orchestration, forecast-specific adaptation |
-| `src/hvac_agent/integrations/` | Telemetry/BMS, model/image serving, storage and external-engine adapters | Cross-module business logic |
+| `src/hvac_agent/integrations/` | Telemetry/BMS, model/image serving, storage and modified PHYVAC adapter | Cross-module business logic |
 | `configs/site/` | Sanitized examples for one site's configuration | Secrets or a directory of customer installations |
 | `deployment/dgx-spark/` | Standalone lifecycle, packaging and platform guidance | Product domain logic |
 | `scripts/` | Thin setup, maintenance and validation utilities | Reusable runtime capabilities |
@@ -78,6 +82,40 @@ generated scenes, models, indexes, telemetry, simulation runs, and logs. Use ign
 `.local/` for private workstation notes and connection/configuration details.
 `configs/site/` contains sanitized examples only. Do not introduce tenant IDs or a
 multi-site registry; equipment and simulation-run IDs are still necessary.
+
+## Consistency across the product
+
+Maintain a versioned semantic site definition: equipment, physical connections,
+parameters, sensor mappings, units, and evidence/validation status. Keep presentation
+layout and generated artwork separate from physical topology. Both the 2D scene and
+the PHYVAC configuration derive from the same validated site revision. A visual
+rearrangement must not change physics; a topology/parameter change requires checking
+the dependent simulation configuration, bindings, and prediction artifacts again.
+
+Drawing extraction may identify an equipment roster without establishing the actual
+connections. Mark missing or inferred information and resolve it during installation;
+do not silently substitute a conventional plant topology for the customer's station.
+
+Use explicit observation origin, units, sample time, simulation time/run ID, and
+configuration revision across API responses and events. Keep dashboard presentation
+commands separate from simulation control commands. Conversations and simulation
+runs can have their own IDs without introducing multi-site support.
+
+`simulation` owns the run state machine, scenarios, baseline controllers, and result
+history. A future PHYVAC adapter in `integrations` translates domain configuration
+and actions to the modified engine and returns normalized observations. The selected
+fork's component coverage, units, dependencies, and numerical behavior must be checked
+before defining its adapter contract; this scaffold does not assume an upstream API.
+
+The simulation clock, pilot assessment cadence, and dashboard update cadence are
+separate. Slow inference cannot stop stepping or telemetry. Pilot corrections are
+validated against the active run, equipment limits, and observation freshness before
+application. Record the proposed action, actual application, and measured outcome.
+
+One DGX hosts all runtime capabilities. Plan resource budgets and job priorities for
+chat, forecasting, pilot investigations, model serving, CAD image generation, and
+training/adaptation. Retain lightweight monitoring when a model is unavailable, and
+make degraded results visible. Process count and serving technologies remain open.
 
 ## Validation and future implementation
 
