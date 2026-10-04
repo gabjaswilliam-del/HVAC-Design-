@@ -11,8 +11,8 @@ the local API, PHYVAC, models or equipment. Version C is a separate, later exerc
 | M2 | Contracts, deterministic scenarios, fixture client, operating context | Done; awaiting owner review with M3 |
 | M3 | Interactive monitoring: fit/zoom/pan, selection, inspector, playback, KPIs, forecast summary, issues, list view | Done; reviewed by owner |
 | M3.1 | Interactive KPI cards and indicator details panel (owner request) | Done |
-| M4 | Cooling prediction page, Equipment screen | Done; **owner review gate before M5** |
-| M5 | AI assistant page and drawer | Planned |
+| M4 | Cooling prediction page, Equipment screen | Done |
+| M5 | AI assistant page and drawer (scripted demonstration) | Done; **owner review gate before M6** |
 | M6 | Simulation, AI pilot (their mock services move here from M2) | Planned |
 | M7 | CAD Studio, Knowledge base, Installation, System | Planned |
 | M8 | Hardening, full test suite, DGX validation, documentation | Planned |
@@ -133,3 +133,58 @@ for non-negative charts; an unlabeled control group (IDs containing spaces).
 | `npm run build` | Pass (bundle ~520 kB, size advisory only) |
 
 Not validated: DGX Spark build/test, touch pinch-zoom, any live API or model.
+
+## M5: AI assistant, scripted demonstration (2026-10-04)
+
+**No language model is connected.** Questions are matched by keywords to five
+prepared investigations (open issues, equipment investigation, cooling shortfall,
+demand forecast, plant efficiency) plus an honest fallback. Every figure in an answer
+comes from **simulated tools** that read the same synthetic scenario data as the
+screens; missing or stale data is stated, and no operational recommendation is
+generated. The UI labels this everywhere ("Scripted demo", "Simulated tool", a
+standing notice), and nothing can control equipment.
+
+Architecture, designed for replacement by a local-LLM harness and genuine tools:
+
+- `src/lib/contracts/agent.ts`: conversation, turn and streamed **event** contract
+  (`turn_start`, `text_delta`, `tool_call`, `tool_result`, `view`, `turn_end`), typed
+  **data views** (equipment, issues, chart, link) and typed navigation targets: model
+  output never supplies HTML, scripts or URLs. `applyEvent` folds events into a turn.
+- `src/lib/api/agent.ts`: the `AgentClient` interface (capabilities, conversations,
+  streamed `sendMessage`, `cancelTurn`). A local harness implements the same methods.
+- `src/fixtures/agentTools.ts`: simulated tools (`get_plant_snapshot`, `list_issues`,
+  `get_equipment`, `get_history`, `get_forecast`, `search_knowledge`) over the shared
+  `DataClient`. `search_knowledge` reports the knowledge base as unavailable.
+  Simulation tools for M6 fit the same shape (name, typed args, summary, value).
+- `src/fixtures/agentScripts.ts` / `fixtureAgent.ts`: intent matching, the scripted
+  investigations, streaming with confirmed cancellation, failure injection
+  (`?fail=agent:unavailable`, data failures reach the tools), three recorded demo
+  conversations, and per-conversation context: a conversation always runs against the
+  scenario and time it was recorded with.
+- UI (`src/features/agent/`): assistant drawer as its own shell column (pages narrow;
+  the plant view refits instead of being covered), full `/agent` page with history and
+  the tool list, Claude Code-style turns with expandable tool rows and typed views,
+  composer with cancel, and recorded-context notice with "Ask in the current context".
+  Links from answers (Inspect, Locate, Show on plant, issue details, KPI panels, the
+  exact forecast) first switch the dashboard to the conversation's scenario and time.
+- Entry points: "Ask the assistant" in the equipment inspector, and in KPI panels that
+  have a prepared investigation.
+
+Fixed while testing: monitoring now follows URL changes while open (assistant links),
+with a single URL writer so concurrent updates cannot restore a previous selection;
+KPI highlight clearing no longer removes assistant highlights; viewport Fit/Zoom/100%
+measure the box at action time (resize notifications can arrive late); navigation
+focus uses a `PageHeading` that takes focus after a screen change, and focus restore
+after closing panels runs after the commit (both were rare timing flakes under load);
+the narrow-screen assistant button has an accessible name.
+
+## Test results after M5 (Windows 11 workstation, Node 24.19, Playwright 1.63 Chromium)
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | Pass |
+| `npm test` (Vitest) | 41 passed (13 new harness tests) |
+| `npm run e2e` (Playwright) | 84 passed (14 new assistant tests), 6 opt-in captures skipped; five consecutive full runs |
+| `npm run build` | Pass |
+
+Not validated: DGX Spark build/test, any real model, harness, API or equipment.

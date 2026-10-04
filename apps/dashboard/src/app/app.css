@@ -1,11 +1,28 @@
+/* Columns: navigation | page | assistant drawer (zero width while closed). Opening
+   the drawer narrows the page instead of covering it, so the plant view refits. */
 .shell {
+  --nav-col: var(--nav-width);
+  --assistant-col: 0px;
   display: grid;
-  grid-template-columns: var(--nav-width) minmax(0, 1fr);
+  grid-template-columns: var(--nav-col) minmax(0, 1fr) var(--assistant-col);
   grid-template-rows: var(--header-height) minmax(0, 1fr);
   grid-template-areas:
-    "header header"
-    "nav main";
+    "header header header"
+    "nav main assistant";
   min-height: 100dvh;
+}
+.shell--assistant {
+  --assistant-col: var(--assistant-width);
+}
+.shell__assistant {
+  grid-area: assistant;
+  position: sticky;
+  top: var(--header-height);
+  height: calc(100dvh - var(--header-height));
+  min-width: 0;
+}
+.site-header__assistant {
+  margin-left: var(--space-2);
 }
 
 .skip-link {
@@ -162,7 +179,7 @@
 
 /* Icon-only navigation: chosen by the operator, or automatic below 1180px. */
 .shell--collapsed {
-  grid-template-columns: var(--nav-width-collapsed) minmax(0, 1fr);
+  --nav-col: var(--nav-width-collapsed);
 }
 .shell--collapsed .main-nav__text,
 .shell--collapsed .main-nav__group-label {
@@ -179,7 +196,8 @@
 
 @media (max-width: 1180px) and (min-width: 761px) {
   .shell {
-    grid-template-columns: var(--nav-width-collapsed) minmax(0, 1fr);
+    --nav-col: var(--nav-width-collapsed);
+    --assistant-width: 340px;
   }
   .main-nav__text,
   .main-nav__group-label {
@@ -201,11 +219,21 @@
 /* Narrow screens: navigation becomes a drawer; the data mode stays visible. */
 @media (max-width: 760px) {
   .shell,
-  .shell--collapsed {
+  .shell--collapsed,
+  .shell--assistant {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       "header"
       "main";
+  }
+  .shell__assistant {
+    position: fixed;
+    inset: var(--header-height) 0 0 0;
+    z-index: 55;
+    height: auto;
+  }
+  .site-header__assistant .site-header__assistant-text {
+    display: none;
   }
   .site-header {
     gap: var(--space-2);

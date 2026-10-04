@@ -1,16 +1,17 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Link } from "react-router";
-import { Beaker, Crosshair, PanelRight, X } from "lucide-react";
+import { Beaker, Crosshair, MessageSquareText, PanelRight, X } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import { formatNumber, formatReading, formatTime, siteDayStart } from "../../lib/format";
 import { useResource, type Resource } from "../../lib/api/useResource";
-import type { History, Issue, IssueList, Reading, SiteBundle, Snapshot } from "../../lib/contracts";
+import type { Issue, IssueList, Reading, SiteBundle, Snapshot } from "../../lib/contracts";
+import { shortfallPeriods } from "../../lib/plant";
 import { Notice } from "../../components/Notice";
 import { StateLabel } from "../../components/StateLabel";
 import { TimeSeriesChart, type ChartSeries } from "../../components/TimeSeriesChart";
 import { useDataClient } from "../../app/dataClient";
-import { useOperating } from "../../app/operatingContext";
-import { ISSUES_KPI, KPI_DEFS, type EquipmentRef } from "./kpiDefinitions";
+import { operating, useOperating } from "../../app/operatingContext";
+import { ISSUES_KPI, KPI_DEFS, KPI_QUESTIONS, type EquipmentRef } from "./kpiDefinitions";
 
 const SEVERITY_ORDER = { critical: 0, warning: 1, info: 2 };
 const SERIES_COLOR: Record<string, string> = {
@@ -91,6 +92,12 @@ export function KpiDetailsPanel({ kpiKey, site, snapshot, issues, onClose, onLoc
       <p className="kpi-panel__synthetic">
         <Beaker size={14} aria-hidden="true" /> {p.synthetic}
       </p>
+      {KPI_QUESTIONS[kpiKey] && (
+        <button type="button" className="button button--small kpi-panel__ask" onClick={() => operating.askAssistant(KPI_QUESTIONS[kpiKey])}>
+          <MessageSquareText size={14} aria-hidden="true" />
+          {s.agent.ask}
+        </button>
+      )}
 
       {isIssues ? (
         <IssuesBody site={site} snapshot={snapshot} issues={issues} onLocate={onLocate} onInspect={onInspect} />
@@ -191,22 +198,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       {children}
     </section>
   );
-}
-
-/** Contiguous periods in which the reported unmet demand was above zero. */
-export function shortfallPeriods(history: History | undefined) {
-  const unmet = history?.series.find((x) => x.metric === "plant:unmet_kw");
-  if (!history || !unmet) return [];
-  const periods: { from: string; to: string; peak: number; ongoing: boolean }[] = [];
-  unmet.values.forEach((v, i) => {
-    const t = history.times[i];
-    const last = periods.at(-1);
-    if (v !== null && v > 0) {
-      if (last && last.ongoing) (last.to = t), (last.peak = Math.max(last.peak, v));
-      else periods.push({ from: t, to: t, peak: v, ongoing: true });
-    } else if (last) last.ongoing = false;
-  });
-  return periods;
 }
 
 function IndicatorBody({

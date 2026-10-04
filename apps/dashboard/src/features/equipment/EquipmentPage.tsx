@@ -1,3 +1,4 @@
+import { PageHeading } from "../../components/PageHeading";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { Search } from "lucide-react";
@@ -5,6 +6,7 @@ import { useStrings } from "../../lib/i18n";
 import { formatReading, formatTime } from "../../lib/format";
 import type { DeviceFamily } from "../../lib/contracts";
 import { Notice } from "../../components/Notice";
+import { useRestoreFocus } from "../../components/useRestoreFocus";
 import { StateLabel } from "../../components/StateLabel";
 import { operating } from "../../app/operatingContext";
 import { PlaybackBar } from "../../app/PlaybackBar";
@@ -49,11 +51,11 @@ export function EquipmentPage() {
     },
     [navigate, search],
   );
+  const restoreFocus = useRestoreFocus();
   const close = useCallback(() => {
-    const id = equipmentId;
+    if (equipmentId) restoreFocus(`[data-select-id="${equipmentId}"]`);
     navigate({ pathname: "/equipment", search });
-    if (id) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-select-id="${id}"]`)?.focus());
-  }, [navigate, search, equipmentId]);
+  }, [navigate, search, equipmentId, restoreFocus]);
   const showOnPlant = useCallback(
     (id: string) => {
       const next = new URLSearchParams(search);
@@ -69,7 +71,7 @@ export function EquipmentPage() {
   if (site.error && !site.data) {
     return (
       <div className="page">
-        <h1 tabIndex={-1}>{t.heading}</h1>
+        <PageHeading>{t.heading}</PageHeading>
         <Notice tone="critical" action={{ label: s.monitoring.retry, onClick: site.retry }}>
           {s.monitoring.siteFailed} {site.error.message}
         </Notice>
@@ -79,7 +81,7 @@ export function EquipmentPage() {
   if (!site.data) {
     return (
       <div className="page">
-        <h1 tabIndex={-1}>{t.heading}</h1>
+        <PageHeading>{t.heading}</PageHeading>
         <div className="skeleton" style={{ height: 400 }} />
       </div>
     );
@@ -108,7 +110,7 @@ export function EquipmentPage() {
   return (
     <div className="page equipment-page">
       <div className="page__head">
-        <h1 tabIndex={-1}>{t.heading}</h1>
+        <PageHeading>{t.heading}</PageHeading>
         <p className="page__notice num">
           {t.summary(devices.length)} {bundle.topology.configRevision}
           {snap && <>: {counts.map(([x, n]) => `${n} ${s.scene.states[x].toLowerCase()}`).join(", ")}</>}

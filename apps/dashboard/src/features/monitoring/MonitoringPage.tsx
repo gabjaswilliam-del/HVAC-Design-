@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { PageHeading } from "../../components/PageHeading";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Info } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import { formatAgeMinutes, formatTime } from "../../lib/format";
 import { Notice } from "../../components/Notice";
+import { useRestoreFocus } from "../../components/useRestoreFocus";
 import { operating, useOperating } from "../../app/operatingContext";
 import { PlaybackBar } from "../../app/PlaybackBar";
 import { useIssues, useSite, useSnapshot } from "../../app/site";
@@ -41,39 +43,51 @@ export function MonitoringPage() {
     return isKpiKey(k) ? k : null;
   });
   const [focusKpi, setFocusKpi] = useState(false);
+  const restoreFocus = useRestoreFocus();
 
-  // Deep link: ?equipment=<id> selects on arrival; selection keeps the URL in step.
+  // URL <-> state. This page is the only writer of `equipment`, `kpi` and `locate`, and
+  // reacts only to values it did not write itself (deep links, assistant links), so
+  // two updates in one tick cannot overwrite each other with a stale copy.
+  const pEquipment = params.get("equipment");
+  const pLocate = params.get("locate");
+  const pKpi = params.get("kpi");
+  const written = useRef({ equipment: null as string | null, kpi: null as string | null });
   useEffect(() => {
-    const id = params.get("equipment");
-    if (id) operating.select(id);
-    if (id && params.get("locate")) {
-      setLocate({ id, nonce: Date.now() });
-      const next = new URLSearchParams(params);
-      next.delete("locate");
-      setParams(next, { replace: true });
-    }
-  }, []); // read once on arrival
+    if (!pEquipment || pEquipment === written.current.equipment) return;
+    written.current.equipment = pEquipment;
+    setKpiKey(null);
+    operating.select(pEquipment);
+  }, [pEquipment]);
   useEffect(() => {
-    if ((params.get("equipment") ?? null) === selectedId) return;
+    if (pEquipment && pLocate) setLocate({ id: pEquipment, nonce: Date.now() });
+  }, [pEquipment, pLocate]);
+  useEffect(() => {
+    if (!isKpiKey(pKpi) || pKpi === written.current.kpi) return;
+    written.current.kpi = pKpi;
+    setKpiKey(pKpi);
+    operating.select(null);
+  }, [pKpi]);
+  useEffect(() => {
+    written.current = { equipment: selectedId, kpi: kpiKey };
     const next = new URLSearchParams(params);
     if (selectedId) next.set("equipment", selectedId);
     else next.delete("equipment");
-    setParams(next, { replace: true });
-  }, [selectedId]); // params are read, not tracked
-  useEffect(() => {
-    if ((params.get("kpi") ?? null) === kpiKey) return;
-    const next = new URLSearchParams(params);
     if (kpiKey) next.set("kpi", kpiKey);
     else next.delete("kpi");
-    setParams(next, { replace: true });
-  }, [kpiKey]); // params are read, not tracked
+    next.delete("locate");
+    if (next.toString() !== params.toString()) setParams(next, { replace: true });
+  }, [selectedId, kpiKey, pLocate]); // params are read, not tracked
 
-  // While an indicator is open, point out its equipment on the plant.
+  // While an indicator is open, point out its equipment on the plant. Only clears
+  // highlights this page set, so highlights from the assistant survive.
   const highlightSource = site.data && kpiKey ? kpiEquipment(kpiKey, site.data, issues.data?.issues ?? []).join(",") : "";
+  const ownHighlight = useRef("");
   useEffect(() => {
+    if (highlightSource === ownHighlight.current) return;
+    ownHighlight.current = highlightSource;
     operating.highlight(highlightSource ? highlightSource.split(",") : []);
   }, [highlightSource]);
-  useEffect(() => () => operating.highlight([]), []);
+  useEffect(() => () => void (ownHighlight.current && operating.highlight([])), []);
 
   const select = useCallback((id: string) => {
     setKpiKey(null);
@@ -86,20 +100,14 @@ export function MonitoringPage() {
     setFocusKpi(true);
   }, []);
   const closeKpi = useCallback(() => {
-    const key = kpiKey;
+    if (kpiKey) restoreFocus(`[data-kpi="${kpiKey}"]`);
     setKpiKey(null);
-    if (key) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-kpi="${key}"]`)?.focus());
-  }, [kpiKey]);
+  }, [kpiKey, restoreFocus]);
   const close = useCallback(() => {
-    const id = selectedId;
+    if (selectedId) restoreFocus(`[data-equipment-id="${selectedId}"], [data-select-id="${selectedId}"]`);
     operating.select(null);
     setFocusInspector(false);
-    if (id) {
-      requestAnimationFrame(() =>
-        document.querySelector<HTMLElement | SVGElement>(`[data-equipment-id="${id}"], [data-select-id="${id}"]`)?.focus(),
-      );
-    }
-  }, [selectedId]);
+  }, [selectedId, restoreFocus]);
   const locateOnPlant = useCallback((id: string) => {
     setView("schematic");
     setLocate({ id, nonce: Date.now() });
@@ -108,7 +116,7 @@ export function MonitoringPage() {
   if (site.error && !site.data) {
     return (
       <div className="monitoring">
-        <h1 tabIndex={-1}>{m.heading}</h1>
+        <PageHeading>{m.heading}</PageHeading>
         <Notice tone="critical" action={{ label: m.retry, onClick: site.retry }}>
           {m.siteFailed} {site.error.message}
         </Notice>
@@ -118,7 +126,7 @@ export function MonitoringPage() {
   if (!site.data) {
     return (
       <div className="monitoring">
-        <h1 tabIndex={-1}>{m.heading}</h1>
+        <PageHeading>{m.heading}</PageHeading>
         <div className="skeleton" style={{ height: 480 }} aria-busy="true" />
       </div>
     );
@@ -147,7 +155,7 @@ export function MonitoringPage() {
     <div className="monitoring">
       <div className="monitoring__top">
         <div className="monitoring__head">
-          <h1 tabIndex={-1}>{m.heading}</h1>
+          <PageHeading>{m.heading}</PageHeading>
           <p className="monitoring__notice">
             <Info size={16} aria-hidden="true" />
             {m.topologyNotice}

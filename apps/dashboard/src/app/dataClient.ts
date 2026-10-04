@@ -4,12 +4,13 @@
  * yet, and nothing ever falls back to fixtures.
  */
 import type { DataClient } from "../lib/api/client";
+import type { AgentClient } from "../lib/api/agent";
+import { createFixtureAgent } from "../fixtures/fixtureAgent";
 import { createFixtureClient, parseFailures } from "../fixtures/fixtureClient";
 import { useOperating } from "./operatingContext";
 
-const failures = parseFailures(
-  typeof location === "undefined" ? null : new URLSearchParams(location.search).get("fail"),
-);
+const params = new URLSearchParams(typeof location === "undefined" ? "" : location.search);
+const failures = parseFailures(params.get("fail"));
 const clients = new Map<string, DataClient>();
 
 export function useDataClient(): DataClient {
@@ -17,3 +18,12 @@ export function useDataClient(): DataClient {
   if (!clients.has(scenarioId)) clients.set(scenarioId, createFixtureClient(scenarioId, { failures }));
   return clients.get(scenarioId)!;
 }
+
+// ponytail: one scripted demo harness for the session; a local-LLM client replaces it.
+const agent = createFixtureAgent({
+  delayScale: params.get("agentSpeed") === "fast" ? 0.1 : 1,
+  unavailable: (failures as Record<string, string> | undefined)?.agent === "unavailable",
+  dataFailures: failures,
+});
+
+export const useAgentClient = (): AgentClient => agent;

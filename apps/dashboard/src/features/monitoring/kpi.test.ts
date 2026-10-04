@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { History } from "../../lib/contracts";
-import { shortfallPeriods } from "./KpiDetailsPanel";
+import { shortfallPeriods } from "../../lib/plant";
 
 const history = (values: (number | null)[]): History => ({
   schemaVersion: 1,

@@ -20,6 +20,12 @@ export interface OperatingContext {
   selectedId: string | null;
   /** Equipment highlighted by another feature (assistant, pilot), not selected. */
   highlightIds: string[];
+  /** AI assistant drawer: open state, shown conversation and a pending question. */
+  assistant: {
+    open: boolean;
+    conversationId: string | null;
+    request: { prompt: string; equipmentId: string | null; nonce: number } | null;
+  };
 }
 
 export const DAY_END = DAY_START + (SAMPLES - 1) * STEP_MIN * MINUTE_MS;
@@ -43,6 +49,7 @@ let state: OperatingContext = {
   speed: REPLAY_SPEEDS[0],
   selectedId: null,
   highlightIds: [],
+  assistant: { open: false, conversationId: null, request: null },
 };
 const listeners = new Set<() => void>();
 
@@ -74,6 +81,12 @@ export const operating = {
   setSpeed: (speed: number) => set({ speed }),
   select: (id: string | null) => set({ selectedId: id }),
   highlight: (ids: string[]) => set({ highlightIds: ids }),
+  openAssistant: (open = true) => set({ assistant: { ...state.assistant, open } }),
+  showConversation: (conversationId: string | null) => set({ assistant: { ...state.assistant, conversationId } }),
+  /** Open the drawer and ask a question in a new conversation with this context. */
+  askAssistant: (prompt: string, equipmentId: string | null = null) =>
+    set({ assistant: { open: true, conversationId: null, request: { prompt, equipmentId, nonce: Date.now() } } }),
+  clearAssistantRequest: () => set({ assistant: { ...state.assistant, request: null } }),
   /** Advance the demo clock by `wallMs` of wall time. Called by the shell's ticker. */
   tick(wallMs: number) {
     if (!state.playing) return;

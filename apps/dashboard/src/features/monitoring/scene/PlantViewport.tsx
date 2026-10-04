@@ -39,12 +39,35 @@ export function PlantViewport({ locate, leading, ...sceneProps }: PlantViewportP
   const latest = useRef({ view, box, scene });
   latest.current = { view, box, scene };
 
+  /** Record a new box size: refit while in fit mode, otherwise keep the centre. */
+  const updateBox = useCallback((w: number, h: number) => {
+    if (w < 10 || h < 10) return;
+    const next = { w, h };
+    const { box: prev, view: v, scene: sc } = latest.current;
+    if (prev && prev.w === w && prev.h === h) return;
+    latest.current.box = next;
+    setBox(next);
+    if (!prev || fitted.current) setView(fitView(sc, next));
+    else setView(keepCenter(v, prev, next, sc));
+  }, []);
+
+  /** The box size now. Resize notifications can arrive late (hundreds of ms after a
+   *  side panel opens or closes), so operator actions measure instead of trusting them. */
+  const measure = useCallback(() => {
+    const el = boxRef.current;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      updateBox(r.width, r.height);
+    }
+    return latest.current.box;
+  }, [updateBox]);
+
   const fit = useCallback(() => {
-    const b = latest.current.box;
+    const b = measure();
     if (!b) return;
     fitted.current = true;
     setView(fitView(latest.current.scene, b));
-  }, []);
+  }, [measure]);
 
   const apply = (next: View) => {
     fitted.current = false;
@@ -54,24 +77,13 @@ export function PlantViewport({ locate, leading, ...sceneProps }: PlantViewportP
   // Track the available box. Opening a side panel shrinks it; refit or keep centre.
   useLayoutEffect(() => {
     const el = boxRef.current!;
-    const update = (w: number, h: number) => {
-      if (w < 10 || h < 10) return;
-      const next = { w, h };
-      const { box: prev, view: v, scene: sc } = latest.current;
-      if (prev && prev.w === w && prev.h === h) return;
-      latest.current.box = next;
-      setBox(next);
-      if (!prev || fitted.current) setView(fitView(sc, next));
-      else setView(keepCenter(v, prev, next, sc));
-    };
     // Measure now: on a cold page load the observer's first notification is not
     // reliably delivered, which left the schematic undrawn until something resized.
-    const r = el.getBoundingClientRect();
-    update(r.width, r.height);
-    const ro = new ResizeObserver(([entry]) => update(entry.contentRect.width, entry.contentRect.height));
+    measure();
+    const ro = new ResizeObserver(([entry]) => updateBox(entry.contentRect.width, entry.contentRect.height));
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [measure, updateBox]);
 
   // Wheel zoom needs a non-passive listener to keep the page from scrolling.
   useEffect(() => {
@@ -90,19 +102,24 @@ export function PlantViewport({ locate, leading, ...sceneProps }: PlantViewportP
   }, []);
 
   useEffect(() => {
-    if (!locate || !box) return;
+    const b = measure();
+    if (!locate || !b) return;
     const node = sceneProps.layout.nodes[locate.id];
     if (!node) return;
     const g = spriteGeometry[node.kind];
-    apply(centerOn(node.x + g.width / 2, node.y + g.height / 2, Math.max(view.k, 1), scene, box));
+    apply(centerOn(node.x + g.width / 2, node.y + g.height / 2, Math.max(view.k, 1), scene, b));
   }, [locate?.nonce, box === null]); // a new locate request, or the box becoming measurable
 
-  const zoomCentre = (factor: number) => box && apply(zoomAt(view, factor, box.w / 2, box.h / 2, scene, box));
+  const zoomCentre = (factor: number) => {
+    const b = measure();
+    if (b) apply(zoomAt(view, factor, b.w / 2, b.h / 2, scene, b));
+  };
   const actualSize = () => {
-    if (!box) return;
-    const cx = (box.w / 2 - view.x) / view.k;
-    const cy = (box.h / 2 - view.y) / view.k;
-    apply(centerOn(cx, cy, 1, scene, box));
+    const b = measure();
+    if (!b) return;
+    const cx = (b.w / 2 - view.x) / view.k;
+    const cy = (b.h / 2 - view.y) / view.k;
+    apply(centerOn(cx, cy, 1, scene, b));
   };
 
   const onPointerDown = (e: React.PointerEvent) => {

@@ -1,3 +1,4 @@
+import { PageHeading } from "../../components/PageHeading";
 import { useId, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Info, Pin } from "lucide-react";
@@ -31,7 +32,7 @@ export function PredictionPage() {
   if (site.error && !site.data) {
     return (
       <div className="page">
-        <h1 tabIndex={-1}>{t.heading}</h1>
+        <PageHeading>{t.heading}</PageHeading>
         <Notice tone="critical" action={{ label: s.monitoring.retry, onClick: site.retry }}>
           {s.monitoring.siteFailed} {site.error.message}
         </Notice>
@@ -41,7 +42,7 @@ export function PredictionPage() {
   if (!site.data) {
     return (
       <div className="page">
-        <h1 tabIndex={-1}>{t.heading}</h1>
+        <PageHeading>{t.heading}</PageHeading>
         <div className="skeleton" style={{ height: 400 }} />
       </div>
     );
@@ -85,7 +86,7 @@ function PredictionContent({ site, pinnedId, unpin }: { site: SiteBundle; pinned
   return (
     <div className="page prediction">
       <div className="page__head">
-        <h1 tabIndex={-1}>{t.heading}</h1>
+        <PageHeading>{t.heading}</PageHeading>
         <p className="page__notice">
           <Info size={16} aria-hidden="true" />
           {t.notice}

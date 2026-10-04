@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link as RouterLink } from "react-router";
-import { Crosshair, X } from "lucide-react";
+import { Crosshair, MessageSquareText, X } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import { formatReading, formatTime, siteDayStart } from "../../lib/format";
 import { useResource } from "../../lib/api/useResource";
@@ -8,7 +8,7 @@ import type { Issue, Link, LinkEnd, SiteBundle, Snapshot } from "../../lib/contr
 import { StateLabel } from "../../components/StateLabel";
 import { TimeSeriesChart } from "../../components/TimeSeriesChart";
 import { useDataClient } from "../../app/dataClient";
-import { useOperating } from "../../app/operatingContext";
+import { operating, useOperating } from "../../app/operatingContext";
 import { linkMedium } from "../../lib/topology";
 import "./equipment.css";
 
@@ -123,12 +123,22 @@ export function EquipmentInspector({
         </div>
       </dl>
 
-      {onLocate && (
-        <button type="button" className="button button--small" onClick={() => onLocate(device.id)}>
-          <Crosshair size={15} aria-hidden="true" />
-          {t.locate}
+      <div className="inspector__actions">
+        {onLocate && (
+          <button type="button" className="button button--small" onClick={() => onLocate(device.id)}>
+            <Crosshair size={15} aria-hidden="true" />
+            {t.locate}
+          </button>
+        )}
+        <button
+          type="button"
+          className="button button--small"
+          onClick={() => operating.askAssistant(`Investigate ${device.label}`, device.id)}
+        >
+          <MessageSquareText size={15} aria-hidden="true" />
+          {s.agent.ask}
         </button>
-      )}
+      </div>
 
       <section className="inspector__section">
         <h3>{t.measurements}</h3>

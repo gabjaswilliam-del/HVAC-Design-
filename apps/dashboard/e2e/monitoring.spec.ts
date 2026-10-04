@@ -189,6 +189,7 @@ test("7: detailed equipment artwork is preserved in the interactive scene", asyn
 });
 
 test("8: every item of equipment is reachable by zooming in and panning", async ({ page }) => {
+  test.setTimeout(90_000); // dozens of pans and clicks
   await page.setViewportSize({ width: 1280, height: 720 });
   await open(page);
   const zoomIn = page.getByRole("button", { name: "Zoom in" });
@@ -224,6 +225,7 @@ test("keyboard: Enter selects focused equipment, Escape closes and restores focu
   await expect(inspector(page)).toHaveCount(0);
   await expect(node(page, "chilled_water_pump_pri_1")).toBeFocused();
   await viewport(page).focus();
+  await page.keyboard.press("0");
   const k0 = await zoom(page);
   await page.keyboard.press("+");
   expect(await zoom(page)).toBeGreaterThan(k0);

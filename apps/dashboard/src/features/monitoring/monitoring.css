@@ -499,3 +499,6 @@ button.kpi:focus-visible {
   padding-left: var(--space-4);
   font-size: var(--text-sm);
 }
+.kpi-panel__ask {
+  justify-self: start;
+}

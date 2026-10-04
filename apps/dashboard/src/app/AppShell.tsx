@@ -1,8 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router";
-import { Beaker, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { Beaker, Menu, MessageSquareText, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { useStrings } from "../lib/i18n";
 import { scenarios, type ScenarioId } from "../fixtures/scenarios";
+import { AssistantDrawer } from "../features/agent";
+import { requestHeadingFocus } from "../components/PageHeading";
 import { navGroups } from "./navigation";
 import { operating, useOperating } from "./operatingContext";
 import { SiteProvider, useSite } from "./site";
@@ -38,16 +40,19 @@ export function AppShell() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const lastPath = useRef(location.pathname);
+  // First path segment = the screen; /equipment/x and /equipment are the same screen.
+  // When it changes (not on first load), the new page's heading takes focus.
+  const section = location.pathname.split("/")[1] ?? "";
+  const lastSection = useRef(section);
+  const assistantOpen = useOperating((x) => x.assistant.open);
+  // The full assistant page replaces the drawer.
+  const showDrawer = assistantOpen && location.pathname !== "/agent";
 
-  // Move focus to the new page heading on navigation (not on first load). Compare
-  // paths rather than counting renders so StrictMode's double effect run is harmless.
-  useEffect(() => {
-    setDrawerOpen(false);
-    if (lastPath.current === location.pathname) return;
-    lastPath.current = location.pathname;
-    document.querySelector<HTMLElement>("main h1")?.focus();
-  }, [location.pathname]);
+  if (lastSection.current !== section) {
+    lastSection.current = section;
+    requestHeadingFocus();
+  }
+  useEffect(() => setDrawerOpen(false), [section]);
 
   // The demo source clock. Independent of any screen being open.
   useEffect(() => {
@@ -57,7 +62,7 @@ export function AppShell() {
 
   return (
     <SiteProvider>
-      <div className={`shell${collapsed ? " shell--collapsed" : ""}${drawerOpen ? " shell--drawer" : ""}`}>
+      <div className={`shell${collapsed ? " shell--collapsed" : ""}${drawerOpen ? " shell--drawer" : ""}${showDrawer ? " shell--assistant" : ""}`}>
         <a className="skip-link" href="#main">
           {s.app.skipToContent}
         </a>
@@ -81,6 +86,19 @@ export function AppShell() {
             {s.dataMode.demo}
           </span>
           <ScenarioSelect className="scenario-select scenario-select--header" />
+          {location.pathname !== "/agent" && (
+            <button
+              type="button"
+              className="tool-button tool-button--text site-header__assistant"
+              aria-label={s.agent.open}
+              aria-expanded={assistantOpen}
+              aria-controls="assistant-drawer"
+              onClick={() => operating.openAssistant(!assistantOpen)}
+            >
+              <MessageSquareText size={16} aria-hidden="true" />
+              <span className="site-header__assistant-text">{s.agent.open}</span>
+            </button>
+          )}
         </header>
 
         <nav id="main-navigation" className="main-nav" aria-label={s.nav.label}>
@@ -119,6 +137,11 @@ export function AppShell() {
         <main id="main" className="main">
           <Outlet />
         </main>
+        {showDrawer && (
+          <div className="shell__assistant">
+            <AssistantDrawer />
+          </div>
+        )}
       </div>
     </SiteProvider>
   );

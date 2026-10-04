@@ -5,6 +5,8 @@
  */
 import { createContext, useContext, type ReactNode } from "react";
 import type { IssueList, SiteBundle, Snapshot } from "../lib/contracts";
+import type { AgentContext } from "../lib/contracts/agent";
+import { scenarioById } from "../fixtures/scenarios";
 import { useResource, type Resource } from "../lib/api/useResource";
 import { DAY_START, MINUTE_MS, sampleIndexAt, STEP_MIN } from "../fixtures/generate";
 import { useDataClient } from "./dataClient";
@@ -39,4 +41,22 @@ export function useIssues(): Resource<IssueList> {
   const scenarioId = useOperating((s) => s.scenarioId);
   const at = useSampleTime();
   return useResource(`issues:${at}`, scenarioId, (signal) => client.getIssues({ at }, { signal }));
+}
+
+/** Context a new assistant conversation is asked in: current source, time and selection. */
+export function useAgentContext(): (equipmentId?: string | null) => AgentContext | null {
+  const site = useSite();
+  const scenarioId = useOperating((s) => s.scenarioId);
+  const selectedId = useOperating((s) => s.selectedId);
+  const at = useSampleTime();
+  return (equipmentId) =>
+    site.data
+      ? {
+          source: "telemetry",
+          configRevision: site.data.topology.configRevision,
+          at,
+          equipmentId: equipmentId === undefined ? selectedId : equipmentId,
+          demoScenario: { id: scenarioId, label: scenarioById(scenarioId)?.label ?? scenarioId },
+        }
+      : null;
 }

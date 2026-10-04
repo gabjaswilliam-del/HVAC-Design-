@@ -18,6 +18,15 @@ export const KPI_KEYS = [
   "weather:wet_bulb_c",
 ] as const;
 
+/** Questions the assistant can answer about an indicator (scripted demo coverage). */
+export const KPI_QUESTIONS: Record<string, string> = {
+  issues: "What needs attention right now?",
+  "plant:cooling_demand_kw": "Is the plant meeting cooling demand?",
+  "plant:cooling_delivered_kw": "Is the plant meeting cooling demand?",
+  "plant:cop": "How efficient is the plant right now?",
+  "plant:power_kw": "How efficient is the plant right now?",
+};
+
 export const isKpiKey = (k: string | null): k is string => k === ISSUES_KPI || (KPI_KEYS as readonly string[]).includes(k ?? "");
 
 export interface EquipmentRef {
