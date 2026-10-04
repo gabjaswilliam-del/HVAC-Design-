@@ -95,7 +95,7 @@ export function PlantViewport({ locate, leading, ...sceneProps }: PlantViewportP
     if (!node) return;
     const g = spriteGeometry[node.kind];
     apply(centerOn(node.x + g.width / 2, node.y + g.height / 2, Math.max(view.k, 1), scene, box));
-  }, [locate?.nonce]); // only on a new locate request
+  }, [locate?.nonce, box === null]); // a new locate request, or the box becoming measurable
 
   const zoomCentre = (factor: number) => box && apply(zoomAt(view, factor, box.w / 2, box.h / 2, scene, box));
   const actualSize = () => {

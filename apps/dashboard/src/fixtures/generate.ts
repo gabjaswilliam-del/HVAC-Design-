@@ -49,13 +49,20 @@ function smoothNoise(seed: number) {
 export function drivers(def: ScenarioDef) {
   const nWb = smoothNoise(def.seed * 7 + 1);
   const nDem = smoothNoise(def.seed * 7 + 2);
+  // Day-to-day variation, blended over the first 3 hours of each day so there is no
+  // step at midnight. After 03:00 a day uses its own value unchanged.
+  const BLEND = (3 * 60) / STEP_MIN;
+  const daily = (f: (d: number) => number, d: number, i: number) =>
+    i >= BLEND ? f(d) : f(d - 1) + (f(d) - f(d - 1)) * (i / BLEND);
+  const wbDay = (d: number) => 0.8 * Math.sin(2.1 * d);
+  const itDay = (d: number) => 0.025 * Math.sin(1.7 * d);
   const wetBulb = (d: number, i: number) => {
     const h = (i * STEP_MIN) / 60;
-    return 25.6 + def.wetBulbOffset + 0.8 * Math.sin(2.1 * d) + 2.4 * Math.sin((2 * Math.PI * (h - 9)) / 24) + 0.25 * nWb(d * SAMPLES + i);
+    return 25.6 + def.wetBulbOffset + daily(wbDay, d, i) + 2.4 * Math.sin((2 * Math.PI * (h - 9)) / 24) + 0.25 * nWb(d * SAMPLES + i);
   };
   const demand = (d: number, i: number) => {
     const h = (i * STEP_MIN) / 60;
-    const it = def.itBase * (1 + 0.025 * Math.sin(1.7 * d)) * (1 + 0.07 * Math.sin((2 * Math.PI * (h - 10)) / 24));
+    const it = def.itBase * (1 + daily(itDay, d, i)) * (1 + 0.07 * Math.sin((2 * Math.PI * (h - 10)) / 24));
     return it + def.weatherGain * (wetBulb(d, i) - 22) + 0.015 * def.itBase * nDem(d * SAMPLES + i);
   };
   return { wetBulb, demand };

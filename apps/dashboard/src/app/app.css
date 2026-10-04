@@ -379,3 +379,56 @@
     justify-items: start;
   }
 }
+
+/* Standard page frame for screens other than monitoring. */
+.page {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-5);
+  min-width: 0;
+}
+.page__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-4);
+}
+.page__head h1 {
+  font-size: var(--text-xl);
+}
+.page__notice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  max-width: 110ch;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.context-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+.context-bar dt {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.context-bar dd {
+  margin: 0;
+  font-weight: 600;
+}
+.context-bar__id {
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .page {
+    padding: var(--space-2) var(--space-2) var(--space-4);
+  }
+}

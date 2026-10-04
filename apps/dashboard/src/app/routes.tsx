@@ -3,6 +3,8 @@ import { useStrings } from "../lib/i18n";
 import type { Messages } from "../lib/i18n/en";
 import { AppShell } from "./AppShell";
 import { MonitoringPage } from "../features/monitoring";
+import { EquipmentPage } from "../features/equipment";
+import { PredictionPage } from "../features/prediction";
 
 // ponytail: temporary stand-in for screens built in later milestones; delete when each lands.
 function PlannedScreen({ title, milestone }: { title: keyof Messages["nav"]; milestone: string }) {
@@ -34,8 +36,9 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <MonitoringPage /> },
-      { path: "equipment", element: <PlannedScreen title="equipment" milestone="M4" /> },
-      { path: "prediction", element: <PlannedScreen title="prediction" milestone="M4" /> },
+      // One route with an optional ID, so selecting does not remount the page (and its filters).
+      { path: "equipment/:equipmentId?", element: <EquipmentPage /> },
+      { path: "prediction", element: <PredictionPage /> },
       { path: "agent", element: <PlannedScreen title="agent" milestone="M5" /> },
       { path: "simulation", element: <PlannedScreen title="simulation" milestone="M6" /> },
       { path: "pilot", element: <PlannedScreen title="pilot" milestone="M6" /> },

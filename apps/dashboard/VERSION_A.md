@@ -11,7 +11,7 @@ the local API, PHYVAC, models or equipment. Version C is a separate, later exerc
 | M2 | Contracts, deterministic scenarios, fixture client, operating context | Done; awaiting owner review with M3 |
 | M3 | Interactive monitoring: fit/zoom/pan, selection, inspector, playback, KPIs, forecast summary, issues, list view | Done; reviewed by owner |
 | M3.1 | Interactive KPI cards and indicator details panel (owner request) | Done |
-| M4 | Cooling prediction page, Equipment screen | In progress |
+| M4 | Cooling prediction page, Equipment screen | Done; **owner review gate before M5** |
 | M5 | AI assistant page and drawer | Planned |
 | M6 | Simulation, AI pilot (their mock services move here from M2) | Planned |
 | M7 | CAD Studio, Knowledge base, Installation, System | Planned |
@@ -92,3 +92,44 @@ refit, indicator content, issues with evidence and actions, empty state, shortfa
 and replay consistency, scenario changes, stale/missing inputs, panel/inspector
 exclusivity, keyboard, 1024×768 / 1280×720 / 1920×1080 fits, 390 px, axe) and
 `src/features/monitoring/kpi.test.ts`.
+
+## M4: Cooling prediction and Equipment pages (2026-10-04)
+
+**Cooling prediction** (`/prediction`, `features/prediction/PredictionPage.tsx`):
+context bar (source, site revision, data cutoff, forecast ID); horizon and interval
+offered only from backend-advertised capabilities; 24 h / 7 day history; chart of
+observed demand, predicted demand (dashed) with its uncalibrated spread, and optional
+delivered cooling and running chiller capacity (history only; future capacity is not
+forecast); a figures panel that keeps **predicted peak demand**, **running capacity**
+and **cooling delivered** as separate, labeled quantities, each linking to its
+existing monitoring KPI panel instead of duplicating it; full provenance; forecasting
+readiness (baseline available; pretrained and site-adapted unavailable, with reasons);
+and a visual comparison of an earlier forecast with what was later observed, with no
+accuracy metric. `?forecast=<id>` pins the exact forecast linked from the monitoring
+summary (same ID, peak and horizon); unknown IDs say so. States: insufficient history
+(`new-site` scenario), stale and too-stale inputs (`disconnected`), request failure
+with retry. The page states that the baseline is a demonstration method, not a trained
+or validated AI model.
+
+**Equipment** (`/equipment/:id?`, `features/equipment/EquipmentPage.tsx`): roster
+with search, type, state and open-issue filters, state counts, open issues and
+topology evidence per item, the shared `EquipmentInspector`, deep links, "Locate on
+plant" (opens monitoring with the item selected and centred), selection shared with
+monitoring, and replay.
+
+Shared data only: both pages use the same `DataClient`, snapshot, issues,
+`ForecastDataController` cache and playback clock as monitoring. Added data: forecast
+capabilities, forecast lookup by ID, backend-reported running capacity, and a
+`new-site` scenario. Fixed: day-boundary step in synthetic demand; negative axis room
+for non-negative charts; an unlabeled control group (IDs containing spaces).
+
+## Test results (Windows 11 workstation, Node 24.19, Playwright 1.63 Chromium)
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | Pass |
+| `npm test` (Vitest) | 28 passed |
+| `npm run e2e` (Playwright) | 70 passed, 6 opt-in screenshot captures skipped; three consecutive full runs |
+| `npm run build` | Pass (bundle ~520 kB, size advisory only) |
+
+Not validated: DGX Spark build/test, touch pinch-zoom, any live API or model.

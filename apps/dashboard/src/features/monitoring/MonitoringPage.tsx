@@ -46,6 +46,12 @@ export function MonitoringPage() {
   useEffect(() => {
     const id = params.get("equipment");
     if (id) operating.select(id);
+    if (id && params.get("locate")) {
+      setLocate({ id, nonce: Date.now() });
+      const next = new URLSearchParams(params);
+      next.delete("locate");
+      setParams(next, { replace: true });
+    }
   }, []); // read once on arrival
   useEffect(() => {
     if ((params.get("equipment") ?? null) === selectedId) return;

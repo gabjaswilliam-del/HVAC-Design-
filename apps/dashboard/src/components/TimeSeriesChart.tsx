@@ -94,7 +94,8 @@ export function TimeSeriesChart({ title, series, band, unit, decimals, timeZone,
   if (empty) (lo = 0), (hi = 1);
   const pad = (hi - lo || Math.abs(hi) || 1) * 0.08;
   const yStep = niceStep(hi - lo + 2 * pad, 4);
-  const y0 = Math.floor((lo - pad) / yStep) * yStep;
+  // Never invent negative axis room for data that is all zero or positive.
+  const y0 = lo >= 0 ? Math.max(0, Math.floor((lo - pad) / yStep) * yStep) : Math.floor((lo - pad) / yStep) * yStep;
   const y1 = Math.ceil((hi + pad) / yStep) * yStep;
 
   const pw = Math.max(1, width - M.l - M.r);
