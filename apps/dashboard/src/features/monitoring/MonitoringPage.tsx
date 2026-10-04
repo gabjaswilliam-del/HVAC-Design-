@@ -10,6 +10,8 @@ import { useIssues, useSite, useSnapshot } from "../../app/site";
 import { EquipmentInspector } from "../equipment";
 import { CoolingForecastSummary } from "../prediction";
 import { EquipmentList } from "./EquipmentList";
+import { KpiDetailsPanel } from "./KpiDetailsPanel";
+import { isKpiKey, kpiEquipment } from "./kpiDefinitions";
 import { KpiStrip } from "./KpiStrip";
 import { RecentIssues } from "./RecentIssues";
 import { sceneMatchesTopology } from "./scene/PlantScene";
@@ -33,6 +35,12 @@ export function MonitoringPage() {
   const [locate, setLocate] = useState<{ id: string; nonce: number } | null>(null);
   const [focusInspector, setFocusInspector] = useState(false);
   const [params, setParams] = useSearchParams();
+  // One side panel at a time: indicator details or the equipment inspector.
+  const [kpiKey, setKpiKey] = useState<string | null>(() => {
+    const k = params.get("kpi");
+    return isKpiKey(k) ? k : null;
+  });
+  const [focusKpi, setFocusKpi] = useState(false);
 
   // Deep link: ?equipment=<id> selects on arrival; selection keeps the URL in step.
   useEffect(() => {
@@ -46,11 +54,36 @@ export function MonitoringPage() {
     else next.delete("equipment");
     setParams(next, { replace: true });
   }, [selectedId]); // params are read, not tracked
+  useEffect(() => {
+    if ((params.get("kpi") ?? null) === kpiKey) return;
+    const next = new URLSearchParams(params);
+    if (kpiKey) next.set("kpi", kpiKey);
+    else next.delete("kpi");
+    setParams(next, { replace: true });
+  }, [kpiKey]); // params are read, not tracked
+
+  // While an indicator is open, point out its equipment on the plant.
+  const highlightSource = site.data && kpiKey ? kpiEquipment(kpiKey, site.data, issues.data?.issues ?? []).join(",") : "";
+  useEffect(() => {
+    operating.highlight(highlightSource ? highlightSource.split(",") : []);
+  }, [highlightSource]);
+  useEffect(() => () => operating.highlight([]), []);
 
   const select = useCallback((id: string) => {
+    setKpiKey(null);
     operating.select(id);
     setFocusInspector(true);
   }, []);
+  const openKpi = useCallback((key: string) => {
+    operating.select(null);
+    setKpiKey((current) => (current === key ? null : key));
+    setFocusKpi(true);
+  }, []);
+  const closeKpi = useCallback(() => {
+    const key = kpiKey;
+    setKpiKey(null);
+    if (key) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-kpi="${key}"]`)?.focus());
+  }, [kpiKey]);
   const close = useCallback(() => {
     const id = selectedId;
     operating.select(null);
@@ -115,7 +148,7 @@ export function MonitoringPage() {
           </p>
         </div>
 
-        <KpiStrip site={bundle} snapshot={snap} issues={issues.data?.issues} />
+        <KpiStrip site={bundle} snapshot={snap} issues={issues.data?.issues} activeKey={kpiKey} onOpen={openKpi} />
 
         <p className="monitoring__status num" aria-live="polite">
           {snap && (
@@ -135,7 +168,7 @@ export function MonitoringPage() {
           </Notice>
         )}
 
-        <div className={`monitoring__work${selectedId ? " monitoring__work--inspecting" : ""}`}>
+        <div className={`monitoring__work${selectedId || kpiKey ? " monitoring__work--inspecting" : ""}`}>
           <div className="monitoring__stage">
             {!matches && (
               <Notice tone="warning">
@@ -161,7 +194,20 @@ export function MonitoringPage() {
               </>
             )}
           </div>
-          {selectedId && (
+          {kpiKey ? (
+            <div className="monitoring__inspector">
+              <KpiDetailsPanel
+                kpiKey={kpiKey}
+                site={bundle}
+                snapshot={snap}
+                issues={issues}
+                onClose={closeKpi}
+                onLocate={locateOnPlant}
+                onInspect={select}
+                focusOnOpen={focusKpi}
+              />
+            </div>
+          ) : selectedId && (
             <div className="monitoring__inspector">
               <EquipmentInspector
                 equipmentId={selectedId}

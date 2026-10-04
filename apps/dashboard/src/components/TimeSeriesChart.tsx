@@ -8,6 +8,8 @@ export interface ChartSeries {
   /** Validated chart colour (see styles/tokens.css --chart-*). */
   color: string;
   dashed?: boolean;
+  /** Line width; a wider line drawn first stays visible under a coinciding one. */
+  width?: number;
   points: { t: number; v: number | null }[];
 }
 
@@ -194,7 +196,7 @@ export function TimeSeriesChart({ title, series, band, unit, decimals, timeZone,
                 d={segments(x0.points.map((p) => ({ x: x(p.t), y: p.v === null ? null : y(p.v) })))}
                 fill="none"
                 stroke={x0.color}
-                strokeWidth={2}
+                strokeWidth={x0.width ?? 2}
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 strokeDasharray={x0.dashed ? "6 4" : undefined}

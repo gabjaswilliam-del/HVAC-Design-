@@ -62,4 +62,29 @@ describe("fixture client", () => {
     const after = await c.getIssues({ at: at(14, 40) });
     expect(after.issues.find((i) => i.id === "ISS-0151")?.status).toBe("resolved");
   });
+
+  it("looks forecasts up by ID and refuses IDs from another scenario", async () => {
+    const c = createFixtureClient("normal", { latencyMs: 0 });
+    const latest = await c.getLatestForecast({ at: at(15, 15), horizonMinutes: 720, stepMinutes: 60 });
+    expect(await c.getForecastById(latest.forecastId)).toEqual(latest);
+    await expect(c.getForecastById(latest.forecastId.replace("normal", "peak"))).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(c.getForecastById("not-a-forecast")).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("advertises only the baseline mode, and too little history makes forecasts unavailable", async () => {
+    const caps = await createFixtureClient("normal", { latencyMs: 0 }).getForecastCapabilities();
+    expect(caps.modes.filter((m) => m.available).map((m) => m.mode)).toEqual(["baseline"]);
+    expect(caps.modes.find((m) => m.mode === "pretrained")?.reason).toMatch(/No pretrained/);
+    const fresh = createFixtureClient("new-site", { latencyMs: 0 });
+    expect((await fresh.getForecastCapabilities()).historyDaysAvailable).toBe(1);
+    const f = await fresh.getLatestForecast({ at: at(15, 15), horizonMinutes: 360, stepMinutes: 15 });
+    expect(f.status).toBe("unavailable");
+    expect(f.reasonCode).toBe("INSUFFICIENT_HISTORY");
+  });
+
+  it("reports running capacity from the running chillers only", async () => {
+    const c = createFixtureClient("pump-trip", { latencyMs: 0 });
+    expect((await c.getSnapshot({ at: at(14, 10) })).kpis["plant:available_capacity_kw"].value).toBe(700);
+    expect((await c.getSnapshot({ at: at(14, 30) })).kpis["plant:available_capacity_kw"].value).toBe(1400);
+  });
 });

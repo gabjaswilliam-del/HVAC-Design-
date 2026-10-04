@@ -54,14 +54,21 @@ export function PlantViewport({ locate, leading, ...sceneProps }: PlantViewportP
   // Track the available box. Opening a side panel shrinks it; refit or keep centre.
   useLayoutEffect(() => {
     const el = boxRef.current!;
-    const ro = new ResizeObserver(([entry]) => {
-      const next = { w: entry.contentRect.width, h: entry.contentRect.height };
-      if (next.w < 10 || next.h < 10) return;
+    const update = (w: number, h: number) => {
+      if (w < 10 || h < 10) return;
+      const next = { w, h };
       const { box: prev, view: v, scene: sc } = latest.current;
+      if (prev && prev.w === w && prev.h === h) return;
+      latest.current.box = next;
       setBox(next);
       if (!prev || fitted.current) setView(fitView(sc, next));
       else setView(keepCenter(v, prev, next, sc));
-    });
+    };
+    // Measure now: on a cold page load the observer's first notification is not
+    // reliably delivered, which left the schematic undrawn until something resized.
+    const r = el.getBoundingClientRect();
+    update(r.width, r.height);
+    const ro = new ResizeObserver(([entry]) => update(entry.contentRect.width, entry.contentRect.height));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);

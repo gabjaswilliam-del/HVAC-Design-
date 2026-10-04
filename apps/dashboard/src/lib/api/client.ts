@@ -6,6 +6,7 @@
 import type { ZodType } from "zod";
 import type {
   DemandHistory,
+  ForecastCapabilities,
   ForecastResult,
   History,
   IssueList,
@@ -29,6 +30,9 @@ export interface DataClient {
     o?: RequestOptions,
   ): Promise<ForecastResult>;
   getDemandHistory(q: { from: string; to: string }, o?: RequestOptions): Promise<DemandHistory>;
+  getForecastCapabilities(o?: RequestOptions): Promise<ForecastCapabilities>;
+  /** One immutable forecast result by its ID. */
+  getForecastById(forecastId: string, o?: RequestOptions): Promise<ForecastResult>;
 }
 
 export type ErrorCode =
@@ -36,6 +40,7 @@ export type ErrorCode =
   | "UNAVAILABLE"
   | "PERMISSION_DENIED"
   | "MALFORMED_RESPONSE"
+  | "NOT_FOUND"
   | "ABORTED";
 
 export class ApiError extends Error {

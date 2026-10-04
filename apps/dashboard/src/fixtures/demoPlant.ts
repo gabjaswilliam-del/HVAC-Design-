@@ -22,13 +22,13 @@ const chwp = (i: number) => `chilled_water_pump_pri_${i}`;
 // Synthetic nameplate/design values, rounded; consistent with PR #2's sanitized example.
 const NAMEPLATE = {
   tower: [
-    { label: "Design heat rejection", value: 1160, unit: "kW" },
+    { label: "Design heat rejection", value: 1160, unit: "kWt" },
     { label: "Design water flow", value: 200, unit: "m³/h" },
     { label: "Design wet bulb", value: 28, unit: "°C" },
     { label: "Fan motor", value: 5.5, unit: "kW" },
   ],
   chiller: [
-    { label: "Cooling capacity", value: 700, unit: "kW" },
+    { label: "Cooling capacity", value: 700, unit: "kWt" },
     { label: "Design CHW supply", value: 7, unit: "°C" },
     { label: "Design CHW return", value: 12, unit: "°C" },
     { label: "Design CHW flow", value: 120, unit: "m³/h" },

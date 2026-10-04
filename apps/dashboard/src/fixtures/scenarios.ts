@@ -10,7 +10,8 @@ export type ScenarioId =
   | "pump-trip"
   | "sensor-issues"
   | "disconnected"
-  | "scene-mismatch";
+  | "scene-mismatch"
+  | "new-site";
 
 export interface ScenarioDef {
   id: ScenarioId;
@@ -31,6 +32,8 @@ export interface ScenarioDef {
   disconnectAt?: number;
   /** Scene drawn for a newer configuration revision than the topology. */
   sceneMismatch?: boolean;
+  /** Days of demand history before the demo day (default 7). */
+  historyDays?: number;
   issues: ScenarioIssue[];
 }
 
@@ -241,5 +244,19 @@ export const scenarios: ScenarioDef[] = [
     issues: [],
   },
 ];
+
+// Appended so existing scenario order (and defaults) are unchanged.
+scenarios.push({
+  id: "new-site",
+  label: "New site, little history",
+  description: "Recently commissioned: only one day of demand history before today.",
+  seed: 83,
+  itBase: 840,
+  weatherGain: 35,
+  wetBulbOffset: 0,
+  defaultMinute: hm(15, 15),
+  historyDays: 1,
+  issues: [],
+});
 
 export const scenarioById = (id: string) => scenarios.find((s) => s.id === id);

@@ -94,3 +94,24 @@ export const demandHistory = z.object({
   values: z.array(z.number().finite().nullable()),
 });
 export type DemandHistory = z.infer<typeof demandHistory>;
+
+/** What the local prediction service can do now; the UI offers nothing else. */
+export const forecastCapabilities = z.object({
+  schemaVersion: z.literal(1),
+  target: z.literal("cooling_load_kw"),
+  sources: z.array(z.enum(["telemetry", "simulation"])),
+  horizonsMinutes: z.array(z.number().int().positive()).min(1),
+  stepsMinutes: z.array(z.number().int().positive()).min(1),
+  modes: z.array(
+    z.object({
+      mode: z.enum(["site_adapted", "pretrained", "baseline"]),
+      available: z.boolean(),
+      artifactId: z.string().nullable(),
+      /** Why a mode is unavailable; null when available. */
+      reason: z.string().nullable(),
+    }),
+  ),
+  historyDaysAvailable: z.number().min(0),
+  minHistoryDays: z.number().int().positive(),
+});
+export type ForecastCapabilities = z.infer<typeof forecastCapabilities>;

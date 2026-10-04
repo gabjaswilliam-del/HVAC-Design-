@@ -48,6 +48,7 @@
   /* Chart series, validated with the dataviz palette checker on --panel (dark). */
   --chart-observed: #4d8ee6;
   --chart-forecast: #cf7a2e;
+  --chart-delivered: #3a9e72; /* validated with observed + forecast, all pairs */
   --chart-observed-text: #7fb0f2; /* links/text in the same hue, >= 7:1 on panels */
 
   --focus: #ffffff;

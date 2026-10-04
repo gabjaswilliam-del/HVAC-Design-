@@ -222,6 +222,8 @@ export function generate(def: ScenarioDef): Dataset {
     put("plant:cooling_demand_kw", i, dem, 0);
     put("plant:cooling_delivered_kw", i, delivered, 0);
     put("plant:unmet_kw", i, unmet, 0);
+    // Rated capacity of the chillers actually running (nameplate x count), not installed capacity.
+    put("plant:available_capacity_kw", i, running.length * CHILLER_KW, 0);
     put("plant:power_kw", i, plantKw, 1);
     put("plant:cop", i, delivered / plantKw, 2);
     put("plant:chw_delta_t_c", i, ret - supply, 2);
@@ -257,8 +259,9 @@ export function generate(def: ScenarioDef): Dataset {
     }
   }
 
+  const historyDays = def.historyDays ?? HISTORY_DAYS;
   const values: number[] = [];
-  for (let d = -HISTORY_DAYS; d <= 0; d++) for (let i = 0; i < SAMPLES; i++) values.push(round(demand(d, i), 1));
+  for (let d = -historyDays; d <= 0; d++) for (let i = 0; i < SAMPLES; i++) values.push(round(demand(d, i), 1));
 
   return {
     def,
@@ -266,7 +269,7 @@ export function generate(def: ScenarioDef): Dataset {
     stale,
     metrics,
     lastReceivedIndex,
-    demand: { start: DAY_START - HISTORY_DAYS * SAMPLES * STEP_MIN * MINUTE_MS, values },
+    demand: { start: DAY_START - historyDays * SAMPLES * STEP_MIN * MINUTE_MS, values },
   };
 }
 
@@ -316,6 +319,7 @@ export const metricCatalog: MetricInfo[] = [
   { key: "plant:cooling_demand_kw", label: "Cooling demand", unit: "kWt", decimals: 0 },
   { key: "plant:cooling_delivered_kw", label: "Cooling delivered", unit: "kWt", decimals: 0 },
   { key: "plant:unmet_kw", label: "Unmet demand", unit: "kWt", decimals: 0 },
+  { key: "plant:available_capacity_kw", label: "Running chiller capacity", unit: "kWt", decimals: 0 },
   { key: "plant:power_kw", label: "Plant electrical power", unit: "kW", decimals: 1 },
   { key: "plant:cop", label: "System COP", unit: "", decimals: 2 },
   { key: "plant:chw_delta_t_c", label: "CHW ΔT", unit: "°C", decimals: 1 },

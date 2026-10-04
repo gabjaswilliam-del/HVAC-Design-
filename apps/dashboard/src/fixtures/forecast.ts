@@ -24,8 +24,16 @@ export interface ForecastRequest {
   stepMinutes: number;
 }
 
-const DAY_MS = SAMPLES * STEP_MIN * MINUTE_MS;
-const MIN_HISTORY_DAYS = 3;
+export const DAY_MS = SAMPLES * STEP_MIN * MINUTE_MS;
+export const HORIZONS = [360, 720, 1440];
+export const STEPS = [15, 60];
+
+/** Inverse of the forecast ID format below; null if it is not one of ours. */
+export function parseForecastId(id: string) {
+  const m = /^fc-(.+)-(\d{4}-\d{2}-\d{2}T[\d:.]+Z)-h(\d+)-s(\d+)$/.exec(id);
+  return m ? { scenarioId: m[1], asOf: Date.parse(m[2]), horizonMinutes: Number(m[3]), stepMinutes: Number(m[4]) } : null;
+}
+export const MIN_HISTORY_DAYS = 3;
 const STALE_AFTER_MIN = 30;
 const UNAVAILABLE_AFTER_MIN = 120;
 const iso = (ms: number) => new Date(ms).toISOString();

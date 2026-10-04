@@ -380,3 +380,122 @@
     display: none;
   }
 }
+
+/* KPI cards are buttons that open the indicator details panel. */
+button.kpi {
+  margin: 0;
+  border-top: 0;
+  border-left: 0;
+  border-bottom: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: inset 0 -3px 0 transparent;
+  transition: background var(--motion-fast);
+}
+button.kpi:hover {
+  background: var(--panel-raised);
+}
+button.kpi[aria-pressed="true"] {
+  background: #182a45;
+  box-shadow: inset 0 -3px 0 var(--chart-observed);
+}
+button.kpi:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -3px;
+}
+.kpi-strip > .kpi:first-child {
+  border-top-left-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-md);
+}
+
+/* Indicator details panel (shares the inspector frame). */
+.kpi-panel__value {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+.kpi-panel__quality {
+  color: var(--state-warning);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.kpi-panel__synthetic {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--synthetic);
+  border-radius: var(--radius-sm);
+  background: var(--synthetic-bg);
+  color: #f8d8fc;
+  font-size: var(--text-xs);
+}
+.kpi-panel__text {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+.kpi-panel__label {
+  color: var(--text-muted);
+}
+.kpi-panel__subhead {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.kpi-panel__equipment {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+.kpi-panel__equipment li {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+.kpi-panel__equipment-name {
+  font-weight: 600;
+}
+.kpi-panel__equipment-value {
+  margin-left: auto;
+}
+.kpi-panel__actions {
+  display: flex;
+  gap: 4px;
+  flex-basis: 100%;
+}
+.kpi-panel__bar {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--chart-observed);
+}
+.kpi-panel__issues {
+  display: grid;
+  gap: var(--space-4);
+}
+.issue-card {
+  gap: var(--space-1);
+}
+.issue-card h3 {
+  font-size: var(--text-md);
+}
+.kpi-panel__periods {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+}

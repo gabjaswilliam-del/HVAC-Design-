@@ -9,8 +9,9 @@ the local API, PHYVAC, models or equipment. Version C is a separate, later exerc
 | M0 | Vite/React/TS setup, tokens, shell, routes | Done, commit `4376230` |
 | M1 | Equipment artwork, asset sheet, static scene preview | Done; artwork and style approved by owner |
 | M2 | Contracts, deterministic scenarios, fixture client, operating context | Done; awaiting owner review with M3 |
-| M3 | Interactive monitoring: fit/zoom/pan, selection, inspector, playback, KPIs, forecast summary, issues, list view | Done; **owner review gate** |
-| M4 | Cooling prediction page, Equipment screen | Planned |
+| M3 | Interactive monitoring: fit/zoom/pan, selection, inspector, playback, KPIs, forecast summary, issues, list view | Done; reviewed by owner |
+| M3.1 | Interactive KPI cards and indicator details panel (owner request) | Done |
+| M4 | Cooling prediction page, Equipment screen | In progress |
 | M5 | AI assistant page and drawer | Planned |
 | M6 | Simulation, AI pilot (their mock services move here from M2) | Planned |
 | M7 | CAD Studio, Knowledge base, Installation, System | Planned |
@@ -57,3 +58,37 @@ identity and link, narrow-screen list and full-screen inspector, and axe checks.
 Known limits: touch pinch-zoom is not implemented (buttons and Ctrl+wheel work);
 "Live demo" advances the demo clock in real time, so readings change every 5 minutes;
 the AI assistant panel (requirement 6, later part) arrives in M5.
+
+## M3.1: interactive KPI cards (owner request, 2026-10-04)
+
+All nine KPI cards are buttons. Each opens an **indicator details panel** in the same
+right-hand column as the equipment inspector (one side panel at a time), so schematic
+fit/zoom, replay and scenario switching behave exactly as with the inspector.
+`?kpi=<key>` deep-links a panel.
+
+- Every panel: a "synthetic scenario value" notice, what the indicator shows, how it
+  is derived (with its reported inputs, never recalculated in the browser), current
+  measurements, nameplate design references where relevant, data quality (stale and
+  unavailable inputs listed, never filled in), today's trend, and related equipment
+  with **Locate** (centres it on the plant) and **Inspect** (opens the equipment
+  inspector). Related equipment is highlighted on the plant while the panel is open.
+- **Open issues**: the scenario's issues at the playback time with severity, status,
+  ID, first/last seen, the scenario's own description (labeled synthetic), affected
+  equipment with actions and supporting readings with quality. Resolved issues are
+  listed separately. No recommendations are generated.
+- **Cooling demand / delivered**: a demand-vs-delivered chart with running chiller
+  capacity, the current shortfall and today's shortfall periods derived from the
+  reported unmet-demand series. Running capacity is a backend-reported metric
+  (`plant:available_capacity_kw`: rated capacity of running chillers), not installed
+  capacity and not an overload prediction.
+- **Plant electrical power** lists each machine's contribution, largest first.
+
+Fixed while testing: on a cold page load the viewport could miss its first
+ResizeObserver notification and leave the schematic undrawn; it now measures itself
+synchronously on mount.
+
+Tests: `e2e/kpi.spec.ts` (16 tests: every card, Escape/focus return, toggling and
+refit, indicator content, issues with evidence and actions, empty state, shortfall
+and replay consistency, scenario changes, stale/missing inputs, panel/inspector
+exclusivity, keyboard, 1024×768 / 1280×720 / 1920×1080 fits, 390 px, axe) and
+`src/features/monitoring/kpi.test.ts`.

@@ -8,6 +8,7 @@
 import { ApiError, validate, type DataClient, type RequestOptions } from "../lib/api/client";
 import {
   demandHistory,
+  forecastCapabilities,
   forecastResult,
   history,
   issueList,
@@ -18,7 +19,7 @@ import {
   type Reading,
 } from "../lib/contracts";
 import { demoScene, demoTopology } from "./demoPlant";
-import { seasonalBaselineForecast } from "./forecast";
+import { DAY_MS, HORIZONS, MIN_HISTORY_DAYS, parseForecastId, seasonalBaselineForecast, STEPS } from "./forecast";
 import {
   DAY_START,
   MINUTE_MS,
@@ -32,7 +33,7 @@ import {
 } from "./generate";
 import { scenarioById, type ScenarioDef } from "./scenarios";
 
-export type FixtureOp = "site" | "snapshot" | "history" | "issues" | "forecast" | "demand";
+export type FixtureOp = "site" | "snapshot" | "history" | "issues" | "forecast" | "demand" | "capabilities";
 export type FailureKind = "timeout" | "unavailable" | "denied" | "malformed";
 
 export interface FixtureOptions {
@@ -86,6 +87,19 @@ export function createFixtureClient(scenarioId: string, options: FixtureOptions 
     return { value: m.values[i], quality, sampleTime: quality === "unavailable" ? null : iso(sampleTime(sampledAt)) };
   };
   const lastReceived = (i: number) => (ds.lastReceivedIndex !== null && i > ds.lastReceivedIndex ? ds.lastReceivedIndex : i);
+  const forecastAt = (asOf: number, horizonMinutes: number, stepMinutes: number) =>
+    seasonalBaselineForecast(
+      { start: ds.demand.start, values: ds.demand.values },
+      {
+        scenarioId: def.id,
+        source: SOURCE,
+        configRevision: demoTopology.configRevision,
+        asOf,
+        latestInputAt: Math.min(asOf, sampleTime(lastReceived(sampleIndexAt(asOf)))),
+        horizonMinutes,
+        stepMinutes,
+      },
+    );
 
   return {
     mode: "demo",
@@ -174,22 +188,34 @@ export function createFixtureClient(scenarioId: string, options: FixtureOptions 
     getLatestForecast: ({ at, horizonMinutes, stepMinutes }, o) =>
       serve("forecast", o, forecastResult, () => {
         // Forecasts are issued every 15 minutes; return the newest at or before `at`.
-        const atMs = Date.parse(at);
-        const asOf = Math.floor(atMs / (15 * MINUTE_MS)) * (15 * MINUTE_MS);
-        const recv = lastReceived(sampleIndexAt(asOf));
-        return seasonalBaselineForecast(
-          { start: ds.demand.start, values: ds.demand.values },
-          {
-            scenarioId: def.id,
-            source: SOURCE,
-            configRevision: demoTopology.configRevision,
-            asOf,
-            latestInputAt: Math.min(asOf, sampleTime(recv)),
-            horizonMinutes,
-            stepMinutes,
-          },
-        );
+        const asOf = Math.floor(Date.parse(at) / (15 * MINUTE_MS)) * (15 * MINUTE_MS);
+        return forecastAt(asOf, horizonMinutes, stepMinutes);
       }),
+
+    getForecastById: (forecastId, o) =>
+      serve("forecast", o, forecastResult, () => {
+        const id = parseForecastId(forecastId);
+        if (!id || id.scenarioId !== def.id || !HORIZONS.includes(id.horizonMinutes) || !STEPS.includes(id.stepMinutes)) {
+          throw new ApiError("NOT_FOUND", `No forecast with ID ${forecastId} exists for this site and source.`, false);
+        }
+        return forecastAt(id.asOf, id.horizonMinutes, id.stepMinutes);
+      }),
+
+    getForecastCapabilities: (o) =>
+      serve("capabilities", o, forecastCapabilities, () => ({
+        schemaVersion: 1,
+        target: "cooling_load_kw",
+        sources: ["telemetry"],
+        horizonsMinutes: HORIZONS,
+        stepsMinutes: STEPS,
+        modes: [
+          { mode: "site_adapted", available: false, artifactId: null, reason: "No site adaptation has been run in this demo installation." },
+          { mode: "pretrained", available: false, artifactId: null, reason: "No pretrained forecasting model artifact is installed." },
+          { mode: "baseline", available: true, artifactId: "demo-seasonal-profile-baseline", reason: null },
+        ],
+        historyDaysAvailable: Math.floor((DAY_START - ds.demand.start) / DAY_MS),
+        minHistoryDays: MIN_HISTORY_DAYS,
+      })),
 
     getDemandHistory: ({ from, to }, o) =>
       serve("demand", o, demandHistory, () => {

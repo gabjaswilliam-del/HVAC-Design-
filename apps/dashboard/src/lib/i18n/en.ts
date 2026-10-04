@@ -105,6 +105,81 @@ export const en = {
       neutral: "Load and thermal kW",
     },
   },
+  kpiPanel: {
+    label: "Indicator details",
+    close: "Close indicator details",
+    showDetails: ", show details",
+    synthetic: "Synthetic scenario value from the demo generator, not site telemetry.",
+    about: "What it shows",
+    definition: "How it is derived",
+    definitionNote: "Inputs as reported by the backend; the dashboard does not recalculate them.",
+    measurements: "Current measurements",
+    references: "Design references (nameplate)",
+    quality: "Data quality",
+    allGood: "All inputs are current.",
+    qualityIssues: (stale: number, missing: number) =>
+      [stale && `${stale} stale`, missing && `${missing} unavailable`].filter(Boolean).join(", ") + ".",
+    lastSample: "Last sample",
+    trend: "Today so far",
+    equipment: "Related equipment",
+    locate: "Locate",
+    inspect: "Inspect",
+    breakdown: "Contribution by equipment",
+    comparison: "Demand against delivered cooling",
+    capacityNote:
+      "Running capacity is the rated capacity of the chillers running at that time, reported by the backend; it is not installed capacity and not an overload prediction.",
+    shortfallNow: (kw: string) => `Shortfall now: ${kw} of demand is not being delivered.`,
+    noShortfallNow: "No shortfall now: delivered cooling meets demand.",
+    shortfallPeriods: "Shortfall periods today",
+    noShortfallToday: "No shortfall so far today.",
+    period: (from: string, to: string, peak: string) => `${from}–${to}, peak ${peak} unmet`,
+    ongoing: "ongoing",
+    openForecast: "Open cooling prediction",
+    issues: {
+      heading: "Open issues",
+      none: (time: string) => `No open issues at ${time} in this scenario.`,
+      scenarioText: "Scenario description (synthetic)",
+      lastSeen: "Last seen",
+      affected: "Affected equipment",
+      noAffected: "No specific equipment is recorded for this issue.",
+      evidence: "Supporting readings",
+      noEvidence: "No supporting readings are recorded for this issue.",
+      resolved: "Resolved earlier today",
+      resolvedAt: "resolved",
+    },
+  },
+  kpiText: {
+    "plant:cooling_demand_kw": {
+      about:
+        "Cooling the data hall requires, in thermal kW. Here it is the scenario's synthetic required load. For a live site the measurement must be agreed: flow × ΔT measures delivered cooling, which is not demand when capacity is short.",
+    },
+    "plant:cooling_delivered_kw": {
+      about: "Cooling the running chillers are removing from the chilled-water loop, in thermal kW.",
+      definition: "Sum of the running chillers' cooling output.",
+    },
+    "plant:power_kw": {
+      about: "Electrical power drawn by the chillers, pumps and cooling-tower fans.",
+      definition: "Sum of the equipment's electrical power.",
+    },
+    "plant:cop": {
+      about: "Coefficient of performance: thermal kW of cooling delivered per kW of plant electrical power. Higher is more efficient.",
+      definition: "Cooling delivered ÷ plant electrical power.",
+    },
+    "chw_supply:temp_c": {
+      about: "Temperature of the chilled water leaving the plant for the data hall.",
+    },
+    "plant:chw_delta_t_c": {
+      about: "How much the chilled water warms up in the data hall. A low ΔT means more flow is needed for the same cooling.",
+      definition: "CHW return temperature − CHW supply temperature.",
+    },
+    "plant:approach_c": {
+      about: "How far the water leaving the cooling towers is above the outdoor wet bulb. A rising approach means the towers are rejecting heat less effectively.",
+      definition: "CW supply (tower outlet) temperature − wet bulb.",
+    },
+    "weather:wet_bulb_c": {
+      about: "Outdoor wet-bulb temperature: the lower limit that evaporative cooling towers can approach.",
+    },
+  } as Record<string, { about: string; definition?: string }>,
   families: {
     chiller_plant: "Chiller",
     chilled_water_pump_pri: "Primary chilled-water pump",
