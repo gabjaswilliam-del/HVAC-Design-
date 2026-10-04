@@ -1,13 +1,24 @@
 .monitoring {
   display: grid;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4) var(--space-5);
+}
+
+/* The operating view fills the window below the header: heading, indicators,
+   schematic (with the inspector beside it) and playback. The schematic takes the
+   remaining height so fit-to-screen shows the whole plant without scrolling. */
+.monitoring__top {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  height: calc(100dvh - var(--header-height) - var(--space-3) - var(--space-2));
+  min-height: 600px;
 }
 .monitoring__head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-2) var(--space-4);
+  gap: var(--space-1) var(--space-4);
 }
 .monitoring__head h1 {
   font-size: var(--text-xl);
@@ -20,10 +31,229 @@
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
-.monitoring__scene {
+.monitoring__status {
+  margin: 0;
+  min-height: 1.3em;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* KPI strip */
+.kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  background: var(--panel);
+}
+.kpi {
+  display: grid;
+  align-content: space-between;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-right: 1px solid var(--line);
+  min-width: 0;
+}
+.kpi:last-child {
+  border-right: 0;
+}
+.kpi__label {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.2;
+}
+.kpi__value {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.kpi__unit {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.kpi__missing {
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  padding-top: 2px;
+}
+.kpi__stale {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  color: var(--state-warning);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+.kpi--stale .kpi__value {
+  color: var(--text-muted);
+}
+.kpi__alert {
+  color: var(--state-warning);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+.kpi--alert .kpi__value {
+  color: var(--state-fault);
+}
+
+/* Work area: schematic stage plus inspector column */
+.monitoring__work {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+.monitoring__work--inspecting {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+}
+.monitoring__stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  min-width: 0;
+}
+.monitoring__stage-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.monitoring__inspector {
+  min-height: 0;
+  overflow: auto;
+  border-radius: var(--radius-md);
+}
+
+/* Viewport */
+.plant-viewport {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  /* clip, not hidden: a hidden overflow is still scrollable by focus(), which would
+     shift the drawing under the pointer when a partly visible node is focused. */
+  overflow: clip;
+}
+.plant-viewport__box {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: clip;
+}
+.plant-viewport__box > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+  /* Dragging pans; it must never start a text selection or native drag, which
+     would cancel the pointer stream mid-pan. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+.plant-viewport__box > svg:active {
+  cursor: grabbing;
+}
+.plant-viewport__box > svg:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.plant-viewport__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.plant-viewport__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.plant-viewport__divider {
+  width: 1px;
+  height: 22px;
+  margin: 0 4px;
+  background: var(--line-strong);
+}
+.plant-viewport__hint {
+  position: absolute;
+  left: var(--space-2);
+  bottom: var(--space-2);
+  margin: 0;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: rgb(8 16 30 / 0.85);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  pointer-events: none;
+}
+/* Only where there is room; the same instructions are in the viewport's label. */
+@media (max-width: 1439px) {
+  .plant-viewport__hint {
+    display: none;
+  }
+}
+
+.equipment-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+.equipment-list .is-selected {
+  background: #182a45;
+}
+.equipment-list__name {
+  color: var(--text);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+/* Below the operating view */
+.monitoring__below {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.issues-panel__list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.issues-panel__summary {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.issues-panel__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.issues-panel__empty {
+  margin: 0;
+  color: var(--text-muted);
+}
+.issue-line.is-resolved {
+  opacity: 0.75;
 }
 
 .scene-legend {
@@ -93,4 +323,60 @@
   height: 14px;
   border: 1.5px solid;
   border-radius: 2px;
+}
+
+/* Medium widths: inspector stays beside the schematic but narrower. */
+@media (max-width: 1100px) {
+  .kpi-strip {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .kpi {
+    border-bottom: 1px solid var(--line);
+  }
+  .monitoring__work--inspecting {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+  .monitoring__below {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Narrow: natural page flow; the inspector becomes a full-screen panel. */
+@media (max-width: 760px) {
+  .monitoring {
+    padding: var(--space-2) var(--space-2) var(--space-4);
+  }
+  .monitoring__top {
+    height: auto;
+    min-height: 0;
+  }
+  .monitoring__work,
+  .monitoring__work--inspecting {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .plant-viewport {
+    height: 62vh;
+  }
+  .monitoring__inspector {
+    position: fixed;
+    inset: var(--header-height) 0 0 0;
+    z-index: 45;
+    padding: var(--space-2);
+    background: var(--ink);
+  }
+  .kpi-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .kpi:nth-child(2n) {
+    border-right: 0;
+  }
+  .equipment-list__type {
+    display: none;
+  }
+  .kpi {
+    border-bottom: 1px solid var(--line);
+  }
+  .plant-viewport__hint {
+    display: none;
+  }
 }

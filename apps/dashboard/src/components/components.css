@@ -1,0 +1,300 @@
+/* Shared, feature-neutral UI patterns. */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 34px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.button:hover {
+  border-color: var(--text-faint);
+}
+.button[aria-pressed="true"] {
+  background: #1f3352;
+  border-color: var(--chart-observed);
+}
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.button--small {
+  min-height: 28px;
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+.text-button {
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--chart-observed-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  font-size: var(--text-sm);
+}
+.link {
+  color: var(--chart-observed-text);
+  text-underline-offset: 3px;
+}
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.segmented button {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.segmented button + button {
+  border-left: 1px solid var(--line-strong);
+}
+.segmented button[aria-pressed="true"] {
+  background: var(--panel-raised);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.select {
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+.panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) 0;
+}
+.panel__head h2 {
+  font-size: var(--text-md);
+}
+.panel__body {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+
+/* State labels: icon + word, colour secondary */
+.state-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+.state-label--running {
+  color: var(--state-running);
+}
+.state-label--stopped {
+  color: var(--state-stopped);
+}
+.state-label--fault {
+  color: var(--state-fault);
+}
+.state-label--unavailable {
+  color: var(--state-unavailable);
+}
+.state-label--stale {
+  color: var(--state-warning);
+}
+
+/* Notices */
+.notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-left-width: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  font-size: var(--text-sm);
+}
+.notice__body {
+  flex: 1;
+}
+.notice--info {
+  border-left-color: var(--chart-observed);
+}
+.notice--warning {
+  border-left-color: var(--state-warning);
+}
+.notice--warning > svg {
+  color: var(--state-warning);
+}
+.notice--critical {
+  border-left-color: var(--state-fault);
+  background: #2a1218;
+}
+.notice--critical > svg {
+  color: var(--state-fault);
+}
+
+/* Data tables */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.data-table th,
+.data-table td {
+  padding: 6px var(--space-2);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.data-table thead th {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.data-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.badge--inferred,
+.badge--unknown {
+  border-color: var(--state-warning);
+  color: #f6d38a;
+}
+
+.skeleton {
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--panel) 0%, var(--panel-raised) 50%, var(--panel) 100%);
+  background-size: 200% 100%;
+  animation: skeleton 1.4s linear infinite;
+}
+@keyframes skeleton {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Time-series chart */
+.ts-chart {
+  margin: 0;
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+}
+.ts-chart__plot {
+  position: relative;
+  width: 100%;
+}
+.ts-chart__plot svg {
+  display: block;
+}
+.ts-chart__grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.ts-chart__tick,
+.ts-chart__unit {
+  font-size: 12px;
+  fill: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ts-chart__marker {
+  stroke: var(--text-faint);
+  stroke-dasharray: 3 3;
+}
+.ts-chart__crosshair {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+}
+.ts-chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.ts-chart__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ts-chart__swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.ts-chart__tooltip {
+  position: absolute;
+  top: 4px;
+  z-index: 5;
+  min-width: 170px;
+  padding: var(--space-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+  font-size: var(--text-sm);
+  pointer-events: none;
+}
+.ts-chart__tooltip-time {
+  color: var(--text-muted);
+}
+.ts-chart__tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ts-chart__tooltip-row strong,
+.ts-chart__tooltip-row span.num {
+  margin-left: auto;
+}
+.ts-chart__tooltip-muted {
+  color: var(--text-muted);
+}
+.ts-chart__table {
+  width: 100%;
+  max-height: 240px;
+  overflow: auto;
+}
+.ts-chart__table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.ts-chart__table th,
+.ts-chart__table td {
+  padding: 3px var(--space-2);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+.ts-chart__table td {
+  text-align: right;
+}

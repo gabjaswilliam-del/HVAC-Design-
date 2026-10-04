@@ -275,3 +275,107 @@
 .planned p {
   color: var(--text-muted);
 }
+
+/* Scenario picker: header on wide screens, inside the drawer on narrow ones. */
+.scenario-select {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.scenario-select--header {
+  margin-left: auto;
+}
+.scenario-select--drawer {
+  display: none;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0 var(--space-3);
+}
+@media (max-width: 760px) {
+  .scenario-select--header {
+    display: none;
+  }
+  .scenario-select--drawer {
+    display: flex;
+  }
+}
+
+/* Small square tool buttons used in toolbars and the playback bar. */
+.tool-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+  color: var(--text);
+  cursor: pointer;
+}
+.tool-button:hover {
+  border-color: var(--text-faint);
+}
+.tool-button--text {
+  padding: 0 10px;
+  font-size: var(--text-sm);
+}
+.tool-button[aria-pressed="true"] {
+  border-color: var(--chart-observed);
+  background: #1f3352;
+}
+
+/* Playback */
+.playback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+.playback__track {
+  position: relative;
+  flex: 1 1 280px;
+  min-width: 200px;
+  padding-bottom: 16px;
+}
+.playback__range {
+  width: 100%;
+  accent-color: var(--chart-observed);
+}
+.playback__ticks {
+  position: absolute;
+  inset: auto 8px 0 8px;
+  height: 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.playback__ticks span {
+  position: absolute;
+  transform: translateX(-50%);
+  font-variant-numeric: tabular-nums;
+}
+.playback__now {
+  display: grid;
+  justify-items: end;
+  line-height: 1.2;
+}
+.playback__source {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+@media (max-width: 760px) {
+  .playback__ticks span:nth-child(even) {
+    display: none;
+  }
+  .playback__now {
+    justify-items: start;
+  }
+}

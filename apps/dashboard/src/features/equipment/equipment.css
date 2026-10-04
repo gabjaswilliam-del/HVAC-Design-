@@ -1,0 +1,114 @@
+.inspector {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  min-width: 0;
+}
+.inspector__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.inspector__head h2 {
+  font-size: var(--text-lg);
+}
+.inspector__muted {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.inspector__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.inspector__facts dt {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.inspector__facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.inspector__id {
+  font-size: var(--text-sm);
+}
+.inspector__section {
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+.inspector__section h3 {
+  font-size: var(--text-md);
+}
+.inspector__trend-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.inspector__connections,
+.inspector__issues {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+.inspector__connections li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px var(--space-2);
+}
+.inspector__port {
+  font-weight: 600;
+}
+.inspector__dir,
+.inspector__medium,
+.inspector__note {
+  color: var(--text-muted);
+}
+.inspector__note {
+  flex-basis: 100%;
+  font-size: var(--text-xs);
+}
+.quality--stale {
+  color: var(--state-warning);
+}
+.quality--unavailable {
+  color: var(--text-muted);
+}
+
+/* Issue lines are shared by the inspector and the issues panel. */
+.issue-line {
+  display: grid;
+  gap: 2px;
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--line-strong);
+}
+.issue-line--critical {
+  border-left-color: var(--state-fault);
+}
+.issue-line--warning {
+  border-left-color: var(--state-warning);
+}
+.issue-line--info {
+  border-left-color: var(--chart-observed);
+}
+.issue-line__severity {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.issue-line__title {
+  font-weight: 600;
+}

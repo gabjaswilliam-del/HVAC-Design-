@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 import { useStrings } from "../../../lib/i18n";
 import { spriteGeometry, type SpriteKind } from "./geometry";
 import type { OperatingState } from "./materials";
@@ -22,6 +22,12 @@ interface EquipmentNodeProps {
   speedHz?: number;
   /** Label position relative to the sprite. "right" stacks name and state beside it. */
   labelAt?: "below" | "above" | "right";
+  /** Makes the node a keyboard-operable button that selects this equipment. */
+  onSelect?: (id: string) => void;
+  /** Connected to the selection: stays at full emphasis while others dim. */
+  related?: boolean;
+  /** Pointed out by another feature (assistant, pilot) without being selected. */
+  highlighted?: boolean;
 }
 
 const HALO_PAD = 7;
@@ -43,6 +49,9 @@ export function EquipmentNode({
   flip = false,
   speedHz,
   labelAt = "below",
+  onSelect,
+  related = false,
+  highlighted = false,
 }: EquipmentNodeProps) {
   const s = useStrings();
   const { width, height } = spriteGeometry[kind];
@@ -57,6 +66,9 @@ export function EquipmentNode({
     still && "eq-node--still",
     stale && "eq-node--stale",
     selected && "eq-node--selected",
+    (selected || related) && "eq-node--related",
+    highlighted && "eq-node--highlighted",
+    onSelect && "eq-node--interactive",
   ]
     .filter(Boolean)
     .join(" ");
@@ -67,7 +79,39 @@ export function EquipmentNode({
       transform={`translate(${x} ${y})`}
       data-equipment-id={id}
       style={period ? ({ "--fan-period": `${period}s` } as CSSProperties) : undefined}
+      {...(onSelect && {
+        role: "button",
+        tabIndex: 0,
+        "aria-label": `${label}, ${stateWord}`,
+        "aria-pressed": selected,
+        onClick: () => onSelect(id),
+        onKeyDown: (e: KeyboardEvent) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelect(id);
+          }
+        },
+      })}
     >
+      {onSelect && (
+        <rect
+          className="eq-node__hit"
+          x={-HALO_PAD}
+          y={labelAt === "above" ? -30 : -HALO_PAD}
+          width={width + HALO_PAD * 2 + (labelAt === "right" ? 100 : 0)}
+          height={height + HALO_PAD * 2 + (labelAt === "below" ? 22 : 0)}
+        />
+      )}
+      {highlighted && !selected && (
+        <rect
+          className="eq-node__frame eq-node__frame--highlighted"
+          x={-HALO_PAD - 4}
+          y={-HALO_PAD - 4}
+          width={width + HALO_PAD * 2 + 8}
+          height={height + HALO_PAD * 2 + 8}
+          rx={8}
+        />
+      )}
       {(selected || state === "fault" || state === "unavailable") && (
         <rect
           className={`eq-node__frame eq-node__frame--${selected ? "selected" : state}`}

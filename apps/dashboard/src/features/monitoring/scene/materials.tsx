@@ -4,7 +4,9 @@
  * any top-level <svg> (or a hidden one on the page) that draws equipment sprites.
  */
 
-export type OperatingState = "running" | "stopped" | "fault" | "unavailable";
+import type { OperatingState } from "../../../lib/contracts";
+
+export type { OperatingState };
 
 interface Material {
   hi: string; // specular highlight

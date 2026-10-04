@@ -1,5 +1,7 @@
-export type Medium = "cw-hot" | "cw-cool" | "chw-supply" | "chw-return";
-export type Evidence = "confirmed" | "drawing" | "inferred" | "unknown";
+import type { Evidence } from "../../../lib/contracts";
+import type { Medium } from "../../../lib/topology";
+
+export type { Medium };
 
 const ARROW = "M-7 -1.7 H0 V-5 L7.5 0 L0 5 V1.7 H-7 Z";
 const ARROW_FIRST = 46;
@@ -15,6 +17,10 @@ interface PipeProps {
   flowPeriod?: number;
   /** Unknown links are drawn as unconfirmed, without flow or direction. */
   evidence?: Evidence;
+  /** Connected to the selected equipment. */
+  active?: boolean;
+  /** Topology link ID, exposed for tests and tooling. */
+  linkId?: string;
 }
 
 /**
@@ -23,14 +29,14 @@ interface PipeProps {
  * pipe cuts a gap in any earlier pipe it crosses, the usual drawing convention for a
  * crossing without a connection.
  */
-export function Pipe({ points, medium, flowing, flowPeriod = 1, evidence = "confirmed" }: PipeProps) {
+export function Pipe({ points, medium, flowing, flowPeriod = 1, evidence = "confirmed", active = false, linkId }: PipeProps) {
   const d = points.map(([x, y], i) => `${i ? "L" : "M"}${x} ${y}`).join(" ");
   const unknown = evidence === "unknown";
 
   if (unknown) {
     const [ex, ey] = points[points.length - 1];
     return (
-      <g className="pipe pipe--unknown">
+      <g className={`pipe pipe--unknown${active ? " pipe--active" : ""}`} data-link-id={linkId}>
         <path d={d} fill="none" stroke="var(--ink-scene)" strokeWidth={9} />
         <path d={d} fill="none" stroke="var(--state-unavailable)" strokeWidth={3} strokeDasharray="7 6" />
         <circle cx={ex} cy={ey} r={8} fill="var(--panel)" stroke="var(--state-unavailable)" strokeWidth={1.2} />
@@ -54,7 +60,12 @@ export function Pipe({ points, medium, flowing, flowPeriod = 1, evidence = "conf
 
   const color = `var(--${medium})`;
   return (
-    <g className={`pipe pipe--${medium}${flowing ? " pipe--flowing" : ""}`} data-evidence={evidence}>
+    <g
+      className={`pipe pipe--${medium}${flowing ? " pipe--flowing" : ""}${active ? " pipe--active" : ""}`}
+      data-evidence={evidence}
+      data-link-id={linkId}
+    >
+      {active && <path className="pipe__glow" d={d} fill="none" stroke={color} strokeWidth={17} strokeLinejoin="round" />}
       <path d={d} fill="none" stroke="var(--ink-scene)" strokeWidth={11} strokeLinejoin="round" />
       <path d={d} fill="none" stroke={color} strokeWidth={5.5} strokeLinejoin="round" />
       <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.2} strokeWidth={1.6} strokeLinejoin="round" />

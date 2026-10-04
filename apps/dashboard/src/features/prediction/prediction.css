@@ -1,0 +1,25 @@
+.forecast-summary .panel__body {
+  display: grid;
+  gap: var(--space-3);
+}
+.forecast-summary__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+}
+.forecast-summary__facts > div {
+  display: grid;
+  gap: 2px;
+}
+.forecast-summary__label {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.forecast-summary__peak {
+  font-size: var(--text-lg);
+}
+.forecast-summary__stale {
+  color: var(--state-warning);
+  font-size: var(--text-sm);
+}

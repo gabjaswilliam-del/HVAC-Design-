@@ -45,6 +45,11 @@
   --tag-neutral-bg: #1c2638;
   --tag-neutral-line: #5a6b86;
 
+  /* Chart series, validated with the dataviz palette checker on --panel (dark). */
+  --chart-observed: #4d8ee6;
+  --chart-forecast: #cf7a2e;
+  --chart-observed-text: #7fb0f2; /* links/text in the same hue, >= 7:1 on panels */
+
   --focus: #ffffff;
   --selection: #eaf6ff;
 

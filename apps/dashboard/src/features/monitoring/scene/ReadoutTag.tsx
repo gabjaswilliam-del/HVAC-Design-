@@ -1,7 +1,8 @@
 import { useStrings } from "../../../lib/i18n";
 
-export type MetricKind = "frequency" | "power" | "temperature" | "hydraulic" | "neutral";
-export type Quality = "good" | "stale" | "unavailable";
+import type { MetricKind, Quality } from "../../../lib/contracts";
+
+export type { MetricKind, Quality };
 
 interface ReadoutTagProps {
   x: number;

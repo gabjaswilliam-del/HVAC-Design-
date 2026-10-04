@@ -195,3 +195,53 @@
     animation: none !important;
   }
 }
+
+/* Interaction: selection emphasis, related pipes, hover and focus */
+.eq-node--interactive {
+  cursor: pointer;
+}
+.eq-node__hit {
+  fill: transparent;
+}
+.eq-node--interactive:hover .eq-node__hit {
+  fill: rgb(234 246 255 / 0.05);
+  stroke: rgb(234 246 255 / 0.35);
+  stroke-width: 1;
+  rx: 6px;
+}
+.eq-node--interactive:focus {
+  outline: none;
+}
+.eq-node--interactive:focus-visible .eq-node__hit {
+  stroke: var(--focus);
+  stroke-width: 2;
+  rx: 6px;
+}
+.eq-node__frame--highlighted {
+  stroke: var(--state-warning);
+  stroke-width: 2;
+  stroke-dasharray: 8 5;
+}
+.pipe__glow {
+  opacity: 0.35;
+}
+.plant--focus .pipe:not(.pipe--active),
+.plant--focus .eq-node:not(.eq-node--related),
+.plant--focus .eq-symbol,
+.plant--focus .tag-wrap:not(.tag-wrap--related) {
+  opacity: 0.32;
+  transition: opacity var(--motion-base);
+}
+
+/* Readings of a device select it; symbols and captions never block equipment. */
+.tag-wrap {
+  pointer-events: none;
+}
+.tag-wrap--selectable {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.eq-symbol,
+.scene-caption {
+  pointer-events: none;
+}

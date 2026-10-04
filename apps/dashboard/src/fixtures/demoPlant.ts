@@ -8,8 +8,9 @@
  * `unknown`, and the standby chilled-water pump's suction is not recorded. Counts
  * (3 chillers, 4 towers, 4 + 4 pumps) are a demonstration choice the family permits.
  */
-import type { Device, Link, Topology, Valve } from "../lib/contracts/site";
-import type { SceneLayout, SceneReadings } from "../features/monitoring/scene/types";
+import type { Device, Link, SceneLayout, Topology } from "../lib/contracts";
+
+type Valve = Topology["valves"][number];
 
 const n4 = [1, 2, 3, 4];
 const n3 = [1, 2, 3];
@@ -18,15 +19,41 @@ const chiller = (i: number) => `chiller_plant_${i}`;
 const cwp = (i: number) => `cooling_water_pump_${i}`;
 const chwp = (i: number) => `chilled_water_pump_pri_${i}`;
 
+// Synthetic nameplate/design values, rounded; consistent with PR #2's sanitized example.
+const NAMEPLATE = {
+  tower: [
+    { label: "Design heat rejection", value: 1160, unit: "kW" },
+    { label: "Design water flow", value: 200, unit: "m³/h" },
+    { label: "Design wet bulb", value: 28, unit: "°C" },
+    { label: "Fan motor", value: 5.5, unit: "kW" },
+  ],
+  chiller: [
+    { label: "Cooling capacity", value: 700, unit: "kW" },
+    { label: "Design CHW supply", value: 7, unit: "°C" },
+    { label: "Design CHW return", value: 12, unit: "°C" },
+    { label: "Design CHW flow", value: 120, unit: "m³/h" },
+    { label: "Design CW flow", value: 150, unit: "m³/h" },
+  ],
+  cwPump: [
+    { label: "Rated flow", value: 155, unit: "m³/h" },
+    { label: "Motor", value: 22, unit: "kW" },
+  ],
+  chwPump: [
+    { label: "Rated flow", value: 110, unit: "m³/h" },
+    { label: "Motor", value: 15, unit: "kW" },
+  ],
+};
+
 const devices: Device[] = [
-  ...n4.map((i): Device => ({ id: tower(i), family: "cooling_towers", label: `Cooling tower ${i}`, evidence: "confirmed" })),
-  ...n3.map((i): Device => ({ id: chiller(i), family: "chiller_plant", label: `Chiller ${i}`, evidence: "confirmed" })),
+  ...n4.map((i): Device => ({ id: tower(i), family: "cooling_towers", label: `Cooling tower ${i}`, evidence: "confirmed", nameplate: NAMEPLATE.tower })),
+  ...n3.map((i): Device => ({ id: chiller(i), family: "chiller_plant", label: `Chiller ${i}`, evidence: "confirmed", nameplate: NAMEPLATE.chiller })),
   ...n4.map(
     (i): Device => ({
       id: cwp(i),
       family: "cooling_water_pump",
       label: `CW pump ${i}`,
       evidence: "confirmed",
+      nameplate: NAMEPLATE.cwPump,
       ...(i === 4 ? { role: "standby" as const } : {}),
     }),
   ),
@@ -36,10 +63,11 @@ const devices: Device[] = [
       family: "chilled_water_pump_pri",
       label: `CHW pump ${i}`,
       evidence: "confirmed",
+      nameplate: NAMEPLATE.chwPump,
       ...(i === 4 ? { role: "standby" as const } : {}),
     }),
   ),
-  { id: "terminal", family: "terminal", label: "Data hall", evidence: "confirmed" },
+  { id: "terminal", family: "terminal", label: "Data hall", evidence: "confirmed", nameplate: [] },
 ];
 
 const port = (device: string, p: string) => ({ device, port: p });
@@ -95,10 +123,10 @@ export const demoTopology: Topology = {
   family: "water_cooled_chiller_plant_v1",
   devices,
   buses: [
-    { id: "cw_supply", medium: "cw" },
-    { id: "cw_return", medium: "cw" },
-    { id: "chw_supply", medium: "chw" },
-    { id: "chw_return", medium: "chw" },
+    { id: "cw_supply", medium: "cw", label: "Condenser-water supply header" },
+    { id: "cw_return", medium: "cw", label: "Condenser-water return header" },
+    { id: "chw_supply", medium: "chw", label: "Chilled-water supply header" },
+    { id: "chw_return", medium: "chw", label: "Chilled-water return header" },
   ],
   links,
   valves,
@@ -226,7 +254,7 @@ export const demoScene: SceneLayout = {
     ]),
     { metric: "cw_supply:temp_c", at: [376, 236], kind: "temperature", unit: "°C", label: "CW supply", labelGap: 28, width: 50 },
     { metric: "cw_return:temp_c", at: [616, 12], kind: "temperature", unit: "°C", label: "CW return", labelGap: 28, width: 50 },
-    { metric: "terminal:cooling_load_kw", at: [1300, 284], kind: "neutral", unit: "kWt", decimals: 0, label: "Cooling load", width: 64 },
+    { metric: "terminal:cooling_demand_kw", at: [1300, 284], kind: "neutral", unit: "kWt", decimals: 0, label: "Cooling demand", width: 64 },
     { metric: "chw_supply:temp_c", at: [1300, 362], kind: "temperature", unit: "°C", label: "Temperature", width: 64 },
     { metric: "chw_supply:pressure_kpa", at: [1300, 390], kind: "hydraulic", unit: "kPa", label: "Pressure", width: 64 },
     { metric: "chw_supply:flow_m3h", at: [1300, 418], kind: "hydraulic", unit: "m³/h", label: "Flow", width: 64 },
@@ -237,84 +265,4 @@ export const demoScene: SceneLayout = {
     { at: [1180, 346], text: "Chilled-water supply header" },
     { at: [1180, 460], text: "Chilled-water return header" },
   ],
-};
-
-// ---------------------------------------------------------------------------------
-// ponytail: static preview readings for the Milestone 1 artwork review only. Replaced
-// by the deterministic scenario generator in Milestone 2.
-// ---------------------------------------------------------------------------------
-
-const good = (value: number) => ({ value, quality: "good" as const });
-
-export const previewReadings: SceneReadings = {
-  equipment: {
-    [tower(1)]: { state: "running" },
-    [tower(2)]: { state: "running" },
-    [tower(3)]: { state: "running" },
-    [tower(4)]: { state: "fault" },
-    [chiller(1)]: { state: "running" },
-    [chiller(2)]: { state: "running" },
-    [chiller(3)]: { state: "stopped" },
-    [cwp(1)]: { state: "running" },
-    [cwp(2)]: { state: "running" },
-    [cwp(3)]: { state: "stopped" },
-    [cwp(4)]: { state: "stopped" },
-    [chwp(1)]: { state: "running" },
-    [chwp(2)]: { state: "running" },
-    [chwp(3)]: { state: "unavailable" },
-    [chwp(4)]: { state: "stopped" },
-    terminal: { state: "running" },
-  },
-  values: {
-    [`${tower(1)}:frequency_hz`]: good(46.8),
-    [`${tower(1)}:power_kw`]: good(4.52),
-    [`${tower(2)}:frequency_hz`]: good(47.2),
-    [`${tower(2)}:power_kw`]: good(4.64),
-    [`${tower(3)}:frequency_hz`]: good(45.9),
-    [`${tower(3)}:power_kw`]: good(4.25),
-    [`${tower(4)}:frequency_hz`]: good(0),
-    [`${tower(4)}:power_kw`]: good(0),
-    [`${cwp(1)}:frequency_hz`]: good(45.0),
-    [`${cwp(1)}:power_kw`]: good(16.0),
-    [`${cwp(2)}:frequency_hz`]: good(44.6),
-    [`${cwp(2)}:power_kw`]: good(15.7),
-    [`${cwp(3)}:frequency_hz`]: good(0),
-    [`${cwp(3)}:power_kw`]: good(0),
-    [`${cwp(4)}:frequency_hz`]: good(0),
-    [`${cwp(4)}:power_kw`]: good(0),
-    [`${chwp(1)}:frequency_hz`]: good(44.0),
-    [`${chwp(1)}:power_kw`]: good(10.2),
-    [`${chwp(2)}:frequency_hz`]: good(43.6),
-    [`${chwp(2)}:power_kw`]: good(9.9),
-    [`${chwp(3)}:frequency_hz`]: { value: null, quality: "unavailable" },
-    [`${chwp(3)}:power_kw`]: { value: null, quality: "unavailable" },
-    [`${chwp(4)}:frequency_hz`]: good(0),
-    [`${chwp(4)}:power_kw`]: good(0),
-    [`${chiller(1)}:load_pct`]: good(78),
-    [`${chiller(1)}:power_kw`]: good(103.6),
-    [`${chiller(1)}:cond_in_temp_c`]: good(30.4),
-    [`${chiller(1)}:cond_out_temp_c`]: good(35.3),
-    [`${chiller(1)}:evap_out_temp_c`]: good(7.1),
-    [`${chiller(1)}:evap_in_temp_c`]: good(12.0),
-    [`${chiller(2)}:load_pct`]: good(74),
-    [`${chiller(2)}:power_kw`]: good(98.7),
-    [`${chiller(2)}:cond_in_temp_c`]: good(30.4),
-    [`${chiller(2)}:cond_out_temp_c`]: { value: 35.0, quality: "stale" },
-    [`${chiller(2)}:evap_out_temp_c`]: good(7.3),
-    [`${chiller(2)}:evap_in_temp_c`]: good(12.1),
-    [`${chiller(3)}:load_pct`]: good(0),
-    [`${chiller(3)}:power_kw`]: good(0.4),
-    [`${chiller(3)}:cond_in_temp_c`]: good(29.8),
-    [`${chiller(3)}:cond_out_temp_c`]: good(29.9),
-    [`${chiller(3)}:evap_out_temp_c`]: good(13.6),
-    [`${chiller(3)}:evap_in_temp_c`]: good(13.7),
-    "cw_supply:temp_c": good(30.4),
-    "cw_return:temp_c": good(35.2),
-    "terminal:cooling_load_kw": good(1068),
-    "chw_supply:temp_c": good(7.2),
-    "chw_supply:pressure_kpa": good(412.6),
-    "chw_supply:flow_m3h": good(188.4),
-    "chw_return:temp_c": good(12.1),
-    "chw_return:pressure_kpa": { value: null, quality: "unavailable" },
-  },
 };
