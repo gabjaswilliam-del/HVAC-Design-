@@ -1,0 +1,277 @@
+.shell {
+  display: grid;
+  grid-template-columns: var(--nav-width) minmax(0, 1fr);
+  grid-template-rows: var(--header-height) minmax(0, 1fr);
+  grid-template-areas:
+    "header header"
+    "nav main";
+  min-height: 100dvh;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--space-2);
+  top: -100px;
+  z-index: 100;
+  padding: var(--space-2) var(--space-3);
+  background: var(--panel-raised);
+  border-radius: var(--radius-sm);
+}
+.skip-link:focus {
+  top: var(--space-2);
+}
+
+/* Header and navigation stay in place while the page itself scrolls (native,
+   keyboard-scrollable; no nested scroll container). */
+.site-header {
+  grid-area: header;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+.icon-button.site-header__menu {
+  display: none;
+}
+.site-header__identity {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.site-header__product {
+  font-weight: 700;
+  font-size: var(--text-lg);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.site-header__site {
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.site-header__context {
+  margin-left: auto;
+  display: flex;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+.site-header__label {
+  color: var(--text-muted);
+}
+
+.data-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--synthetic);
+  border-radius: 999px;
+  background: var(--synthetic-bg);
+  color: #f8d8fc;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+.icon-button:hover {
+  background: var(--panel-raised);
+}
+
+/* Navigation */
+.main-nav {
+  grid-area: nav;
+  position: sticky;
+  top: var(--header-height);
+  height: calc(100dvh - var(--header-height));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-2);
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+}
+.main-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.main-nav__group-label {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-faint);
+  padding: 0 var(--space-3) var(--space-1);
+}
+.main-nav__link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 38px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+.main-nav__link:hover {
+  background: var(--panel-raised);
+  color: var(--text);
+}
+.main-nav__link.active {
+  background: var(--panel-raised);
+  color: var(--text);
+  border-left-color: var(--chw-return);
+  font-weight: 600;
+}
+.main-nav__collapse {
+  margin-top: auto;
+  align-self: flex-start;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-left: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+/* Icon-only navigation: chosen by the operator, or automatic below 1180px. */
+.shell--collapsed {
+  grid-template-columns: var(--nav-width-collapsed) minmax(0, 1fr);
+}
+.shell--collapsed .main-nav__text,
+.shell--collapsed .main-nav__group-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.shell--collapsed .main-nav__link {
+  justify-content: center;
+  padding: 0;
+}
+
+@media (max-width: 1180px) and (min-width: 761px) {
+  .shell {
+    grid-template-columns: var(--nav-width-collapsed) minmax(0, 1fr);
+  }
+  .main-nav__text,
+  .main-nav__group-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .main-nav__link {
+    justify-content: center;
+    padding: 0;
+  }
+  .main-nav__collapse {
+    display: none;
+  }
+}
+
+/* Narrow screens: navigation becomes a drawer; the data mode stays visible. */
+@media (max-width: 760px) {
+  .shell,
+  .shell--collapsed {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "header"
+      "main";
+  }
+  .site-header {
+    gap: var(--space-2);
+    padding: 0 var(--space-2);
+  }
+  .icon-button.site-header__menu {
+    display: inline-grid;
+  }
+  .site-header__site,
+  .site-header__context {
+    display: none;
+  }
+  .data-mode-badge {
+    margin-left: auto;
+  }
+  .main-nav {
+    position: fixed;
+    z-index: 50;
+    top: var(--header-height);
+    bottom: 0;
+    left: 0;
+    width: min(280px, 85vw);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform var(--motion-base), visibility var(--motion-base);
+  }
+  .shell--drawer .main-nav {
+    transform: none;
+    visibility: visible;
+  }
+  .shell--collapsed .main-nav__text,
+  .shell--collapsed .main-nav__group-label {
+    position: static;
+    width: auto;
+    height: auto;
+    clip: auto;
+  }
+  .shell--collapsed .main-nav__link {
+    justify-content: flex-start;
+    padding: 0 var(--space-3);
+  }
+  .main-nav__collapse {
+    display: none;
+  }
+  .nav-scrim {
+    position: fixed;
+    inset: var(--header-height) 0 0 0;
+    z-index: 40;
+    background: rgb(3 7 14 / 0.6);
+  }
+}
+
+.main {
+  grid-area: main;
+  min-width: 0;
+}
+
+/* Temporary in-development screen used until each milestone lands. */
+.planned {
+  max-width: 64ch;
+  padding: var(--space-6) var(--space-5);
+}
+.planned h1 {
+  font-size: var(--text-xl);
+  margin-bottom: var(--space-3);
+}
+.planned p {
+  color: var(--text-muted);
+}

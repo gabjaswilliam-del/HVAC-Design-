@@ -1,0 +1,197 @@
+/* Plant scene: equipment nodes, pipes and measurement tags. */
+
+.plant-scene {
+  display: block;
+  width: 100%;
+  height: auto;
+  background-color: var(--ink-scene);
+  background-image:
+    linear-gradient(rgb(48 71 107 / 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(48 71 107 / 0.16) 1px, transparent 1px);
+  background-size: 40px 40px;
+  font-family: var(--font-sans);
+}
+
+/* Motion follows reported state only. */
+.eq-fan {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: eq-spin var(--fan-period, 1.2s) linear infinite;
+}
+.eq-guard-slots {
+  animation: eq-slide 0.35s linear infinite;
+}
+.pipe-flow,
+.hall-air {
+  animation: pipe-flow 1s linear infinite;
+}
+.eq-node--still .eq-fan,
+.eq-node--still .eq-guard-slots,
+.eq-node--still .hall-air {
+  animation: none;
+}
+
+@keyframes eq-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes eq-slide {
+  to {
+    transform: translateY(3px);
+  }
+}
+@keyframes pipe-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+/* Retained stale data: desaturated, frozen, with a clock badge. */
+.eq-node--stale .eq-node__art {
+  filter: saturate(0.25) brightness(0.8);
+}
+
+.eq-node__frame {
+  fill: none;
+  stroke-width: 1.6;
+}
+.eq-node__frame--selected {
+  stroke: var(--selection);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 5px rgb(150 215 255 / 0.85));
+}
+.eq-node__frame--fault {
+  stroke: var(--state-fault);
+  animation: eq-pulse 1.6s ease-in-out infinite;
+}
+.eq-node__frame--unavailable {
+  stroke: var(--state-unavailable);
+  stroke-dasharray: 5 4;
+}
+@keyframes eq-pulse {
+  50% {
+    stroke-opacity: 0.35;
+  }
+}
+
+.eq-node--unavailable .eq-node__art {
+  opacity: 0.85;
+}
+
+.eq-badge circle {
+  stroke: var(--ink-scene);
+  stroke-width: 1.5;
+}
+.eq-badge text {
+  font-size: 12px;
+  font-weight: 700;
+  fill: #ffffff;
+}
+.eq-badge--fault circle {
+  fill: var(--state-fault);
+}
+.eq-badge--unavailable circle {
+  fill: #4a556a;
+}
+.eq-badge--stale circle {
+  fill: #4a3b14;
+}
+.eq-badge--stale path {
+  stroke: var(--state-warning);
+}
+
+.eq-node__label {
+  font-size: 15px;
+}
+.eq-node__name {
+  fill: var(--text);
+  font-weight: 600;
+}
+.eq-node__state {
+  font-size: 13px;
+  font-weight: 500;
+}
+.eq-node__state--running {
+  fill: var(--state-running);
+}
+.eq-node__state--stopped {
+  fill: var(--state-stopped);
+}
+.eq-node__state--fault {
+  fill: var(--state-fault);
+}
+.eq-node__state--unavailable {
+  fill: var(--state-unavailable);
+}
+.eq-node__state--stale {
+  fill: var(--state-warning);
+}
+
+.scene-caption {
+  font-size: 14px;
+  font-weight: 600;
+  fill: var(--text-muted);
+}
+
+/* Measurement tags */
+.tag__box {
+  stroke-width: 1.2;
+}
+.tag--frequency .tag__box {
+  fill: var(--tag-frequency-bg);
+  stroke: var(--tag-frequency-line);
+}
+.tag--power .tag__box {
+  fill: var(--tag-power-bg);
+  stroke: var(--tag-power-line);
+}
+.tag--temperature .tag__box {
+  fill: var(--tag-temperature-bg);
+  stroke: var(--tag-temperature-line);
+}
+.tag--hydraulic .tag__box {
+  fill: var(--tag-hydraulic-bg);
+  stroke: var(--tag-hydraulic-line);
+}
+.tag--neutral .tag__box {
+  fill: var(--tag-neutral-bg);
+  stroke: var(--tag-neutral-line);
+}
+.tag--missing .tag__box {
+  fill: transparent;
+  stroke: var(--state-unavailable);
+  stroke-dasharray: 4 3;
+}
+.tag__value {
+  font-size: 16px;
+  font-weight: 600;
+  fill: #f4f7fb;
+}
+.tag--stale .tag__value {
+  fill: var(--text-muted);
+  font-style: italic;
+}
+.tag__clock {
+  stroke: var(--state-warning);
+  stroke-width: 1.3;
+}
+.tag__missing {
+  font-size: 12px;
+  fill: var(--text-muted);
+}
+.tag__label,
+.tag__unit {
+  font-size: 13px;
+  fill: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eq-fan,
+  .eq-guard-slots,
+  .pipe-flow,
+  .hall-air,
+  .eq-node__frame--fault {
+    animation: none !important;
+  }
+}

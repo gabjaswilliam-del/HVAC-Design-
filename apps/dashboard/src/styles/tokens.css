@@ -1,0 +1,77 @@
+/*
+ * One visual vocabulary for the whole dashboard. Features use these tokens and never
+ * introduce their own palette. One complete dark theme is the first delivery.
+ */
+:root {
+  /* Surfaces */
+  --ink: #0a1322;
+  --ink-scene: #08101e;
+  --panel: #111d31;
+  --panel-raised: #16243c;
+  --line: #22324d;
+  --line-strong: #30476b;
+
+  /* Text */
+  --text: #dce6f2;
+  --text-muted: #8fa3bf;
+  --text-faint: #8193b0; /* >= 4.98:1 on every surface token */
+
+  /* Pipe media. Same meaning everywhere a medium is drawn or charted. */
+  --cw-hot: #e0a630; /* condenser water leaving chillers, to towers */
+  --cw-cool: #34b89a; /* condenser water leaving towers, to chillers */
+  --chw-supply: #6c7cff; /* chilled water leaving chillers */
+  --chw-return: #5ec8e5; /* chilled water returning from the data hall */
+
+  /* Equipment and data states. Always paired with text or an icon. */
+  --state-running: #46d37e;
+  --state-stopped: #b4bfcc;
+  --state-fault: #ff5a5f;
+  --state-warning: #f2b33d;
+  --state-unavailable: #8c97aa;
+
+  /* Reserved for "Demo data" and other synthetic-content labels only. */
+  --synthetic: #e879f9;
+  --synthetic-bg: #3a1640;
+
+  /* Measurement tag frames, by metric kind */
+  --tag-frequency-bg: #161d5a;
+  --tag-frequency-line: #4152c4;
+  --tag-power-bg: #382210;
+  --tag-power-line: #a8692a;
+  --tag-temperature-bg: #3a1216;
+  --tag-temperature-line: #b2414a;
+  --tag-hydraulic-bg: #0d3530;
+  --tag-hydraulic-line: #2f9c86;
+  --tag-neutral-bg: #1c2638;
+  --tag-neutral-line: #5a6b86;
+
+  --focus: #ffffff;
+  --selection: #eaf6ff;
+
+  /* Type */
+  --font-sans: "Barlow Semi Condensed", system-ui, "Segoe UI", "Microsoft YaHei",
+    "PingFang SC", "Noto Sans CJK SC", sans-serif;
+  --text-xs: 0.8125rem; /* 13px: smallest size used for any value */
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.625rem;
+
+  /* Spacing (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius-sm: 3px;
+  --radius-md: 6px;
+
+  --motion-fast: 150ms;
+  --motion-base: 220ms;
+
+  --header-height: 52px;
+  --nav-width: 220px;
+  --nav-width-collapsed: 60px;
+}

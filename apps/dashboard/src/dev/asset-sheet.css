@@ -1,0 +1,66 @@
+.sheet {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: var(--space-5);
+  display: grid;
+  gap: var(--space-6);
+}
+.sheet__head h1 {
+  font-size: var(--text-xl);
+}
+.sheet__head p,
+.sheet__note {
+  color: var(--text-muted);
+  margin: var(--space-1) 0 var(--space-3);
+}
+.sheet h2 {
+  font-size: var(--text-lg);
+}
+.sheet figure {
+  margin: 0;
+}
+.sheet__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-5);
+}
+.sheet-frame {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  background-color: var(--ink-scene);
+  background-image:
+    linear-gradient(rgb(48 71 107 / 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(48 71 107 / 0.16) 1px, transparent 1px);
+  background-size: 40px 40px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.sheet__grid {
+  display: grid;
+  gap: var(--space-3);
+  align-items: center;
+  overflow-x: auto;
+}
+.sheet__grid-row {
+  display: contents;
+}
+.sheet__col-head {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.sheet__row-head {
+  font-weight: 600;
+}
+.sheet-svg-label {
+  font-size: 14px;
+  fill: var(--text-muted);
+}
+.sheet figcaption {
+  margin-top: var(--space-2);
+  font-weight: 600;
+}
+.sheet__grid .sheet-frame {
+  max-width: none;
+}
