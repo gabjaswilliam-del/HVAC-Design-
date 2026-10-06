@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { centerOn, clampView, fitView, keepCenter, MAX_ZOOM, zoomAt } from "./panZoom";
+import { centerOn, clampView, fitBeside, fitView, FLOAT_COVER, keepCenter, MAX_ZOOM, zoomAt } from "./panZoom";
 
 const scene = { w: 1460, h: 960 };
 const box = { w: 1100, h: 640 };
@@ -45,5 +45,18 @@ describe("pan/zoom geometry", () => {
     const narrower = { w: 760, h: 640 };
     const kept = keepCenter(c, box, narrower, scene);
     expect(toScreen(kept, 400, 500)).toEqual([narrower.w / 2, narrower.h / 2]);
+  });
+
+  it("fits beside a floating panel when that keeps half size, else lets the panel cover", () => {
+    // 1366x768 and 1280x800 windows: the plant refits beside the panel.
+    for (const b of [{ w: 1258, h: 668 }, { w: 1172, h: 700 }]) {
+      const v = fitBeside(scene, b);
+      expect(v.beside).toBe(true);
+      expect(v.k).toBeGreaterThanOrEqual(0.5);
+      expect(toScreen(v, scene.w, 0)[0]).toBeLessThanOrEqual(b.w - FLOAT_COVER);
+    }
+    // 1024x768: too small beside the panel, so it keeps the normal fit.
+    const small = { w: 916, h: 668 };
+    expect(fitBeside(scene, small)).toEqual({ ...fitView(scene, small), beside: false });
   });
 });

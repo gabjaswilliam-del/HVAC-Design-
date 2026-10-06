@@ -1,17 +1,21 @@
-import { PageHeading } from "../../components/PageHeading";
-import { useState } from "react";
+import { useEffect } from "react";
 import { useSearchParams } from "react-router";
 import { Plus } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import { Notice } from "../../components/Notice";
 import { operating } from "../../app/operatingContext";
 import { useSite } from "../../app/site";
-import { useSuggestions } from "./AssistantDrawer";
+import { useSuggestions } from "./AssistantPanel";
 import { ConversationList } from "./ConversationList";
 import { ConversationView } from "./ConversationView";
+import { useSession } from "./conversationSession";
 import "./agent.css";
 
-/** Full-page assistant: history, the conversation and the simulated tools. */
+/**
+ * The workspace's assistant, expanded to the full page: history, the conversation and
+ * the simulated tools. It shows the same session as the workspace, so an answer that
+ * is streaming keeps streaming here.
+ */
 export function AgentPage() {
   const s = useStrings();
   const a = s.agent;
@@ -19,22 +23,22 @@ export function AgentPage() {
   const [params, setParams] = useSearchParams();
   const conversationId = params.get("conversation");
   const { caps, suggestions } = useSuggestions();
-  const [refresh, setRefresh] = useState(0);
+  const version = useSession().version;
+
+  // The page's conversation is also the workspace's, so docking again shows it.
+  useEffect(() => operating.showConversation(conversationId), [conversationId]);
 
   const open = (id: string | null) => {
     const next = new URLSearchParams(params);
     if (id) next.set("conversation", id);
     else next.delete("conversation");
     setParams(next, { replace: !id });
-    operating.showConversation(id);
   };
 
   return (
     <div className="page agent-page">
       <div className="page__head">
-        <PageHeading>
-          {a.heading} <span className="agent-badge">{a.scripted}</span>
-        </PageHeading>
+        <span className="agent-badge">{a.scripted}</span>
       </div>
       {site.error && !site.data && (
         <Notice tone="critical" action={{ label: s.monitoring.retry, onClick: site.retry }}>
@@ -46,23 +50,17 @@ export function AgentPage() {
           <nav className="panel agent-page__history" aria-label={a.history}>
             <div className="panel__head">
               <h2>{a.history}</h2>
-              <button type="button" className="button button--small" onClick={() => open(null)}>
+              <button type="button" className="button button--small button--tonal" onClick={() => open(null)}>
                 <Plus size={14} aria-hidden="true" />
                 {a.newConversation}
               </button>
             </div>
             <div className="panel__body">
-              <ConversationList site={site.data} activeId={conversationId} refreshKey={`${conversationId}:${refresh}`} onOpen={open} />
+              <ConversationList site={site.data} activeId={conversationId} refreshKey={`${conversationId}:${version}`} onOpen={open} />
             </div>
           </nav>
-          <section className="panel agent-page__conversation" aria-label={a.heading}>
-            <ConversationView
-              site={site.data}
-              conversationId={conversationId}
-              onConversationChange={open}
-              suggestions={suggestions}
-              onTurnEnd={() => setRefresh((n) => n + 1)}
-            />
+          <section className="panel agent-page__conversation" aria-label={a.heading} data-escape-ignore>
+            <ConversationView site={site.data} conversationId={conversationId} onConversationChange={open} suggestions={suggestions} />
           </section>
           <section className="panel agent-page__tools" aria-labelledby="agent-tools-heading">
             <div className="panel__head">

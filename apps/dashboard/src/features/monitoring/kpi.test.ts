@@ -24,3 +24,20 @@ describe("shortfall periods", () => {
     expect(shortfallPeriods(undefined)).toEqual([]);
   });
 });
+
+describe("indicator inputs", () => {
+  it("cooling delivered reads the site's own chillers, however many there are", async () => {
+    const { kpiInputs } = await import("./kpiDefinitions");
+    const site = {
+      topology: {
+        devices: [
+          { id: "ch_a", family: "chiller_plant" },
+          { id: "ch_b", family: "chiller_plant" },
+          { id: "pump_1", family: "cooling_water_pump" },
+        ],
+      },
+    } as unknown as import("../../lib/contracts").SiteBundle;
+    expect(kpiInputs("plant:cooling_delivered_kw", site)).toEqual(["ch_a:cooling_kw", "ch_b:cooling_kw"]);
+    expect(kpiInputs("plant:cop", site)).toEqual(["plant:cooling_delivered_kw", "plant:power_kw"]);
+  });
+});

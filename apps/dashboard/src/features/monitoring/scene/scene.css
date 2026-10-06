@@ -1,14 +1,11 @@
 /* Plant scene: equipment nodes, pipes and measurement tags. */
 
+/* The drawing sits on the plant display (app.css); its own background is transparent. */
 .plant-scene {
   display: block;
   width: 100%;
   height: auto;
-  background-color: var(--ink-scene);
-  background-image:
-    linear-gradient(rgb(48 71 107 / 0.16) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(48 71 107 / 0.16) 1px, transparent 1px);
-  background-size: 40px 40px;
+  background: transparent;
   font-family: var(--font-sans);
 }
 
@@ -52,14 +49,25 @@
   filter: saturate(0.25) brightness(0.8);
 }
 
+/* Interaction frames keep one screen width at any zoom. Selection is laminate with a
+   dark halo; it never glows. */
+.eq-node__frame,
+.eq-node__halo,
+.eq-node__hit {
+  vector-effect: non-scaling-stroke;
+}
 .eq-node__frame {
   fill: none;
   stroke-width: 1.6;
 }
+.eq-node__halo {
+  fill: none;
+  stroke: rgb(0 0 0 / 0.55);
+  stroke-width: 6;
+}
 .eq-node__frame--selected {
   stroke: var(--selection);
   stroke-width: 2;
-  filter: drop-shadow(0 0 5px rgb(150 215 255 / 0.85));
 }
 .eq-node__frame--fault {
   stroke: var(--state-fault);
@@ -204,8 +212,8 @@
   fill: transparent;
 }
 .eq-node--interactive:hover .eq-node__hit {
-  fill: rgb(234 246 255 / 0.05);
-  stroke: rgb(234 246 255 / 0.35);
+  fill: rgb(233 236 239 / 0.04);
+  stroke: color-mix(in srgb, var(--selection) 45%, transparent);
   stroke-width: 1;
   rx: 6px;
 }
@@ -218,17 +226,18 @@
   rx: 6px;
 }
 .eq-node__frame--highlighted {
-  stroke: var(--state-warning);
-  stroke-width: 2;
-  stroke-dasharray: 8 5;
+  stroke: color-mix(in srgb, var(--selection) 70%, transparent);
+  stroke-width: 1.5;
 }
 .pipe__glow {
   opacity: 0.35;
 }
+/* Selection dims what is unrelated, never an alarm: equipment in fault or named by an
+   open issue keeps full emphasis, with its readings. */
 .plant--focus .pipe:not(.pipe--active),
-.plant--focus .eq-node:not(.eq-node--related),
+.plant--focus .eq-node:not(.eq-node--related, .eq-node--alarm),
 .plant--focus .eq-symbol,
-.plant--focus .tag-wrap:not(.tag-wrap--related) {
+.plant--focus .tag-wrap:not(.tag-wrap--related, .tag-wrap--alarm) {
   opacity: 0.32;
   transition: opacity var(--motion-base);
 }

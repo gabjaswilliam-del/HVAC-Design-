@@ -20,7 +20,11 @@ interface PlantSceneProps {
   readings: SceneReadings;
   selectedId?: string | null;
   highlightIds?: string[];
+  /** Equipment with an open issue: never dimmed when something else is selected. */
+  alarmIds?: string[];
   showTags?: boolean;
+  /** Equipment names, states and captions; off in Key mode (drawn in screen space). */
+  showLabels?: boolean;
   onSelect?: (id: string) => void;
 }
 
@@ -36,7 +40,9 @@ export function PlantScene({
   readings,
   selectedId = null,
   highlightIds = [],
+  alarmIds = [],
   showTags = true,
+  showLabels = true,
   onSelect,
 }: PlantSceneProps) {
   const isMoving = (id: string) => {
@@ -169,6 +175,8 @@ export function PlantScene({
             selected={selectedId === device.id}
             related={related.devices.has(device.id)}
             highlighted={highlightIds.includes(device.id)}
+            alarm={alarmIds.includes(device.id) || s.state === "fault"}
+            showLabel={showLabels}
             speedHz={readings.values[`${device.id}:frequency_hz`]?.value ?? undefined}
             onSelect={onSelect}
           />
@@ -179,23 +187,25 @@ export function PlantScene({
         <Sensor key={i} x={sensor.at[0]} y={sensor.at[1]} letter={sensor.letter} side={sensor.side} />
       ))}
 
-      {layout.captions.map((c) => (
-        <text key={c.text} x={c.at[0]} y={c.at[1]} className="scene-caption">
-          {c.text}
-        </text>
-      ))}
+      {showLabels &&
+        layout.captions.map((c) => (
+          <text key={c.text} x={c.at[0]} y={c.at[1]} className="scene-caption">
+            {c.text}
+          </text>
+        ))}
 
       {showTags &&
         layout.tags.map((tag) => {
           const reading = readings.values[tag.metric];
           const owner = tag.metric.split(":")[0];
           const isRelated = related.devices.has(owner) || related.buses.has(owner);
+          const isAlarm = alarmIds.includes(owner) || readings.equipment[owner]?.state === "fault";
           // A device's reading selects that device; header readings are display only.
           const selectable = onSelect && owner in layout.nodes;
           return (
             <g
               key={tag.metric}
-              className={`tag-wrap${isRelated ? " tag-wrap--related" : ""}${selectable ? " tag-wrap--selectable" : ""}`}
+              className={`tag-wrap${isRelated ? " tag-wrap--related" : ""}${isAlarm ? " tag-wrap--alarm" : ""}${selectable ? " tag-wrap--selectable" : ""}`}
               onClick={selectable ? () => onSelect(owner) : undefined}
             >
               <ReadoutTag

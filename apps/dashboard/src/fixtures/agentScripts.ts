@@ -4,9 +4,13 @@
  * its wording from their results. There is no language model and no reasoning: every
  * number comes from a tool result, missing data is reported as missing, and no
  * operational recommendation is generated.
+ *
+ * Answers take the shape their content needs, as a model's would: a sentence or two for
+ * a simple reading, paragraphs for an explanation, a list only for several separate
+ * items and a table only for several readings side by side.
  */
 import type { AgentContext, DataView } from "../lib/contracts/agent";
-import type { Device, ForecastResult, History, SiteBundle, Snapshot } from "../lib/contracts";
+import type { Device, ForecastResult, History, Issue, SiteBundle, Snapshot } from "../lib/contracts";
 import { formatNumber, formatTime, siteDayStart } from "../lib/format";
 import { shortfallPeriods } from "../lib/plant";
 import type { ToolEnv, ToolName, tools } from "./agentTools";
@@ -55,15 +59,15 @@ export function matchIntent(prompt: string, site: SiteBundle): Intent {
 }
 
 const SEVERITY_ORDER = { critical: 0, warning: 1, info: 2 };
-const STATUS_WORD: Record<string, string> = {
-  detected: "detected",
-  investigating: "investigating",
-  correction_proposed: "correction proposed",
-  monitoring: "monitoring",
-  resolved: "resolved",
-};
 const STATE_WORD = { running: "running", stopped: "stopped", fault: "in fault", unavailable: "not reporting (no data)" };
 const HOUR = 3_600_000;
+
+const COUNT = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
+const count = (n: number) => COUNT[n] ?? String(n);
+/** "A", "A and B", "A, B and C". */
+const list = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
+const table = (head: string[], rows: string[][]) =>
+  [`| ${head.join(" | ")} |`, `|${head.map((_, i) => (i ? " --: " : " --- ")).join("|")}|`, ...rows.map((r) => `| ${r.join(" | ")} |`)].join("\n");
 
 function helpers(h: ScriptHost) {
   const { site } = h.env;
@@ -88,28 +92,49 @@ function helpers(h: ScriptHost) {
   return { site, tz, time, info, value, label, dayStart, series };
 }
 
+const SEVERITY_PHRASE = { critical: "critical", warning: "a warning", info: "for information" };
+const STATUS_TAIL: Record<Issue["status"], string> = {
+  detected: "",
+  investigating: " and now under investigation",
+  correction_proposed: "; a correction has been proposed",
+  monitoring: " and now being monitored",
+  resolved: " and since resolved",
+};
+
+/** One open issue as a sentence: severity, first seen, status, and the equipment it
+ *  affects unless its title already names it. */
+function issueLine(h: ScriptHost, i: Issue) {
+  const { time, label } = helpers(h);
+  const others = i.equipmentIds.map(label).filter((l) => !i.title.includes(l));
+  return `${i.title} (${i.id}) is ${SEVERITY_PHRASE[i.severity]}, first seen at ${time(i.firstSeen)}${STATUS_TAIL[i.status]}.${others.length ? ` It affects ${list(others)}.` : ""}`;
+}
+
 async function attention(h: ScriptHost) {
-  const { time, value, label } = helpers(h);
+  const { time, value } = helpers(h);
   const at = h.context.at;
   const issues = await h.tool("list_issues", { at });
   const snap = await h.tool("get_plant_snapshot", { at });
-  let text = `Summary of the synthetic scenario at ${time(at)}.\n`;
   const open = (issues?.issues ?? []).filter((i) => i.status !== "resolved").sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
-  if (!issues) text += "The issue list could not be retrieved, so open issues cannot be reported.\n";
-  else if (open.length === 0) text += "No issues are open at this time.\n";
+  const critical = open.filter((i) => i.severity === "critical").length;
+  let text: string;
+  if (!issues) text = `The issue list could not be retrieved, so open issues at ${time(at)} cannot be reported.`;
+  else if (open.length === 0) text = `Nothing needs attention at ${time(at)}: no issues are open.`;
+  else if (open.length === 1) text = `One issue is open at ${time(at)}. ${issueLine(h, open[0])}`;
   else {
-    text += `${open.length} open issue${open.length > 1 ? "s" : ""}:\n`;
-    for (const i of open) {
-      const who = i.equipmentIds.length ? ` Affects ${i.equipmentIds.map(label).join(", ")}.` : "";
-      text += `- ${i.severity[0].toUpperCase()}${i.severity.slice(1)}, ${STATUS_WORD[i.status]}: ${i.title} (${i.id}), first seen ${time(i.firstSeen)}.${who}\n`;
-    }
+    // Several separate issues read best as a list.
+    const severity = critical === 0 ? "" : critical === open.length ? ", all of them critical" : `, ${count(critical).toLowerCase()} of them critical`;
+    text = `${count(open.length)} issues are open at ${time(at)}${severity}.\n\n${open.map((i) => `- ${issueLine(h, i)}`).join("\n")}`;
   }
   if (snap) {
     const unmet = snap.kpis["plant:unmet_kw"]?.value;
-    text += `Plant indicators: cooling demand ${value(snap, "plant:cooling_demand_kw")}, delivered ${value(snap, "plant:cooling_delivered_kw")}`;
-    text += unmet ? `, ${value(snap, "plant:unmet_kw")} unmet` : "";
-    text += `, system COP ${value(snap, "plant:cop")}.`;
-    if (snap.connection === "disconnected") text += ` Telemetry is disconnected; these are the last values received at ${time(snap.latestSampleAt!)}.`;
+    const cop = `system COP at ${value(snap, "plant:cop")}`;
+    text += open.length ? "\n\n" : " ";
+    text += unmet
+      ? `The plant is short of demand: it is delivering ${value(snap, "plant:cooling_delivered_kw")} of ${value(snap, "plant:cooling_demand_kw")}, leaving ${value(snap, "plant:unmet_kw")} unmet, with ${cop}.`
+      : unmet === 0
+        ? `The plant is delivering all ${value(snap, "plant:cooling_demand_kw")} of cooling demand, with ${cop}.`
+        : `Cooling demand is ${value(snap, "plant:cooling_demand_kw")} and the plant is delivering ${value(snap, "plant:cooling_delivered_kw")}, with ${cop}; unmet demand is not available.`;
+    if (snap.connection === "disconnected") text += ` Telemetry is disconnected, so these are the last values received, at ${time(snap.latestSampleAt!)}.`;
   }
   await h.say(text);
   if (open.length) {
@@ -133,17 +158,25 @@ async function equipment(h: ScriptHost, id: string) {
   const related = (issues?.issues ?? []).filter((i) => i.equipmentIds.includes(id) && i.status !== "resolved");
   const knowledge = status?.state === "fault" || related.length ? await h.tool("search_knowledge", { query: `${device?.family ?? id} ${status?.state ?? ""}`.trim() }) : undefined;
 
-  let text = `${label(id)}`;
-  if (!status) text += ": its state could not be retrieved.\n";
-  else {
-    text += ` is ${status.stale ? `last reported as ${STATE_WORD[status.state]}, but that report is stale` : STATE_WORD[status.state]} at ${time(at)}.\n`;
+  // The state, then the issues that name it: one in a sentence, several as a list.
+  let text = !status
+    ? `The state of ${label(id)} could not be retrieved`
+    : status.stale
+      ? `${label(id)} was last reported ${STATE_WORD[status.state]}, but that report is stale at ${time(at)}`
+      : `${label(id)} is ${STATE_WORD[status.state]} at ${time(at)}`;
+  if (related.length === 1) text += `, and one open issue names it. ${issueLine(h, related[0])}`;
+  else if (related.length) text += `, and ${count(related.length).toLowerCase()} open issues name it:\n\n${related.map((i) => `- ${issueLine(h, i)}`).join("\n")}`;
+  else text += issues ? ". No open issue names it." : ".";
+
+  // Several readings side by side read best as a table; one or two as a sentence.
+  if (metrics.length) {
+    const readings = metrics.map((m) => ({ label: m.label, value: value(snap, m.key) }));
+    const available = readings.filter((r) => r.value !== "unavailable");
+    if (!snap) text += "\n\nIts readings could not be retrieved.";
+    else if (available.length >= 3) text += `\n\nIts current readings:\n\n${table(["Reading", "Value"], readings.map((r) => [r.label, r.value]))}`;
+    else if (available.length) text += `\n\nIts ${list(readings.map((r) => `${r.label.toLowerCase()} is ${r.value}`))}.`;
+    else text += `\n\nNone of its readings (${list(readings.map((r) => r.label.toLowerCase()))}) are available.`;
   }
-  if (metrics.length && snap) {
-    text += `Readings: ${metrics.map((m) => `${m.label.toLowerCase()} ${value(snap, m.key)}`).join(", ")}.\n`;
-  }
-  if (related.length) {
-    text += `Related open issues:\n${related.map((i) => `- ${i.title} (${i.id}), ${STATUS_WORD[i.status]} since ${time(i.firstSeen)}.`).join("\n")}\n`;
-  } else if (issues) text += "No open issues mention this equipment.\n";
   if (eq) {
     const parts = eq.links.map((l) => {
       const outgoing = "device" in l.from && l.from.device === id;
@@ -151,14 +184,14 @@ async function equipment(h: ScriptHost, id: string) {
       const otherLabel = "device" in other ? label(other.device) : site.topology.buses.find((b) => b.id === other.bus)?.label ?? other.bus;
       return `${outgoing ? "to" : "from"} ${otherLabel} (${l.evidence})`;
     });
-    if (parts.length) text += `Connections: ${parts.join("; ")}.`;
-    const uncertain = eq.links.filter((l) => l.evidence === "inferred" || l.evidence === "unknown");
-    if (uncertain.length) text += ` ${uncertain.length} of these ${uncertain.length > 1 ? "are" : "is"} not confirmed against the installation.`;
+    const uncertain = eq.links.filter((l) => l.evidence === "inferred" || l.evidence === "unknown").length;
     const missing = site.topology.unconnectedPorts.filter((u) => u.device === id);
+    if (parts.length || missing.length) text += "\n\n";
+    if (parts.length) text += `It connects ${list(parts)}.`;
+    if (uncertain) text += ` ${count(uncertain)} of these ${uncertain > 1 ? "are" : "is"} not confirmed against the installation.`;
     if (missing.length) text += ` Not recorded: ${missing.map((u) => u.note).join("; ")}.`;
-    text += "\n";
   }
-  if (knowledge === null) text += "Engineering documents could not be searched: the knowledge base is not available in this demo build.";
+  if (knowledge === null) text += "\n\nThe engineering documents could not be searched, because the knowledge base is not available in this demo build.";
   await h.say(text.trim());
   h.view({ kind: "equipment", title: "Equipment", ids: [id] });
   if (hist && metrics.length) {
@@ -171,27 +204,37 @@ async function equipment(h: ScriptHost, id: string) {
 }
 
 async function shortfall(h: ScriptHost) {
-  const { time, value, dayStart, series } = helpers(h);
+  const { tz, time, value, dayStart, series } = helpers(h);
   const at = h.context.at;
   const snap = await h.tool("get_plant_snapshot", { at });
   const keys = ["plant:cooling_demand_kw", "plant:cooling_delivered_kw", "plant:unmet_kw", "plant:available_capacity_kw"];
   const hist = await h.tool("get_history", { metrics: keys.join(","), from: dayStart, to: at });
-  let text = "";
-  if (snap) {
-    const unmet = snap.kpis["plant:unmet_kw"];
-    text += `At ${time(at)} cooling demand is ${value(snap, "plant:cooling_demand_kw")} and the plant is delivering ${value(snap, "plant:cooling_delivered_kw")}`;
-    if (unmet?.value) text += `: ${value(snap, "plant:unmet_kw")} of demand is not being met.`;
-    else if (unmet?.quality === "good") text += ": delivered cooling meets demand.";
-    else text += ". Unmet demand is not available, so a shortfall cannot be confirmed or ruled out.";
-    text += ` Running chiller capacity is ${value(snap, "plant:available_capacity_kw")} (rated capacity of the chillers running now).\n`;
-  } else text += "Current readings could not be retrieved.\n";
-  if (hist) {
-    const periods = shortfallPeriods(hist as History);
-    text += periods.length
-      ? `Shortfall periods today: ${periods.map((p) => `${time(p.from)} to ${p.ongoing ? "now" : time(p.to)}, peak ${formatNumber(p.peak, 0)} kWt unmet`).join("; ")}.`
-      : "No shortfall so far today.";
-  } else text += "Today's history could not be retrieved, so earlier shortfalls cannot be listed.";
-  await h.say(text.trim());
+  const unmet = snap?.kpis["plant:unmet_kw"];
+  const capacity = value(snap, "plant:available_capacity_kw");
+  let text: string;
+  if (!snap) text = "Current readings could not be retrieved, so whether demand is being met cannot be said.";
+  else if (unmet?.value) {
+    text = `The plant is not meeting cooling demand. At ${time(at)} it is delivering ${value(snap, "plant:cooling_delivered_kw")} against a demand of ${value(snap, "plant:cooling_demand_kw")}, so ${value(snap, "plant:unmet_kw")} of demand is not being met.`;
+    text += ` Running chiller capacity is ${capacity}, the rated capacity of the chillers running now.`;
+  } else if (unmet?.quality === "good") {
+    text = `The plant is meeting cooling demand: at ${time(at)} it is delivering all ${value(snap, "plant:cooling_demand_kw")}, with ${capacity} of chiller capacity running.`;
+  } else {
+    text = `At ${time(at)} cooling demand is ${value(snap, "plant:cooling_demand_kw")} and the plant is delivering ${value(snap, "plant:cooling_delivered_kw")}, but unmet demand is not available, so a shortfall cannot be confirmed or ruled out.`;
+  }
+  // One shortfall is told; several are tabled.
+  const periods = hist ? shortfallPeriods(hist as History) : null;
+  const span = (p: { from: string; to: string; ongoing: boolean }) => (p.ongoing ? `${time(p.from)} to now` : `${formatTime(p.from, tz)} to ${time(p.to)}`);
+  if (!periods) text += " Today's history could not be retrieved, so earlier shortfalls cannot be listed.";
+  else if (periods.length === 0) text += " There has been no shortfall today.";
+  else if (periods.length === 1 && periods[0].ongoing) {
+    text += `\n\nThe shortfall began at ${time(periods[0].from)} and is still going on, peaking at ${formatNumber(periods[0].peak, 0)} kWt unmet so far.`;
+  } else if (periods.length === 1) {
+    text += ` Earlier today there was one shortfall, from ${span(periods[0])}, peaking at ${formatNumber(periods[0].peak, 0)} kWt unmet.`;
+  } else {
+    text += `\n\nThere have been ${count(periods.length).toLowerCase()} shortfall periods today:\n\n`;
+    text += table(["Period", "Peak unmet"], periods.map((p) => [span(p), `${formatNumber(p.peak, 0)} kWt`]));
+  }
+  await h.say(text);
   if (hist) {
     h.view({
       kind: "chart",
@@ -216,10 +259,16 @@ async function forecast(h: ScriptHost) {
   else if (f.status === "unavailable") {
     text = `No forecast is available (${f.reasonCode}). ${f.warnings.join(" ")} No forecast values are shown.`;
   } else {
-    text = `The demonstration baseline forecasts site cooling demand peaking at ${f.summary ? `${formatNumber(f.summary.peakKw, 0)} kWt at ${time(f.summary.peakAt)}` : "an unreported value"} within the next ${f.horizonMinutes / 60} hours, from data through ${time(f.latestInputAt ?? f.asOf)}.`;
-    text += " It is a seasonal-profile baseline on synthetic data, not a trained model; its shaded spread is uncalibrated and no accuracy is claimed.";
+    const hours = f.horizonMinutes / 60;
+    text = f.summary
+      ? `Cooling demand is forecast to peak at ${formatNumber(f.summary.peakKw, 0)} kWt around ${time(f.summary.peakAt)}, within the next ${hours} hours.`
+      : `A forecast for the next ${hours} hours is available, but it does not report a peak.`;
+    text += ` That comes from the demonstration baseline, using data through ${time(f.latestInputAt ?? f.asOf)}.`;
+    text += "\n\nIt is a rough guide only: a seasonal-profile baseline on synthetic data, not a trained model, and its shaded spread is uncalibrated, so no accuracy is claimed.";
     if (f.quality.freshness === "stale") text += " Its inputs are stale.";
-    if (snap) text += `\nRunning chiller capacity at ${time(at)} is ${value(snap, "plant:available_capacity_kw")}. Future chiller staging is not forecast, so this is not an overload prediction.`;
+    if (snap) {
+      text += ` For comparison, ${value(snap, "plant:available_capacity_kw")} of chiller capacity is running at ${time(at)}; future chiller staging is not forecast, so this is not an overload prediction.`;
+    }
   }
   await h.say(text);
   if (f && f.status !== "unavailable") {
@@ -246,15 +295,23 @@ async function efficiency(h: ScriptHost) {
   const at = h.context.at;
   const snap = await h.tool("get_plant_snapshot", { at });
   const hist = await h.tool("get_history", { metrics: "plant:cop", from: dayStart, to: at });
+  // A simple question gets a short answer: the figure, what it is made of, the largest loads.
   let text = "";
   if (snap) {
-    text = `At ${time(at)} system COP is ${value(snap, "plant:cop")}: ${value(snap, "plant:cooling_delivered_kw")} delivered for ${value(snap, "plant:power_kw")} of plant electrical power.`;
+    text = `System COP is ${value(snap, "plant:cop")} at ${time(at)}: the plant is delivering ${value(snap, "plant:cooling_delivered_kw")} of cooling for ${value(snap, "plant:power_kw")} of electrical power.`;
     const top = site.topology.devices
       .map((d) => ({ id: d.id, v: snap.values[`${d.id}:power_kw`]?.value ?? null }))
       .filter((x): x is { id: string; v: number } => x.v !== null && x.v > 0)
       .sort((a, b) => b.v - a.v)
-      .slice(0, 3);
-    if (top.length) text += `\nLargest electrical loads: ${top.map((x) => `${label(x.id)} ${formatNumber(x.v, 1)} kW`).join(", ")}.`;
+      .slice(0, 3)
+      .map((x) => ({ name: label(x.id), kw: `${formatNumber(x.v, 1)} kW` }));
+    if (top.length) {
+      // Equal loads share first place.
+      const lead = top.filter((x) => x.kw === top[0].kw);
+      const rest = top.slice(lead.length).map((x) => `${x.name} (${x.kw})`);
+      text += lead.length > 1 ? ` ${list(lead.map((x) => x.name))} are the largest loads, at ${top[0].kw} each` : ` The largest load is ${top[0].name} at ${top[0].kw}`;
+      text += rest.length ? `, followed by ${list(rest)}.` : ".";
+    }
   } else text = "Current readings could not be retrieved.";
   await h.say(text);
   if (hist) h.view({ kind: "chart", title: "System COP today", unit: "", decimals: 2, series: series(hist as History, "plant:cop", "observed") });
@@ -263,7 +320,7 @@ async function efficiency(h: ScriptHost) {
 
 async function fallback(h: ScriptHost) {
   await h.say(
-    `This scripted demonstration has no language model, so it only answers a few prepared questions. Try one of these:\n${SUGGESTED_PROMPTS.map((p) => `- ${p}`).join("\n")}`,
+    `This scripted demonstration has no language model, so it can only answer a few prepared questions. Try one of these:\n\n${SUGGESTED_PROMPTS.map((p) => `- ${p}`).join("\n")}`,
   );
 }
 

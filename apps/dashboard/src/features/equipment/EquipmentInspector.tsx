@@ -1,14 +1,17 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link as RouterLink } from "react-router";
-import { Crosshair, MessageSquareText, X } from "lucide-react";
+import { ArrowUpRight, Crosshair, MessageSquareText, X } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
-import { formatReading, formatTime, siteDayStart } from "../../lib/format";
+import { formatNumber, formatReading, formatTime, siteDayStart } from "../../lib/format";
 import { useResource } from "../../lib/api/useResource";
 import type { Issue, Link, LinkEnd, SiteBundle, Snapshot } from "../../lib/contracts";
 import { StateLabel } from "../../components/StateLabel";
 import { TimeSeriesChart } from "../../components/TimeSeriesChart";
+import { closesOnEscape } from "../../components/escape";
 import { useDataClient } from "../../app/dataClient";
 import { operating, useOperating } from "../../app/operatingContext";
+import { openIssues } from "../../lib/issues";
+import { ISSUES_KPI } from "../monitoring/kpiDefinitions";
 import { linkMedium } from "../../lib/topology";
 import "./equipment.css";
 
@@ -50,7 +53,7 @@ export function EquipmentInspector({
   }, [equipmentId, focusOnOpen]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => closesOnEscape(e) && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
@@ -78,6 +81,9 @@ export function EquipmentInspector({
   const status = snapshot?.equipment[device.id];
   const metrics = site.metrics.filter((m) => m.key.startsWith(`${device.id}:`));
   const related = issues.filter((i) => i.equipmentIds.includes(device.id));
+  // Open issues lead Details as laminate tags; their evidence rows carry the alarm.
+  const alarms = openIssues(related);
+  const alarmOf = (metric: string) => alarms.find((i) => i.evidence.includes(metric));
   const labelOf = (end: LinkEnd) =>
     "device" in end
       ? site.topology.devices.find((d) => d.id === end.device)?.label ?? end.device
@@ -138,7 +144,32 @@ export function EquipmentInspector({
           <MessageSquareText size={15} aria-hidden="true" />
           {s.agent.ask}
         </button>
+        <RouterLink className="button button--small button--quiet" to={`/equipment/${encodeURIComponent(device.id)}`}>
+          <ArrowUpRight size={15} aria-hidden="true" />
+          {t.openRecord}
+        </RouterLink>
       </div>
+
+      {alarms.length > 0 && (
+        <div className="inspector__alarms">
+          {alarms.map((i) => (
+            <button
+              key={i.id}
+              type="button"
+              className={`tag tag--attention tag--sm tag--${i.severity} inspector__alarm`}
+              data-issue={i.id}
+              aria-label={s.attention.open(s.issues.severity[i.severity], i.id, i.title, s.attention.since(formatTime(i.firstSeen, tz)), 0)}
+              onClick={() => operating.openKpi(ISSUES_KPI, true)}
+            >
+              <span className="tag__eye" />
+              <span>{s.issues.severity[i.severity]}</span>
+              <span className="tag__sub">
+                <span className="num">{i.id}</span> {i.title}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <section className="inspector__section">
         <h3>{t.measurements}</h3>
@@ -157,9 +188,13 @@ export function EquipmentInspector({
               {metrics.map((m) => {
                 const r = snapshot?.values[m.key];
                 const text = formatReading(r, m);
+                const alarm = alarmOf(m.key);
                 return (
-                  <tr key={m.key} data-metric={m.key}>
-                    <th scope="row">{m.label}</th>
+                  <tr key={m.key} data-metric={m.key} className={alarm ? `is-alarm is-alarm--${alarm.severity}` : undefined}>
+                    <th scope="row">
+                      {m.label}
+                      {alarm && <span className="visually-hidden">{t.evidenceFor(alarm.id)}</span>}
+                    </th>
                     <td className="num">{text ?? <span className="inspector__muted">{s.quality.unavailable}</span>}</td>
                     <td className={`quality quality--${r?.quality ?? "unavailable"}`}>{s.quality[r?.quality ?? "unavailable"]}</td>
                   </tr>
@@ -170,6 +205,7 @@ export function EquipmentInspector({
         ) : (
           <p className="inspector__muted">{s.quality.unavailable}</p>
         )}
+        {metrics.length > 0 && <p className="inspector__hint">{t.qualityHint}</p>}
       </section>
 
       {metrics.length > 0 && snapshot && <Trend site={site} at={snapshot.at} metrics={metrics} />}
@@ -216,8 +252,8 @@ export function EquipmentInspector({
         {related.length ? (
           <ul className="inspector__issues">
             {related.map((i) => (
-              <li key={i.id} className={`issue-line issue-line--${i.severity}`}>
-                <span className="issue-line__severity">{s.issues.severity[i.severity]}</span>
+              <li key={i.id} className="issue-line">
+                <span className={`sev sev--${i.severity}`}>{s.issues.severity[i.severity]}</span>
                 <span className="issue-line__title">{i.title}</span>
                 <span className="inspector__muted">
                   {s.issues.status[i.status]}, {s.issues.firstSeen.toLowerCase()} {formatTime(i.firstSeen, tz)}
@@ -260,12 +296,27 @@ export function EquipmentInspector({
   );
 }
 
-function Trend({ site, at, metrics }: { site: SiteBundle; at: string; metrics: SiteBundle["metrics"] }) {
+/** One measurement's trend since the start of the site day, with a measurement picker. */
+export function Trend({
+  site,
+  at,
+  metrics,
+  initial,
+  rating,
+}: {
+  site: SiteBundle;
+  at: string;
+  metrics: SiteBundle["metrics"];
+  initial?: string;
+  /** On a record: the whole day with a "now" rule, read from 0 against the measurement's
+   *  nameplate rating when it has one. */
+  rating?: (metric: SiteBundle["metrics"][number]) => number | undefined;
+}) {
   const s = useStrings();
   const client = useDataClient();
   const scenarioId = useOperating((x) => x.scenarioId);
   const selectId = useId();
-  const [metricKey, setMetricKey] = useState(metrics[0].key);
+  const [metricKey, setMetricKey] = useState(metrics.some((m) => m.key === initial) ? initial! : metrics[0].key);
   const metric = metrics.find((m) => m.key === metricKey) ?? metrics[0];
   const atMs = Date.parse(at);
   const from = new Date(siteDayStart(atMs, site.site.timezone)).toISOString();
@@ -273,6 +324,12 @@ function Trend({ site, at, metrics }: { site: SiteBundle; at: string; metrics: S
     client.getHistory({ metrics: [metric.key], from, to: at }, { signal }),
   );
   const series = history.data?.series[0];
+  const record = rating !== undefined;
+  const rated = rating?.(metric);
+  const dayStart = Date.parse(from);
+  const times = history.data?.times ?? [];
+  const stepMin = times.length > 1 ? Math.round((Date.parse(times[1]) - Date.parse(times[0])) / 60_000) : null;
+  const now = `${formatTime(atMs, site.site.timezone)} ${site.site.timezoneLabel}`;
 
   return (
     <section className="inspector__section">
@@ -300,16 +357,27 @@ function Trend({ site, at, metrics }: { site: SiteBundle; at: string; metrics: S
             {
               id: metric.key,
               label: metric.label,
-              color: "var(--chart-observed)",
+              // One measurement: nothing to tell apart, so no hue (Treatment A).
+              color: "var(--chart-neutral)",
               points: history.data!.times.map((t, i) => ({ t: Date.parse(t), v: series.values[i] })),
             },
           ]}
           unit={metric.unit}
           decimals={metric.decimals}
           timeZone={site.site.timezone}
-          xDomain={[Date.parse(from), atMs]}
-          height={150}
+          xDomain={record ? [dayStart, dayStart + 24 * 3_600_000] : [dayStart, atMs]}
+          yMin={record ? 0 : undefined}
+          yMax={rated}
+          marker={record ? { t: atMs, label: formatTime(atMs, site.site.timezone) } : undefined}
+          height={record ? 170 : 150}
         />
+      )}
+      {record && series && stepMin && (
+        <p className="inspector__hint">
+          {rated !== undefined
+            ? s.record.trendRated(metric.unit, `${formatNumber(rated, 0)} ${metric.unit}`, stepMin, now)
+            : s.record.trendCaption(metric.unit, stepMin, now)}
+        </p>
       )}
     </section>
   );

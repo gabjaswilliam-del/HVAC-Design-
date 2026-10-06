@@ -265,4 +265,11 @@ export const demoScene: SceneLayout = {
     { at: [1180, 346], text: "Chilled-water supply header" },
     { at: [1180, 460], text: "Chilled-water return header" },
   ],
+  // Key mode replaces the captions and header tags with one plate per header.
+  keyHeaders: [
+    { metric: "chw_supply:temp_c", label: "CHW supply", at: [1180, 340.5] },
+    { metric: "chw_return:temp_c", label: "CHW return", at: [1180, 454.5] },
+    { metric: "cw_supply:temp_c", label: "CW supply", at: [372, 242] },
+    { metric: "cw_return:temp_c", label: "CW return", at: [590, 24], align: "end" },
+  ],
 };

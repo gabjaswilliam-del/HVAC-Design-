@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useNavigate } from "react-router";
 import { ChevronDown, ChevronRight, CircleAlert, CircleCheck, Crosshair, Highlighter, LoaderCircle, PanelRight } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
@@ -8,12 +8,16 @@ import { formatTime } from "../../lib/format";
 import { TimeSeriesChart, type ChartSeries } from "../../components/TimeSeriesChart";
 import { getOperating, operating } from "../../app/operatingContext";
 import type { ScenarioId } from "../../fixtures/scenarios";
+import { isKpiKey } from "../monitoring/kpiDefinitions";
+import { Prose } from "./Prose";
+
+type ToolPart = Extract<TurnPart, { type: "tool" }>;
 
 const ROLE_STYLE: Record<string, Pick<ChartSeries, "color" | "dashed" | "width">> = {
   observed: { color: "var(--chart-observed)" },
   forecast: { color: "var(--chart-forecast)", dashed: true },
-  delivered: { color: "var(--chart-delivered)", width: 5 },
-  capacity: { color: "var(--text-muted)", dashed: true },
+  delivered: { color: "var(--chart-delivered)", width: 4 },
+  capacity: { color: "var(--chart-capacity)", width: 1.5 },
 };
 
 export function targetPath(target: NavTarget) {
@@ -42,58 +46,83 @@ function useContextNavigate(context: AgentContext) {
     if (Date.parse(context.at) !== now.cursor) operating.setCursor(Date.parse(context.at));
     operating.setPlaying(false);
     prepare?.();
+    // Details opened from an answer wait as a strip, so the answer stays in view.
+    const q = new URLSearchParams(path.split("?")[1] ?? "");
+    const equipment = q.get("equipment");
+    const kpi = q.get("kpi");
+    if (equipment) operating.select(equipment);
+    else if (isKpiKey(kpi)) operating.openKpi(kpi);
+    if (equipment || isKpiKey(kpi)) operating.setDetailsCollapsed(true);
     navigate(path);
   };
 }
 
-/** Plain text with "- " bullet lines; rendered as text, never as HTML. */
-function Prose({ text }: { text: string }) {
-  const blocks: { list: boolean; lines: string[] }[] = [];
-  for (const line of text.split("\n")) {
-    if (!line.trim()) continue;
-    const list = line.startsWith("- ");
-    const last = blocks.at(-1);
-    if (last && last.list === list && list) last.lines.push(line.slice(2));
-    else blocks.push({ list, lines: [list ? line.slice(2) : line] });
+/** Consecutive tool calls form one activity group; text and views stand alone. */
+function groupParts(parts: TurnPart[]) {
+  const out: ({ type: "tools"; tools: ToolPart[] } | Exclude<TurnPart, ToolPart>)[] = [];
+  for (const p of parts) {
+    const last = out.at(-1);
+    if (p.type !== "tool") out.push(p);
+    else if (last?.type === "tools") last.tools.push(p);
+    else out.push({ type: "tools", tools: [p] });
   }
+  return out;
+}
+
+/**
+ * A run of tool calls: open while it is the latest activity, folded to one line once the
+ * answer begins, open again on request. Simulated tools are named as such in its head.
+ */
+function ToolGroup({ tools, startOpen }: { tools: ToolPart[]; startOpen: boolean }) {
+  const a = useStrings().agent;
+  const [choice, setChoice] = useState<boolean | null>(null);
+  const open = choice ?? startOpen;
+  const listId = useId();
+  const simulated = tools.every((t) => t.simulated);
+  const failed = tools.filter((t) => t.status === "error").length;
   return (
-    <>
-      {blocks.map((b, i) =>
-        b.list ? (
-          <ul key={i} className="agent-prose__list">
-            {b.lines.map((l, j) => (
-              <li key={j}>{l}</li>
-            ))}
-          </ul>
-        ) : (
-          <p key={i} className="agent-prose__p">
-            {b.lines[0]}
-          </p>
-        ),
-      )}
-    </>
+    <div className="agent-activity">
+      <button type="button" className="agent-activity__head" aria-expanded={open} aria-controls={listId} onClick={() => setChoice(!open)}>
+        {open ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
+        {simulated && <span className="agent-activity__mark" aria-hidden="true" />}
+        <span>{tools.some((t) => t.status === "running") ? a.usingTools(simulated) : a.usedTools(tools.length, simulated)}</span>
+        {failed > 0 && <span className="agent-activity__failed">{a.toolsFailed(failed)}</span>}
+      </button>
+      <ul id={listId} className="agent-activity__list" hidden={!open}>
+        {tools.map((t) => (
+          <ToolRow key={t.callId} part={t} />
+        ))}
+      </ul>
+    </div>
   );
 }
 
-function ToolRow({ part }: { part: Extract<TurnPart, { type: "tool" }> }) {
-  const s = useStrings();
-  const a = s.agent;
+/** One step: what it is doing, then Complete or Failed with the tool's own summary; the
+ *  tool name and arguments open beneath. */
+function ToolRow({ part }: { part: ToolPart }) {
+  const a = useStrings().agent;
   const [open, setOpen] = useState(false);
-  const Icon = part.status === "running" ? LoaderCircle : part.status === "ok" ? CircleCheck : CircleAlert;
-  const statusWord = part.status === "running" ? a.toolRunning : part.status === "ok" ? a.toolOk : a.toolError;
+  const running = part.status === "running";
+  const [doing, done] = a.toolSteps[part.tool] ?? a.toolStep(part.tool);
+  const Icon = running ? LoaderCircle : part.status === "ok" ? CircleCheck : CircleAlert;
+  const statusWord = running ? a.toolRunning : part.status === "ok" ? a.toolOk : a.toolError;
   return (
-    <div className={`agent-tool agent-tool--${part.status}`} data-tool={part.tool} data-tool-status={part.status}>
+    <li className={`agent-tool agent-tool--${part.status}`} data-tool={part.tool} data-tool-status={part.status}>
       <button type="button" className="agent-tool__head" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-        {open ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
-        <Icon size={14} aria-hidden="true" className={part.status === "running" ? "agent-tool__spin" : undefined} />
-        <code className="agent-tool__name">{part.tool}</code>
-        {part.simulated && <span className="agent-tool__badge">{a.simulatedTool}</span>}
-        <span className="agent-tool__status">{statusWord}</span>
+        <Icon size={14} aria-hidden="true" className={running ? "agent-tool__icon agent-tool__spin" : "agent-tool__icon"} />
+        <span className="agent-tool__label">{running ? doing : done}</span>
+        <span className={running ? "visually-hidden" : "agent-tool__status"}>{statusWord}</span>
+        {open ? <ChevronDown size={13} aria-hidden="true" className="agent-tool__more" /> : <ChevronRight size={13} aria-hidden="true" className="agent-tool__more" />}
         <span className="visually-hidden">{open ? a.toolHideDetails : a.toolDetails}</span>
       </button>
       {part.summary && <p className="agent-tool__summary">{part.summary}</p>}
       {open && (
         <dl className="agent-tool__details">
+          <dt>{a.toolName}</dt>
+          <dd>
+            <code>{part.tool}</code>
+            {part.simulated && `, ${a.simulatedTool.toLowerCase()}`}
+          </dd>
           <dt>{a.arguments}</dt>
           <dd>
             {Object.entries(part.args).map(([k, v]) => (
@@ -106,7 +135,22 @@ function ToolRow({ part }: { part: Extract<TurnPart, { type: "tool" }> }) {
           <dd>{part.summary ?? statusWord}</dd>
         </dl>
       )}
-    </div>
+    </li>
+  );
+}
+
+/** Between steps: a quiet working line, never a narration of reasoning. */
+function Working() {
+  const a = useStrings().agent;
+  return (
+    <p className="agent-working">
+      <span className="agent-working__meter" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </span>
+      {a.working}
+    </p>
   );
 }
 
@@ -120,12 +164,12 @@ function ViewBlock({ view, site, context }: { view: DataView; site: SiteBundle; 
     case "equipment":
       return (
         <section className="agent-view" data-view="equipment">
-          <h4 className="agent-view__title">{view.title}</h4>
+          <h3 className="agent-view__title">{view.title}</h3>
           <ul className="agent-view__equipment">
             {view.ids.map((id) => (
               <li key={id}>
                 <span className="agent-view__name">{label(id)}</span>
-                <button type="button" className="button button--small" onClick={() => go(`/equipment/${encodeURIComponent(id)}`)} aria-label={`${a.inspect} ${label(id)}`}>
+                <button type="button" className="button button--small" onClick={() => go(`/?equipment=${encodeURIComponent(id)}`)} aria-label={`${a.inspect} ${label(id)}`}>
                   <PanelRight size={14} aria-hidden="true" />
                   {a.inspect}
                 </button>
@@ -147,11 +191,11 @@ function ViewBlock({ view, site, context }: { view: DataView; site: SiteBundle; 
     case "issues":
       return (
         <section className="agent-view" data-view="issues">
-          <h4 className="agent-view__title">{view.title}</h4>
+          <h3 className="agent-view__title">{view.title}</h3>
           <ul className="agent-view__issues">
             {view.issues.map((i) => (
-              <li key={i.id} className={`issue-line issue-line--${i.severity}`} data-issue={i.id}>
-                <span className="issue-line__severity">
+              <li key={i.id} className="issue-line" data-issue={i.id}>
+                <span className={`sev sev--${i.severity}`}>
                   {s.issues.severity[i.severity]}, {i.id}
                 </span>
                 <span className="issue-line__title">{i.title}</span>
@@ -209,11 +253,20 @@ function ViewBlock({ view, site, context }: { view: DataView; site: SiteBundle; 
   }
 }
 
+/**
+ * One question and its answer as it arrives: the question at once, a working line until
+ * the first step, the tool activity, then the answer streaming in; typed views follow.
+ * New kinds of part (an assistant action, say) render here from their own typed payload.
+ */
 export function TurnView({ turn, site, context }: { turn: Turn; site: SiteBundle; context: AgentContext }) {
   const s = useStrings();
   const a = s.agent;
+  const running = turn.status === "running";
+  const groups = groupParts(turn.parts);
+  const tail = turn.parts.at(-1);
+  const working = running && (!tail || tail.type === "view" || (tail.type === "tool" && tail.status !== "running"));
   return (
-    <article className="agent-turn" data-turn-status={turn.status}>
+    <article className="agent-turn" data-turn-status={turn.status} aria-busy={running || undefined}>
       <div className="agent-turn__prompt">
         <span className="agent-turn__who">{a.you}</span>
         <p>{turn.prompt}</p>
@@ -221,22 +274,18 @@ export function TurnView({ turn, site, context }: { turn: Turn; site: SiteBundle
       <div className="agent-turn__answer">
         <span className="agent-turn__who">
           {a.assistant} <span className="agent-badge">{a.scripted}</span>
+          <span className="agent-turn__paced">{a.paced}</span>
           <span className="agent-turn__time num">
             {formatTime(turn.at, site.site.timezone)} {site.site.timezoneLabel}
           </span>
         </span>
-        {turn.parts.map((p, i) =>
-          p.type === "text" ? (
-            <div key={i} className="agent-prose">
-              <Prose text={p.text} />
-            </div>
-          ) : p.type === "tool" ? (
-            <ToolRow key={p.callId} part={p} />
-          ) : (
-            <ViewBlock key={i} view={p.view} site={site} context={context} />
-          ),
-        )}
-        {turn.status === "running" && <LoaderCircle size={16} className="agent-tool__spin" aria-hidden="true" />}
+        {groups.map((g, i) => {
+          const last = i === groups.length - 1;
+          if (g.type === "tools") return <ToolGroup key={i} tools={g.tools} startOpen={last && turn.status !== "complete"} />;
+          if (g.type === "text") return <Prose key={i} text={g.text} streaming={running && last} />;
+          return <ViewBlock key={i} view={g.view} site={site} context={context} />;
+        })}
+        {working && <Working />}
         {turn.status === "cancelled" && <p className="agent-turn__note">{a.cancelled}</p>}
         {turn.status === "error" && (
           <p className="agent-turn__note agent-turn__note--error">

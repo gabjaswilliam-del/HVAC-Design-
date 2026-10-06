@@ -1,4 +1,3 @@
-import { PageHeading } from "../../components/PageHeading";
 import { useId, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Info, Pin } from "lucide-react";
@@ -10,7 +9,6 @@ import { Notice } from "../../components/Notice";
 import { TimeSeriesChart, type ChartSeries } from "../../components/TimeSeriesChart";
 import { useDataClient } from "../../app/dataClient";
 import { useOperating } from "../../app/operatingContext";
-import { PlaybackBar } from "../../app/PlaybackBar";
 import { useSite } from "../../app/site";
 import { useForecastById, useForecastCapabilities, useLatestForecast } from "./ForecastDataController";
 import { PredictionReadiness } from "./PredictionReadiness";
@@ -24,7 +22,6 @@ const CAPACITY = "plant:available_capacity_kw";
 
 export function PredictionPage() {
   const s = useStrings();
-  const t = s.prediction;
   const site = useSite();
   const [params, setParams] = useSearchParams();
   const pinnedId = params.get("forecast");
@@ -32,7 +29,6 @@ export function PredictionPage() {
   if (site.error && !site.data) {
     return (
       <div className="page">
-        <PageHeading>{t.heading}</PageHeading>
         <Notice tone="critical" action={{ label: s.monitoring.retry, onClick: site.retry }}>
           {s.monitoring.siteFailed} {site.error.message}
         </Notice>
@@ -42,7 +38,6 @@ export function PredictionPage() {
   if (!site.data) {
     return (
       <div className="page">
-        <PageHeading>{t.heading}</PageHeading>
         <div className="skeleton" style={{ height: 400 }} />
       </div>
     );
@@ -86,7 +81,6 @@ function PredictionContent({ site, pinnedId, unpin }: { site: SiteBundle; pinned
   return (
     <div className="page prediction">
       <div className="page__head">
-        <PageHeading>{t.heading}</PageHeading>
         <p className="page__notice">
           <Info size={16} aria-hidden="true" />
           {t.notice}
@@ -173,8 +167,6 @@ function PredictionContent({ site, pinnedId, unpin }: { site: SiteBundle; pinned
           showCapacity={showCapacity}
         />
       )}
-
-      <PlaybackBar timeZone={tz} timezoneLabel={tzLabel} />
     </div>
   );
 }
@@ -251,7 +243,7 @@ function ForecastView({
       id: "delivered",
       label: t.delivered,
       color: "var(--chart-delivered)",
-      width: 5,
+      width: 4,
       points: plant.data!.times.map((x, i) => ({ t: Date.parse(x), v: delivered.values[i] })),
     });
   }
@@ -272,11 +264,12 @@ function ForecastView({
   }
   const capacity = plantSeries(CAPACITY);
   if (showCapacity && capacity) {
+    // Solid: dashed lines mean forecasts, and capacity is history only.
     series.push({
       id: "capacity",
       label: t.capacity,
-      color: "var(--text-muted)",
-      dashed: true,
+      color: "var(--chart-capacity)",
+      width: 1.5,
       points: plant.data!.times.map((x, i) => ({ t: Date.parse(x), v: capacity.values[i] })),
     });
   }

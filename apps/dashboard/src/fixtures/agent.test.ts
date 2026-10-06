@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { agentEvent, type AgentContext, type AgentEvent } from "../lib/contracts/agent";
 import { matchIntent } from "./agentScripts";
-import { createFixtureAgent, resetFixtureAgent } from "./fixtureAgent";
+import { createFixtureAgent, paceText, resetFixtureAgent } from "./fixtureAgent";
 import { createFixtureClient } from "./fixtureClient";
 import { DAY_START, MINUTE_MS } from "./generate";
 import { scenarioById } from "./scenarios";
@@ -53,8 +53,8 @@ describe("scripted agent harness", () => {
 
   it("reports the scenario's actual open issues and links to them", async () => {
     const { text, views } = await ask(ctx("tower-fault", 15, 15), "What needs attention right now?");
-    expect(text).toContain("2 open issues");
-    expect(text).toContain("Cooling tower 4 fan fault (ISS-0142)");
+    expect(text).toContain("Two issues are open at 15:15 UTC+8, one of them critical.");
+    expect(text).toContain("- Cooling tower 4 fan fault (ISS-0142) is critical, first seen at 13:20 UTC+8");
     const issues = views.find((v) => v.view.kind === "issues");
     expect(issues?.view.kind === "issues" && issues.view.issues.map((i) => i.id)).toEqual(["ISS-0142", "ISS-0143"]);
     expect(views.some((v) => v.view.kind === "link" && v.view.target.type === "monitoring_kpi")).toBe(true);
@@ -63,8 +63,8 @@ describe("scripted agent harness", () => {
   it("investigates a faulted item from tool data and reports the unavailable knowledge tool", async () => {
     const { text, results, views } = await ask(ctx("tower-fault", 15, 15, "cooling_towers_4"), "Investigate Cooling tower 4");
     expect(text).toContain("Cooling tower 4 is in fault");
-    expect(text).toContain("fan frequency 0.0 Hz");
-    expect(text).toContain("Engineering documents could not be searched");
+    expect(text).toContain("| Fan frequency | 0.0 Hz |");
+    expect(text).toContain("The engineering documents could not be searched");
     expect(results.find((r) => r.status === "error")?.summary).toMatch(/knowledge base is not available/);
     expect(views.map((v) => v.view.kind)).toEqual(["equipment", "chart", "issues", "link"]);
   });
@@ -72,7 +72,7 @@ describe("scripted agent harness", () => {
   it("states unavailable readings and unconfirmed connections plainly", async () => {
     const { text } = await ask(ctx("sensor-issues", 15, 15), "Investigate CHW pump 3");
     expect(text).toContain("not reporting (no data)");
-    expect(text).toContain("frequency unavailable");
+    expect(text).toContain("None of its readings (frequency, electrical power and flow) are available.");
     const pump4 = await ask(ctx("normal", 15, 15), "Investigate CHW pump 4");
     expect(pump4.text).toContain("Not recorded: standby pump suction connection is not recorded");
   });
@@ -82,7 +82,7 @@ describe("scripted agent harness", () => {
     const unmet = Math.round(snap.kpis["plant:unmet_kw"].value!);
     const { text, views } = await ask(ctx("pump-trip", 14, 12), "Is the plant meeting cooling demand?");
     expect(text).toContain(`${unmet} kWt of demand is not being met`);
-    expect(text).toContain("Shortfall periods today: 14:05 UTC+8 to now");
+    expect(text).toContain("The shortfall began at 14:05 UTC+8 and is still going on");
     const chart = views.find((v) => v.view.kind === "chart");
     expect(chart?.view.kind === "chart" && chart.view.series.map((s) => s.role)).toEqual(["delivered", "observed", "capacity"]);
   });
@@ -94,6 +94,28 @@ describe("scripted agent harness", () => {
     const none = await ask(ctx("new-site", 15, 15), "What cooling demand is forecast for the next 6 hours?");
     expect(none.text).toContain("No forecast is available (INSUFFICIENT_HISTORY)");
     expect(none.views.some((v) => v.view.kind === "chart")).toBe(false);
+  });
+
+  it("shapes each answer to its content: short, paragraphs, a list or a table only where they help", async () => {
+    const blocks = (text: string) => text.split("\n\n");
+    const short = await ask(ctx("normal", 15, 15), "How efficient is the plant right now?");
+    expect(blocks(short.text)).toHaveLength(1);
+    expect(short.text).not.toMatch(/^- |\|/m);
+    expect(short.text).toContain("Chiller 1 and Chiller 2 are the largest loads, at 90.2 kW each");
+    const met = await ask(ctx("normal", 15, 15), "Is the plant meeting cooling demand?");
+    expect(blocks(met.text)).toHaveLength(1);
+    expect(met.text).toMatch(/^The plant is meeting cooling demand/);
+    const quiet = await ask(ctx("normal", 15, 15), "What needs attention right now?");
+    expect(quiet.text).toMatch(/^Nothing needs attention at 15:15 UTC\+8: no issues are open\./);
+    // Several separate issues are listed; several readings side by side are tabled.
+    const many = await ask(ctx("sensor-issues", 15, 15), "What needs attention right now?");
+    expect(many.text.match(/^- /gm)).toHaveLength(3);
+    const chiller = await ask(ctx("normal", 15, 15), "Investigate Chiller 2");
+    expect(chiller.text).toContain("| Reading | Value |\n| --- | --: |\n| Load | 79 % |");
+    expect(chiller.text).not.toMatch(/^- /m);
+    const forecast = await ask(ctx("normal", 15, 15), "What cooling demand is forecast for the next 6 hours?");
+    expect(blocks(forecast.text)).toHaveLength(2);
+    expect(forecast.text).not.toMatch(/^- |\|/m);
   });
 
   it("continues with partial evidence when a data tool fails", async () => {
@@ -152,5 +174,45 @@ describe("scripted agent harness", () => {
     expect(list.map((c) => c.context.demoScenario?.id)).toEqual(["tower-fault", "pump-trip", "sensor-issues"]);
     const first = await createFixtureAgent({ delayScale: 0 }).getConversation(list[0].id);
     expect(first.turns[0].status).toBe("complete");
+  });
+});
+
+describe("simulated pacing", () => {
+  // A seeded generator, so the pieces are the same on every run.
+  const seeded = (seed = 7) => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  // A constant 0.5 gives two-word pieces and the base timings exactly.
+  const even = () => 0.5;
+  const text =
+    "Cooling tower 4 is in fault, and one issue names it. It was first seen at 13:20.\n\nIts readings:\n\n| Reading | Value |\n| --- | --: |\n| Fan frequency | 0.0 Hz |\n\n1. First\n2. Second";
+
+  it("streams pieces that join to exactly the answer, one to three words each, never across a line", () => {
+    const pieces = paceText(text, seeded());
+    expect(pieces.map((p) => p.text).join("")).toBe(text);
+    for (const p of pieces) {
+      expect(p.text.trim().split(/\s+/).length).toBeLessThanOrEqual(3);
+      expect(p.text.trimEnd()).not.toContain("\n");
+    }
+  });
+
+  it("never paces evenly", () => {
+    const ms = paceText(text, seeded()).map((p) => p.ms);
+    expect(new Set(ms).size).toBeGreaterThan(ms.length / 2);
+  });
+
+  it("pauses a little after a clause, more after a sentence, most after a paragraph", () => {
+    const ms = (s: string) => paceText(s, even)[0].ms;
+    const plain = ms("one two three");
+    const clause = ms("one, two");
+    const sentence = ms("one two. Three");
+    const line = ms("one two\n- three");
+    const paragraph = ms("one two.\n\nThree");
+    expect(plain).toBeLessThan(clause);
+    expect(clause).toBeLessThan(sentence);
+    expect(line).toBeLessThan(paragraph);
+    expect(sentence).toBeLessThan(paragraph);
+    // A list number is not a sentence end.
+    expect(paceText("1. First", even).map((p) => p.text)).toEqual(["1. First"]);
+    expect(paceText("1. First", () => 0.1)[0]).toMatchObject({ text: "1. " });
+    expect(paceText("1. First", () => 0.1)[0].ms).toBeLessThan(paceText("One. Two", () => 0.1)[0].ms);
   });
 });

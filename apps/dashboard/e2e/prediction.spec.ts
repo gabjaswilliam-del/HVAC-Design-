@@ -19,18 +19,19 @@ test("states plainly that the forecast is a demo baseline, not a trained model",
   await expect(provenance).toContainText("uncalibrated, not a prediction interval with known coverage");
 });
 
-test("the monitoring summary and the page show the same forecast", async ({ page }) => {
+test("the top bar's outlook and the page show the same forecast", async ({ page }) => {
   await page.goto("/");
-  const summary = page.locator(".forecast-summary");
-  await expect(summary).toHaveAttribute("data-forecast-id", /^fc-normal-/);
-  const id = await summary.getAttribute("data-forecast-id");
-  const peak = (await summary.locator(".forecast-summary__peak").innerText()).trim();
-  await summary.getByRole("link", { name: "View forecast" }).click();
+  await page.getByRole("button", { name: "More readings" }).click();
+  const outlook = page.getByRole("region", { name: "More readings" }).getByRole("link", { name: /Outlook, 6 h: peak at/ });
+  await expect(outlook).toHaveAttribute("href", /forecast=fc-normal-/);
+  const id = decodeURIComponent((await outlook.getAttribute("href"))!.split("forecast=")[1]);
+  const peak = (await outlook.locator(".tray__value").innerText()).match(/[\d,]+/)![0];
+  await outlook.click();
   await expect(page).toHaveURL(/\/prediction\?forecast=/);
-  await expect(idOnPage(page)).toHaveAttribute("data-forecast-id", id!);
+  await expect(idOnPage(page)).toHaveAttribute("data-forecast-id", id);
   await expect(page.getByText(/Showing the forecast issued at 15:15/)).toBeVisible();
   const figures = page.getByRole("region", { name: "Predicted demand, capacity and delivery" });
-  await expect(figures.locator(".figure").first()).toContainText(peak.replace(/\s+/g, " "));
+  await expect(figures.locator(".figure").first()).toContainText(peak);
   await page.getByRole("button", { name: "Show latest forecast" }).click();
   await expect(page).not.toHaveURL(/forecast=/);
 });

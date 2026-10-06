@@ -28,6 +28,10 @@ interface TimeSeriesChartProps {
   decimals: number;
   timeZone: string;
   xDomain?: [number, number];
+  /** The y axis covers at least this range. A ceiling the data stays under (a
+   *  nameplate rating, say) becomes the top line itself, with ticks at 0, half and full. */
+  yMin?: number;
+  yMax?: number;
   marker?: { t: number; label: string };
   height?: number;
 }
@@ -39,6 +43,13 @@ function niceStep(span: number, target: number) {
   const raw = span / target;
   const mag = 10 ** Math.floor(Math.log10(raw));
   return [1, 2, 2.5, 5, 10].map((f) => f * mag).find((s) => s >= raw) ?? raw;
+}
+
+/** Decimals that print every tick of this step exactly (2.5 -> 1, 0.025 -> 3), so
+ *  neighbouring ticks never round to the same label. */
+export function stepDecimals(step: number) {
+  for (let d = 0; d < 6; d++) if (Math.abs(Math.round(step * 10 ** d) - step * 10 ** d) < 1e-6) return d;
+  return 6;
 }
 
 function segments(points: { x: number; y: number | null }[]) {
@@ -60,7 +71,7 @@ function segments(points: { x: number; y: number | null }[]) {
  * observed/forecast distinguished by dash and label, an interval band only when one is
  * supplied, a crosshair tooltip, and a table view with the same numbers.
  */
-export function TimeSeriesChart({ title, series, band, unit, decimals, timeZone, xDomain, marker, height = 160 }: TimeSeriesChartProps) {
+export function TimeSeriesChart({ title, series, band, unit, decimals, timeZone, xDomain, yMin, yMax, marker, height = 160 }: TimeSeriesChartProps) {
   const s = useStrings();
   const wrap = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -92,11 +103,23 @@ export function TimeSeriesChart({ title, series, band, unit, decimals, timeZone,
   let lo = Math.min(...values);
   let hi = Math.max(...values);
   if (empty) (lo = 0), (hi = 1);
-  const pad = (hi - lo || Math.abs(hi) || 1) * 0.08;
-  const yStep = niceStep(hi - lo + 2 * pad, 4);
-  // Never invent negative axis room for data that is all zero or positive.
-  const y0 = lo >= 0 ? Math.max(0, Math.floor((lo - pad) / yStep) * yStep) : Math.floor((lo - pad) / yStep) * yStep;
-  const y1 = Math.ceil((hi + pad) / yStep) * yStep;
+  if (yMin !== undefined) lo = Math.min(lo, yMin);
+  const capped = yMax !== undefined && yMax > lo && hi <= yMax;
+  let y0: number;
+  let y1: number;
+  let yStep: number;
+  if (capped) {
+    y0 = lo;
+    y1 = yMax;
+    yStep = (y1 - y0) / 2;
+  } else {
+    if (yMax !== undefined) hi = Math.max(hi, yMax);
+    const pad = (hi - lo || Math.abs(hi) || 1) * 0.08;
+    yStep = niceStep(hi - lo + 2 * pad, 4);
+    // Never invent negative axis room for data that is all zero or positive.
+    y0 = lo >= 0 ? Math.max(0, Math.floor((lo - pad) / yStep) * yStep) : Math.floor((lo - pad) / yStep) * yStep;
+    y1 = Math.ceil((hi + pad) / yStep) * yStep;
+  }
 
   const pw = Math.max(1, width - M.l - M.r);
   const ph = height - M.t - M.b;
@@ -170,7 +193,7 @@ export function TimeSeriesChart({ title, series, band, unit, decimals, timeZone,
               <g key={v}>
                 <line x1={M.l} x2={width - M.r} y1={y(v)} y2={y(v)} className="ts-chart__grid" />
                 <text x={M.l - 6} y={y(v) + 4} textAnchor="end" className="ts-chart__tick">
-                  {formatNumber(v, yStep < 1 ? 1 : 0)}
+                  {formatNumber(v, stepDecimals(yStep))}
                 </text>
               </g>
             ))}
@@ -182,7 +205,7 @@ export function TimeSeriesChart({ title, series, band, unit, decimals, timeZone,
             <text x={4} y={12} className="ts-chart__unit">
               {unit}
             </text>
-            {band && <path d={bandPath} fill={band.color} opacity={0.22} />}
+            {band && <path d={bandPath} fill={band.color} fillOpacity={0.22} stroke={band.color} strokeOpacity={0.45} strokeWidth={1} />}
             {marker && (
               <g>
                 <line x1={x(marker.t)} x2={x(marker.t)} y1={M.t} y2={M.t + ph} className="ts-chart__marker" />
@@ -214,7 +237,7 @@ export function TimeSeriesChart({ title, series, band, unit, decimals, timeZone,
                 {series.map((x0) => {
                   const p = at(x0.points, hoverT);
                   return p && p.v !== null ? (
-                    <circle key={x0.id} cx={x(hoverT)} cy={y(p.v)} r={4} fill={x0.color} stroke="var(--panel)" strokeWidth={2} />
+                    <circle key={x0.id} cx={x(hoverT)} cy={y(p.v)} r={4} fill={x0.color} stroke="var(--surface)" strokeWidth={2} />
                   ) : null;
                 })}
               </g>

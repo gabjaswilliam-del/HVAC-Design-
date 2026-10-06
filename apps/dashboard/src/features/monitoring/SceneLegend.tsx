@@ -43,6 +43,24 @@ export function SceneLegend() {
         </ul>
       </div>
       <div className="scene-legend__group">
+        <h2>{l.overlays}</h2>
+        <ul>
+          <li>
+            <span className="tag tag--attention tag--sm tag--critical legend-sample">
+              <span className="tag__eye" />
+              ISS
+            </span>
+            {l.issue}
+          </li>
+          <li>
+            <span className="key legend-sample num">
+              49.2<span className="unit">Hz</span>
+            </span>
+            {l.key}
+          </li>
+        </ul>
+      </div>
+      <div className="scene-legend__group">
         <h2>{l.tags}</h2>
         <ul>
           {TAGS.map((kind) => (

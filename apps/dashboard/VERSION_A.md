@@ -12,8 +12,10 @@ the local API, PHYVAC, models or equipment. Version C is a separate, later exerc
 | M3 | Interactive monitoring: fit/zoom/pan, selection, inspector, playback, KPIs, forecast summary, issues, list view | Done; reviewed by owner |
 | M3.1 | Interactive KPI cards and indicator details panel (owner request) | Done |
 | M4 | Cooling prediction page, Equipment screen | Done |
-| M5 | AI assistant page and drawer (scripted demonstration) | Done; **owner review gate before M6** |
-| M6 | Simulation, AI pilot (their mock services move here from M2) | Planned |
+| M5 | AI assistant page and drawer (scripted demonstration) | Done; **owner review gate closed 2026-10-05 (F10)** |
+| R1–R2 | Redesign phases 1–2: design system, navigation, header, permanent workspace, Overview | Done; superseded by Treatment A; included in the 2026-10-06 checkpoint commit |
+| TA | Treatment A, Graphite (machined bezel): v2 Phase 2 refinement, decisions F1–F9 | Done; **local checkpoint commit 2026-10-06** (with the Assistant refinement), not pushed |
+| M6 | Simulation, AI pilot (their mock services move here from M2) | Planned; starts only after the owner's localhost review of Treatment A. No Assistant simulation control or action tools (F10) |
 | M7 | CAD Studio, Knowledge base, Installation, System | Planned |
 | M8 | Hardening, full test suite, DGX validation, documentation | Planned |
 
@@ -188,3 +190,207 @@ the narrow-screen assistant button has an accessible name.
 | `npm run build` | Pass |
 
 Not validated: DGX Spark build/test, any real model, harness, API or equipment.
+
+## Redesign phases 1–2 (owner approval, 2026-10-04)
+
+The design proposal (`PROPOSAL-hvac-dashboard-redesign-2026-10-04.md`) is kept outside
+the repository. Phases 3–5 have not started.
+
+- **Design system** (`src/styles/tokens.css`, `src/components/components.css`):
+  interface surfaces, one accent (`#5B9BF0`), type and spacing scales, radii 12/8/6
+  (containers, controls, chips), control borders at 3:1 contrast, and hatching on
+  every value that is not live. Scene tokens are unchanged, so the M1 artwork renders
+  as before.
+- **Navigation**: a rail with Overview (`/`), Analytics (`/prediction`), Engineering
+  (`/equipment`, with Simulation and CAD Studio tabs) and Knowledge; System and
+  Installation in a System menu; a bottom bar at 760px and below. URLs are unchanged.
+- **Header**: a title block with the site, data mode and scenario, replay or live time
+  with freshness, and the configuration revision.
+- **Workspace** (`src/app/workspace/`): one right-hand column on every screen except
+  `/agent`. Details (equipment or indicator) sit above the Assistant and Pilot tabs.
+  It is docked and open by default at 1440px and wider. Below that it floats over the
+  page until pinned, and docks (at most 320px wide) while Details are open. At 760px
+  and below it is a full-screen sheet. It resizes from 320 to 560px by pointer or
+  keyboard; width, tab and pin are remembered. Details leave the Assistant at least
+  420px, so its composer is never pushed out of the window. The conversation lives in
+  a module session (`src/features/agent/conversationSession.ts`), so a streaming answer
+  survives screen changes and expanding to the full page. The Pilot tab is a planned
+  state that says it works on simulations only.
+- **Overview**: a status band (cooling with a demand/delivery/capacity balance,
+  efficiency, chilled water, heat rejection, 6-hour outlook, attention), one line for
+  the most severe open issue, and the plant with its toolbar (zoom, Fit, Readings,
+  Legend) and topology disclosure. Site, readings and issues load once for the whole
+  shell (`SiteProvider`).
+
+Deviations from the proposal: Details stack above the conversation instead of using a
+third tab, so an answer stays in view when its links open Details. Docking by default
+starts at 1440px, not 1280px, because docking at 1280px cost 14 zoom points. The
+Analytics page keeps its "Cooling prediction" heading until phase 4. Legible readings
+at fit (D10) has not been tried.
+
+Schematic zoom, measured with the workspace open / collapsed / showing Details:
+
+| Window | Normal operation | Tower fault (issue line shown) |
+|---|---|---|
+| 1920x1080, docked | 78.3% / 78.3% / 78.3% | 73.9% / 73.9% / 73.9% |
+| 1440x900, docked | 59.5% / 59.5% / 59.5% | 55.1% / 55.1% / 55.1% |
+| 1280x800, floating | 49.1% / 49.1% / 39.0% | 44.7% / 44.7% / 34.6% |
+| 1024x768, floating | 35.7% / 35.7% / 27.9% | 31.3% / 31.3% / 23.5% |
+
+Before the redesign: 55% at 1440x900 with no panels, 52% with the assistant and 25% with
+the assistant and inspector; at 1024x768, 37% and 17% with the assistant and a KPI panel.
+
+## Test results after redesign phases 1–2 (Windows 11 workstation, Node 24.19, Playwright 1.63 Chromium)
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | Pass |
+| `npm test` (Vitest) | 43 passed (2 new: chart tick decimals, indicator inputs) |
+| `npm run e2e` (Playwright) | 93 passed (9 new: 7 workspace, rail section, Details and plant size), 6 opt-in captures skipped; three consecutive full runs |
+| `npm run build` | Pass (JS 619.7 kB, 187.2 kB gzip; size advisory only) |
+
+Tests changed for the new navigation: screens are reached through the rail, Engineering
+tabs, System menu and workspace instead of one flat list; the narrow-screen test checks
+the bottom bar instead of a drawer; "Close assistant" became "Collapse workspace"; the
+three refit tests collapse the workspace first and run at 1440x1100, where the fit is
+width-bound and a narrower plant shows as a smaller zoom.
+
+Not validated: DGX Spark build/test, touch input, any real model, API or equipment.
+
+## M5 review gate closed (owner decision F10, 2026-10-05)
+
+The scripted assistant (`709e642`) is approved as reviewed: its behaviour, its "Scripted
+demo" and "Simulated tool" labelling, its workspace integration, and the paced replay,
+kept and labelled "Replay paced for demonstration".
+
+- **M6 adds no Assistant simulation control or action tools.**
+- Read-only Assistant access to simulation results (inspect, analyse, explain) is not
+  excluded: it may come later if the M6 architecture supports it safely.
+- Any simulation control or action capability needs a separate confirmation design
+  and the owner's approval.
+- M6 starts only after the owner's localhost review of Treatment A, and follows the M6
+  line above and the Simulation and Pilot briefs as written.
+
+## Treatment A, Graphite (machined bezel), 2026-10-05
+
+The owner chose Direction A "Permit" and, of three visual treatments, Treatment A:
+Graphite. The decision record (F1–F10) and the prototype that is the source of truth for
+the look are kept outside the repository, in
+`redesign-v2-proposal-2026-10-04/` (`F-DECISIONS-treatment-A.md`,
+`prototype/treatment-graphite.html`). The built system is described in `DESIGN.md`.
+
+- **Identity (F1, F2).** A satin anthracite bezel with a fine grain (a 22 kB tile,
+  `src/assets/grain.png`) holds two recessed charcoal displays, the plant or page and the
+  workspace. Laminate is the only light material: filled tags for attention, outline
+  tags for provenance, dashed tags for planned work, severity marks away from the
+  drawing. The accent hue and the lilac "not live" hatch are gone. Interface safety
+  colours are separate tokens (danger, warning, caution, notice, ok); the scene tokens
+  and pipe-media colours are unchanged, so the M1 artwork renders as approved.
+- **Shell (F3).** The top bar shows "site / page" (the h1), the Demo data tag,
+  Demand, Delivered, Running capacity and COP with a balance meter, More readings (a
+  tray), and the attention slot. The deck has the scenario, Live demo or Replay,
+  playback, the timeline and the only clock, with freshness. The dock has the four
+  sections, Shortcuts and System; it magnifies near the pointer, has a sliding
+  indicator, is one tab stop with arrow keys, and becomes a bottom tab bar on a phone.
+  The status band, issue line, title block, rail and in-page playback bar are removed.
+- **Plant (F4, F5).** The drawing fills the display. Three corner controls only: view
+  switch, drawing controls (readings Auto, Key, All, Off; zoom; Fit; Legend) and the
+  disclosure. Below 80% zoom, Auto shows key readings and names in screen space from the
+  scene geometry (`StageOverlay.tsx`; header positions in the scene manifest,
+  `keyHeaders`). Open issues hang as laminate tags. Selection dims what is unrelated,
+  never equipment in fault or named by an open issue.
+- **Workspace (F6).** Docked at 1440 px and wider (352 px default); below that a 52 px
+  dock and a floating panel, with the plant refitting beside it when it can stay at half
+  size or more. Details lead, with the open issue as a tag and its evidence rows marked;
+  typing (or opening Details from an answer) folds them to a strip. The pin is removed.
+- **List and Engineering (F7).** The Overview's list view has filters, a live count and
+  faults first. `/engineering` is a hub (Investigations, Equipment records, Simulation
+  and CAD and topology as planned rows with real topology evidence). `/equipment`
+  redirects to `/?view=list`; `/equipment/:id` is the equipment record (trend read
+  against the nameplate, operating point, measurements, issue timeline); `/simulation`
+  and `/cad` open the hub with that row focused.
+- **Accessibility (F8).** Acknowledge is its own button (this browser only, never a
+  shortcut); new issues are announced, prefix the page title and swing in once.
+  Shortcuts: 1 to 4, `.`, F, L, R, `/`, Escape, `?`. Reduced motion, reduced
+  transparency and forced colours are handled.
+
+Measured fits: 99.6% at 1920x1080, 69.0% at 1440x900 docked, 80.8% collapsed, 67.1% at
+1366x768, 70.4% at 1280x800, 61.1% at 1024x768; beside a floating panel 59.6% at
+1366x768 and 53.7% at 1280x800 (at 1024x768 the panel covers part of the plant).
+
+Fixed while building and testing:
+- The drawing again blocks text selection (a second drag was cancelled as a native text
+  drag), and non-scrolling containers use `overflow: clip` again (focus could scroll a
+  hidden overflow).
+- The System menu sat under the deck.
+- `?view=list` was re-read late and could flip the view back.
+- Clicking "Locate" in an answer hid the answer behind Details.
+- "Investigate Cooling tower 4" was suggested in Normal operation.
+- An unknown `?kpi=` was dropped silently.
+- At 200% zoom, crowded names shrink (to 10 px) instead of colliding.
+- Under forced colours, text fill now follows the system colours.
+
+Tests changed where behaviour intentionally changed: navigation through the dock, the
+top bar's h1, readouts in the top bar or More readings, Locate keeping the zoom when the
+item is in view, Details first, floating panels below 1440 px, the roster becoming the
+Overview's list and records. New tests: the attention slot and Acknowledge
+(`e2e/attention.spec.ts`), the corner overlap guarantee (`e2e/overlap.spec.ts`, 18 fit
+cases plus floating panels), key readings and readings modes, Details first, floating
+refit, Engineering redirects, records, shortcuts, forced-colour axe checks, and a
+floating-fit unit test.
+
+## Test results after Treatment A (Windows 11 workstation, Node 24.19, Playwright 1.63 Chromium)
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | Pass |
+| `npm test` (Vitest) | 44 passed |
+| `npm run e2e` (Playwright) | 141 passed, 6 opt-in captures skipped (the last full run on the final code) |
+| axe | 0 serious or critical on ten screens, in normal and forced colours |
+| Reduced motion | Pulse, swing, flow and fans stop; states remain |
+| Reduced transparency | Glass becomes solid (Chromium DevTools emulation) |
+| 200% zoom | No horizontal overflow at 1440x900 and 1920x1080 windows |
+| `npm run build`, `npm run build:demo` | Pass (JS 645 kB, 195 kB gzip; size advisory only) |
+
+Not validated: DGX Spark build and frame time, a real operating-system reduced
+transparency or high-contrast setting, touch input, any real model, API or equipment.
+
+## Assistant refinement before M6 (2026-10-06)
+
+Still the scripted demonstration: no model, every figure from a simulated tool, the
+"Scripted demo", "Simulated tool" and "Replay paced for demonstration" labels kept.
+
+- **Pacing** (`fixtureAgent.ts`, harness side): a short pause before the first step,
+  tool steps of 0.36 to 0.6 s, a pause before the answer, then the text in pieces of
+  one to three words (`paceText`) with varied gaps that lengthen after a clause, a
+  sentence and a paragraph; about 22 to 26 words a second. `?agentSpeed=fast` (tests)
+  runs the same events at 4% of the pace.
+- **Answers take their content's shape** (`agentScripts.ts`): a sentence or two for a
+  simple reading, paragraphs for an explanation, a list only for several separate
+  issues, a table only for several readings or shortfall periods.
+- **Rendering** (`Prose.tsx`): a safe Markdown subset (paragraphs, headings, lists, pipe
+  tables), text only, never HTML. Mid-stream the line being written fades in word by
+  word behind a still caret; a table shows once its header is complete and grows a row
+  at a time; what is already shown keeps its DOM nodes.
+- **Activity** (`TurnView.tsx`): the question shows at once (before the harness
+  replies), then a quiet "Working" line, then each step in plain words ("Checking plant
+  data…", then "Check plant data, Complete"); the steps fold into "Used N simulated
+  tools" when the answer begins. No reasoning is narrated.
+- **Following** (`ConversationView.tsx`): the view glides to each new line while the
+  reader is at the end. Scrolling up, wheel up, Home/PageUp/ArrowUp, or a pointer or
+  focus in the conversation stops following at once and halts any glide in flight;
+  "Jump to latest" returns and follows again. Reduced motion: no fades, instant moves.
+- **Session**: Cancel works from the moment of asking; an answer keeps streaming into
+  its own conversation if another is opened meanwhile.
+- **Later, not built**: assistant actions (show a chart, focus equipment, a report, an
+  export) would arrive as new typed parts or events, validated like views, dispatched
+  to an allow-list of app capabilities and rendered from their own payload in
+  `TurnView`; model output never becomes UI code.
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | Pass |
+| `npm test` (Vitest) | 53 passed (pacing, renderer and answer-shape tests added) |
+| `npm run e2e` (Playwright) | 147 passed, 6 opt-in captures skipped (6 new response tests) |
+| `npm run build`, `npm run build:demo` | Pass |
+

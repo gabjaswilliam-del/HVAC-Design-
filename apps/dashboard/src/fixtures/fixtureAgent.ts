@@ -41,6 +41,53 @@ const nextId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${(coun
 
 const sleep = (ms: number) => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
 
+/** Simulated pacing in ms at delayScale 1, varied each time so it never feels mechanical. */
+const TOOL_MS: Record<ToolName, number> = {
+  list_issues: 380,
+  get_equipment: 360,
+  get_plant_snapshot: 460,
+  get_history: 600,
+  get_forecast: 560,
+  search_knowledge: 520,
+};
+const vary = (ms: number, random = Math.random) => ms * (0.75 + random() * 0.5);
+
+/**
+ * Answer text cut the way a model streams it: pieces of one to three words, each followed
+ * by a varied pause that lengthens after a clause, a sentence and a line, so the answer
+ * reads as composed rather than typed. Joined, the pieces are exactly the text.
+ */
+export function paceText(text: string, random = Math.random) {
+  const words = text.split(/(?<=\s)(?=\S)/);
+  const pieces: { text: string; ms: number }[] = [];
+  for (let i = 0; i < words.length; ) {
+    const size = random() < 0.4 ? 1 : random() < 0.8 ? 2 : 3;
+    let piece = "";
+    let n = 0;
+    while (n < size && i < words.length) {
+      const w = words[i++];
+      piece += w;
+      n++;
+      // Punctuation and line ends close a piece; a list number ("1. ") does not.
+      if (w.includes("\n") || (/[.,:;!?]\s*$/.test(w) && !/^\d+\.\s*$/.test(w))) break;
+    }
+    const end = piece.trimEnd();
+    const pause = piece.includes("\n")
+      ? /^[-*|\d]/.test(words[i] ?? "")
+        ? 90 // the next list item or table row follows sooner than a paragraph
+        : 220
+      : /[.!?]$/.test(end) && !/^\d+\.$/.test(end)
+        ? 140
+        : /[:;]$/.test(end)
+          ? 90
+          : end.endsWith(",")
+            ? 45
+            : 0;
+    pieces.push({ text: piece, ms: Math.round(vary(30 + 10 * n, random) + vary(pause, random)) });
+  }
+  return pieces;
+}
+
 const envCache = new Map<string, Promise<ToolEnv>>();
 function envFor(context: AgentContext, opts: AgentFixtureOptions): Promise<ToolEnv> {
   const scenarioId = context.demoScenario?.id ?? "normal";
@@ -68,6 +115,7 @@ async function runTurn(conv: Conversation, prompt: string, opts: AgentFixtureOpt
   record({ type: "turn_start", turnId, prompt, at: conv.context.at });
   try {
     const env = await envFor(conv.context, opts);
+    await sleep(vary(300) * scale); // a moment before the first step
     const host: ScriptHost = {
       env,
       context: conv.context,
@@ -75,24 +123,26 @@ async function runTurn(conv: Conversation, prompt: string, opts: AgentFixtureOpt
         check();
         const callId = nextId("call");
         record({ type: "tool_call", callId, tool: name, args, simulated: true });
-        await sleep(280 * scale);
+        await sleep(vary(TOOL_MS[name]) * scale);
         check();
+        let value: unknown = null;
         try {
           const out = await (tools[name] as (env: ToolEnv, a: unknown) => Promise<{ value: unknown; summary: string }>)(env, args);
           record({ type: "tool_result", callId, status: "ok", summary: out.summary });
-          return out.value as never;
+          value = out.value;
         } catch (e) {
           record({ type: "tool_result", callId, status: "error", summary: e instanceof Error ? e.message : String(e) });
-          return null;
         }
+        await sleep(vary(90) * scale);
+        return value as never;
       },
       async say(text: string) {
-        // Stream in short chunks of words, as a model harness would.
-        const words = text.split(/(\s+)/);
-        for (let i = 0; i < words.length; i += 6) {
+        // A short pause, then the answer in token-like pieces at a calm, varied pace.
+        await sleep(vary(460) * scale);
+        for (const piece of paceText(text)) {
           check();
-          record({ type: "text_delta", text: words.slice(i, i + 6).join("") });
-          await sleep(22 * scale);
+          record({ type: "text_delta", text: piece.text });
+          await sleep(piece.ms * scale);
         }
       },
       view(view: DataView) {

@@ -29,6 +29,29 @@ export function fitView(scene: Size, box: Size): View {
   return { k, x: (box.w - scene.w * k) / 2, y: (box.h - scene.h * k) / 2 };
 }
 
+/** Width a floating workspace panel covers at the box's right edge (panel + gap). */
+export const FLOAT_COVER = 364;
+/** Below this scale, fitting beside a floating panel would make the plant too small. */
+export const FLOAT_MIN_ZOOM = 0.5;
+/** Clear bands for the view switch (top) and the disclosure (bottom) beside a panel. */
+const TOP_BAND = 48;
+const BOTTOM_BAND = 88;
+
+/**
+ * Fit with a floating panel over the box's right edge. If the plant still fits beside
+ * it at half size or more, it fits in the uncovered width, between the corner
+ * controls; otherwise the panel covers part of a normal fit (`beside` is false).
+ */
+export function fitBeside(scene: Size, box: Size): View & { beside: boolean } {
+  const w = box.w - FLOAT_COVER;
+  const k = Math.min((w - 2 * FIT_PADDING) / scene.w, (box.h - 2 * FIT_PADDING) / scene.h);
+  if (k < FLOAT_MIN_ZOOM) return { ...fitView(scene, box), beside: false };
+  const ph = scene.h * k;
+  const band = box.h - TOP_BAND - BOTTOM_BAND;
+  const y = ph <= band ? TOP_BAND + (band - ph) / 2 : Math.max(FIT_PADDING, box.h - BOTTOM_BAND - ph);
+  return { k, x: (w - scene.w * k) / 2, y, beside: true };
+}
+
 export const minZoom = (scene: Size, box: Size) => Math.min(fitView(scene, box).k * 0.5, 1);
 
 /** Keep at least KEEP_VISIBLE px of the scene inside the box on each axis. */

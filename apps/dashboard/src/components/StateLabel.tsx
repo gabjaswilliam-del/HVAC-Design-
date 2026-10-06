@@ -1,8 +1,9 @@
-import { CircleHelp, CircleStop, Clock, Play, TriangleAlert } from "lucide-react";
+import { CircleCheck, CircleDashed, CircleHelp, Clock, TriangleAlert } from "lucide-react";
 import type { OperatingState } from "../lib/contracts";
 import { useStrings } from "../lib/i18n";
 
-const ICONS = { running: Play, stopped: CircleStop, fault: TriangleAlert, unavailable: CircleHelp, stale: Clock };
+// Running: a check in a circle; Stopped: a dashed circle (Treatment A).
+const ICONS = { running: CircleCheck, stopped: CircleDashed, fault: TriangleAlert, unavailable: CircleHelp, stale: Clock };
 
 /** Equipment state as icon + word; colour is a secondary cue only. */
 export function StateLabel({ state, stale = false }: { state: OperatingState; stale?: boolean }) {

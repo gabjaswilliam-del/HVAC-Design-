@@ -21,9 +21,12 @@ export function useDataClient(): DataClient {
 
 // ponytail: one scripted demo harness for the session; a local-LLM client replaces it.
 const agent = createFixtureAgent({
-  delayScale: params.get("agentSpeed") === "fast" ? 0.1 : 1,
+  // agentSpeed=fast is for tests: same events, a small fraction of the demonstration pace.
+  delayScale: params.get("agentSpeed") === "fast" ? 0.04 : 1,
   unavailable: (failures as Record<string, string> | undefined)?.agent === "unavailable",
   dataFailures: failures,
 });
 
 export const useAgentClient = (): AgentClient => agent;
+/** The same harness for code outside components (the conversation session). */
+export const agentClient: AgentClient = agent;

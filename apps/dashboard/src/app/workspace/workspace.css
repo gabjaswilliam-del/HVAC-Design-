@@ -1,0 +1,352 @@
+/*
+ * The workspace: Details lead, above the Assistant or the Pilot. At 1440 px and wider it
+ * is a second display recessed in the bezel; below that it floats over the drawing
+ * beside its dock; on a phone it is a full-screen sheet.
+ */
+.workspace {
+  grid-area: ws;
+  position: relative;
+  z-index: 14;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: clip;
+  background: linear-gradient(180deg, #1c1f23, #181b1e);
+}
+.workspace--docked > * {
+  animation: ws-in var(--motion-panel) var(--ease) both;
+}
+@keyframes ws-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+/* Recessed in the bezel like the plant display (no left margin: the plant's ring is it). */
+.workspace--docked::after {
+  content: "";
+  position: absolute;
+  inset: 0 5px 5px 0;
+  z-index: 30;
+  border-radius: var(--radius-container);
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 0.75),
+    inset 0 3px 8px rgb(0 0 0 / 0.45),
+    0 0 0 1px rgb(255 255 255 / 0.07),
+    0 0 0 48px var(--bezel);
+}
+.workspace--docked .workspace__ai,
+.workspace--docked .workspace__details,
+.workspace--docked .det-strip {
+  margin-right: 5px;
+}
+.workspace--docked .assistant-panel,
+.workspace--docked .pilot-panel {
+  padding-bottom: calc(var(--space-3) + 5px);
+}
+
+/* Below 1440 px: a floating panel with a raised shadow and no bezel ring; the plant
+   refits beside it when it can. */
+.workspace--float {
+  position: fixed;
+  z-index: 35;
+  top: calc(var(--top-h) + 10px);
+  bottom: calc(var(--deck-h) + 10px);
+  right: calc(var(--workspace-dock) + 10px);
+  width: var(--float-w);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow:
+    var(--shadow-float),
+    var(--edge),
+    inset 0 0 0 1px var(--hairline-strong);
+  animation: float-in var(--motion-panel) var(--ease) both;
+}
+@keyframes float-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+}
+.workspace--sheet {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-sheet);
+  background: var(--surface);
+}
+
+.workspace__resizer {
+  position: absolute;
+  left: -5px;
+  top: 0;
+  bottom: 0;
+  z-index: 31;
+  width: 10px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.workspace__resizer::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 12px;
+  bottom: 17px;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background-color var(--motion-fast) var(--ease);
+}
+.workspace__resizer:hover::after,
+.workspace__resizer:focus-visible::after,
+.workspace__resizer.is-active::after {
+  background: var(--laminate);
+}
+.workspace__resizer:focus-visible {
+  outline: none;
+}
+
+/* Details first: they fill the space while the assistant keeps its tabs and composer. */
+.workspace__details {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.workspace__ai {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.workspace__ai[hidden] {
+  display: none;
+}
+.workspace[data-details="lead"] .workspace__ai {
+  flex: 0 0 auto;
+  box-shadow: inset 0 1px 0 var(--hairline);
+}
+.workspace[data-details="lead"] .assistant-panel :is(.assistant-panel__bar, .assistant-panel__history, .agent-notice, .agent-context, .agent-turns, .notice),
+.workspace[data-details="lead"] .pilot-panel {
+  display: none;
+}
+.det-strip {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  background: var(--raised) linear-gradient(180deg, rgb(255 255 255 / 0.045), transparent 65%);
+  box-shadow: inset 0 -1px 0 var(--hairline);
+  color: var(--text-1);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  animation: ws-in var(--motion-base) var(--ease) both;
+}
+.det-strip:hover {
+  background-color: var(--hover);
+}
+.det-strip .state-label {
+  font-size: var(--type-caption);
+}
+.det-strip__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.det-strip__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.workspace__bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 8px 10px 8px 12px;
+}
+.workspace__actions {
+  display: flex;
+  gap: 2px;
+}
+/* Tabs on a dark track; the raised pill slides to the selected tab. */
+.workspace__tabs {
+  position: relative;
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 11px;
+  background: rgb(0 0 0 / 0.25);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.workspace__pill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  width: var(--pill-w, 0px);
+  border-radius: var(--radius-control);
+  background: var(--raised) linear-gradient(180deg, rgb(255 255 255 / 0.045), transparent 65%);
+  box-shadow:
+    var(--edge),
+    inset 0 0 0 1px var(--hairline-strong),
+    0 1px 2px rgb(0 0 0 / 0.35);
+  transform: translateX(var(--pill-x, 2px));
+  transition: transform 360ms var(--ease);
+}
+.workspace__tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-2);
+  font-weight: 500;
+  cursor: pointer;
+}
+.workspace__tab:hover,
+.workspace__tab[aria-selected="true"] {
+  color: var(--text-1);
+}
+.workspace__tab[aria-selected="true"] {
+  font-weight: 600;
+}
+
+/* The collapsed workspace: a dock on the bezel. */
+.ws-dock {
+  grid-area: ws;
+  z-index: 14;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  background:
+    url("../../assets/grain.png"),
+    linear-gradient(90deg, var(--bezel), var(--bezel-side));
+}
+.ws-dock__button {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  width: 100%;
+  padding: 8px 0 6px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease),
+    color var(--motion-fast) var(--ease);
+}
+.ws-dock__button:hover {
+  background: rgb(0 0 0 / 0.22);
+  color: var(--text-1);
+}
+.ws-dock__button[aria-pressed="true"] {
+  background: #1a1d21;
+  color: var(--laminate);
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 0.6),
+    inset 0 0 0 1px rgb(0 0 0 / 0.5);
+}
+.ws-dock__label {
+  line-height: 1.1;
+}
+
+/* Pilot: a planned state with its scope always first. */
+.pilot-panel {
+  display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: var(--space-4);
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 14px var(--space-4);
+}
+.pilot-panel[hidden] {
+  display: none;
+}
+.pilot-panel__scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--type-body);
+}
+.pilot-panel__state,
+.pilot-panel__preview {
+  display: grid;
+  gap: var(--space-2);
+}
+.pilot-panel h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--type-section);
+}
+.pilot-panel p {
+  margin: 0;
+  color: var(--text-2);
+}
+.pilot-panel .pilot-panel__muted {
+  color: var(--text-3);
+}
+.pilot-panel__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+.pilot-panel ol {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--text-2);
+}
+.pilot-panel__lifecycle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@media (max-width: 760px) {
+  .ws-dock {
+    display: none;
+  }
+}
+@media (forced-colors: active) {
+  .workspace--float,
+  .det-strip,
+  .workspace__pill {
+    border: 1px solid CanvasText;
+  }
+  .workspace__tab[aria-selected="true"] {
+    outline: 2px solid Highlight;
+  }
+}

@@ -28,6 +28,10 @@ interface EquipmentNodeProps {
   related?: boolean;
   /** Pointed out by another feature (assistant, pilot) without being selected. */
   highlighted?: boolean;
+  /** Draw the name and state; off in Key mode, where they are drawn in screen space. */
+  showLabel?: boolean;
+  /** In fault or named by an open issue: stays at full emphasis whatever is selected. */
+  alarm?: boolean;
 }
 
 const HALO_PAD = 7;
@@ -52,6 +56,8 @@ export function EquipmentNode({
   onSelect,
   related = false,
   highlighted = false,
+  showLabel = true,
+  alarm = false,
 }: EquipmentNodeProps) {
   const s = useStrings();
   const { width, height } = spriteGeometry[kind];
@@ -68,6 +74,7 @@ export function EquipmentNode({
     selected && "eq-node--selected",
     (selected || related) && "eq-node--related",
     highlighted && "eq-node--highlighted",
+    alarm && "eq-node--alarm",
     onSelect && "eq-node--interactive",
   ]
     .filter(Boolean)
@@ -112,6 +119,16 @@ export function EquipmentNode({
           rx={8}
         />
       )}
+      {selected && (
+        <rect
+          className="eq-node__halo"
+          x={-HALO_PAD}
+          y={-HALO_PAD}
+          width={width + HALO_PAD * 2}
+          height={height + HALO_PAD * 2}
+          rx={6}
+        />
+      )}
       {(selected || state === "fault" || state === "unavailable") && (
         <rect
           className={`eq-node__frame eq-node__frame--${selected ? "selected" : state}`}
@@ -140,7 +157,7 @@ export function EquipmentNode({
           )}
         </g>
       )}
-      {labelAt === "right" ? (
+      {!showLabel ? null : labelAt === "right" ? (
         <text className="eq-node__label" x={width + 7} y={height - 20}>
           <tspan className="eq-node__name">{label}</tspan>
           <tspan className={`eq-node__state eq-node__state--${stale ? "stale" : state}`} x={width + 7} dy={17}>

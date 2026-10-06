@@ -1,20 +1,73 @@
 /*
- * One visual vocabulary for the whole dashboard. Features use these tokens and never
- * introduce their own palette. One complete dark theme is the first delivery.
+ * One visual vocabulary for the whole dashboard: Direction A "Permit" in Treatment A,
+ * Graphite (machined bezel). The shell is a satin anthracite bezel; the plant and the
+ * workspace are charcoal displays set into it. Laminate is the only light material:
+ * tags, selection, focus and the primary action. Colour means state, never decoration.
+ *
+ * Two families:
+ * - Interface tokens (--surface, --text-1, --laminate, --danger ...) style the shell,
+ *   panels, controls and charts.
+ * - Scene tokens (--ink-scene, --text, --text-muted, pipe media, --state-*, tags) are
+ *   read by the approved equipment artwork; their values are unchanged so the drawing
+ *   renders exactly as approved in M1.
  */
 :root {
-  /* Surfaces */
+  /* Interface surfaces (Graphite). The plant display is drawn by the shell (app.css). */
+  --sheet: #191c20; /* tables and lists on the display */
+  --canvas: #1a1d21; /* page background inside the display */
+  --surface: #1a1d21; /* workspace display, panels */
+  --raised: #24282d;
+  --hover: #2c3136;
+  --press: #343a40;
+  --hairline: #2b2f35; /* decorative separators only */
+  --hairline-strong: #41474e;
+  --control-border: #7b828b; /* input boundaries: >= 3:1 on every surface */
+  --edge: inset 0 1px 0 rgb(255 255 255 / 0.07);
+
+  /* The bezel around the displays */
+  --bezel: #282c32;
+  --bezel-top: #30353b;
+  --bezel-side: #262a2f;
+  --seam-dark: rgb(0 0 0 / 0.7);
+  --seam-light: rgb(255 255 255 / 0.06);
+
+  /* Interface text (AA on every surface it is used on) */
+  --text-1: #eceef0;
+  --text-2: #b3b9c0;
+  --text-3: #9ba1a8;
+
+  /* Laminate: tags, selection, focus ring, primary button, dock indicator */
+  --laminate: #e9ecef;
+  --laminate-ink: #121417;
+  --laminate-ink-2: #4a5159;
+
+  /* No accent hue at rest. The former accent names now resolve to the neutral
+     laminate family so every control keeps one consistent selection language. */
+  --accent: #e9ecef;
+  --accent-strong: #e9ecef; /* filled primary button; ink label 15.6:1 */
+  --accent-text: #eceef0;
+  --accent-tint: rgb(255 255 255 / 0.06);
+  --accent-tint-strong: rgb(255 255 255 / 0.1);
+
+  /* Interface safety colours: alarm and data state only, always with a word or icon. */
+  --danger: #f0484e;
+  --warning: #ff8a3d; /* orange, away from condenser-water amber */
+  --caution: #f6c343; /* stale data, failed tool calls */
+  --notice: #5b93ff; /* simulation scope, information */
+  --ok: #46d37e;
+  --critical-tint: color-mix(in srgb, #f0484e 12%, #1a1d21);
+  --warning-tint: color-mix(in srgb, #ff8a3d 11%, #1a1d21);
+
+  /* Scene tokens: read by the equipment artwork (values unchanged). */
   --ink: #0a1322;
   --ink-scene: #08101e;
   --panel: #111d31;
   --panel-raised: #16243c;
   --line: #22324d;
   --line-strong: #30476b;
-
-  /* Text */
   --text: #dce6f2;
   --text-muted: #8fa3bf;
-  --text-faint: #8193b0; /* >= 4.98:1 on every surface token */
+  --text-faint: #8193b0;
 
   /* Pipe media. Same meaning everywhere a medium is drawn or charted. */
   --cw-hot: #e0a630; /* condenser water leaving chillers, to towers */
@@ -22,18 +75,14 @@
   --chw-supply: #6c7cff; /* chilled water leaving chillers */
   --chw-return: #5ec8e5; /* chilled water returning from the data hall */
 
-  /* Equipment and data states. Always paired with text or an icon. */
+  /* Equipment states as drawn by the plant artwork (scene tokens, unchanged). */
   --state-running: #46d37e;
   --state-stopped: #b4bfcc;
   --state-fault: #ff5a5f;
   --state-warning: #f2b33d;
   --state-unavailable: #8c97aa;
 
-  /* Reserved for "Demo data" and other synthetic-content labels only. */
-  --synthetic: #e879f9;
-  --synthetic-bg: #3a1640;
-
-  /* Measurement tag frames, by metric kind */
+  /* Measurement tag frames, by metric kind (scene) */
   --tag-frequency-bg: #161d5a;
   --tag-frequency-line: #4152c4;
   --tag-power-bg: #382210;
@@ -45,19 +94,38 @@
   --tag-neutral-bg: #1c2638;
   --tag-neutral-line: #5a6b86;
 
-  /* Chart series, validated with the dataviz palette checker on --panel (dark). */
+  /* Chart series, validated with the dataviz palette checker on dark surfaces. */
   --chart-observed: #4d8ee6;
   --chart-forecast: #cf7a2e;
-  --chart-delivered: #3a9e72; /* validated with observed + forecast, all pairs */
-  --chart-observed-text: #7fb0f2; /* links/text in the same hue, >= 7:1 on panels */
+  --chart-delivered: #3a9e72;
+  --chart-capacity: #8c97aa; /* solid: dashed lines are reserved for forecasts */
+  --chart-observed-text: #7fb0f2;
+  /* One measurement over time (equipment trends): nothing to tell apart, so no hue. */
+  --chart-neutral: #e9ecef;
 
-  --focus: #ffffff;
-  --selection: #eaf6ff;
+  --focus: #e9ecef;
+  --selection: #e9ecef;
 
-  /* Type */
+  /* Readings on the drawing, in screen space */
+  --plate: rgb(13 15 17 / 0.88);
+  --plate-name: rgb(13 15 17 / 0.62);
+  --glass: rgb(30 34 38 / 0.78);
+
+  /* Type: one bundled family; tabular figures where values update in place. */
   --font-sans: "Barlow Semi Condensed", system-ui, "Segoe UI", "Microsoft YaHei",
     "PingFang SC", "Noto Sans CJK SC", sans-serif;
-  --text-xs: 0.8125rem; /* 13px: smallest size used for any value */
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+  --type-micro: 0.71875rem; /* 11.5px: units, axis ticks, readout labels */
+  --type-caption: 0.78125rem; /* 12.5px: labels, hints, tags */
+  --type-body: 0.84375rem; /* 13.5px: tables, panels, controls */
+  --type-prose: 0.875rem; /* 14px: assistant answers, body */
+  --type-section: 1rem; /* 16px: panel titles */
+  --type-title: 1rem; /* 16px: Details name */
+  --type-page: 1.375rem; /* 22px: page headings */
+  --type-value: 1.1875rem; /* 19px: top-bar readouts */
+  --type-hero: 1.5rem; /* 24px: the one headline value in a details header */
+  /* Earlier scale, still read by the asset sheet. */
+  --text-xs: 0.8125rem;
   --text-sm: 0.875rem;
   --text-md: 1rem;
   --text-lg: 1.25rem;
@@ -70,15 +138,42 @@
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
+  --space-7: 40px;
 
-  --radius-sm: 3px;
+  /* Shape lock: containers 12, controls 9, tags and small elements 6. */
+  --radius-container: 12px;
+  --radius-control: 9px;
+  --radius-chip: 6px;
+  --radius-sm: 3px; /* asset sheet only */
   --radius-md: 6px;
 
-  --motion-fast: 150ms;
-  --motion-base: 220ms;
+  /* Elevation: floating layers only. */
+  --shadow-float: 0 20px 48px rgb(0 0 0 / 0.55), 0 2px 8px rgb(0 0 0 / 0.4);
+  --shadow-tag: 0 6px 14px rgb(0 0 0 / 0.38), 0 1px 2px rgb(0 0 0 / 0.45);
 
-  --header-height: 52px;
-  --nav-width: 220px;
-  --nav-width-collapsed: 60px;
-  --assistant-width: 400px;
+  /* Layers */
+  --z-stage-ui: 10;
+  --z-sticky: 20;
+  --z-header: 30;
+  --z-workspace-overlay: 40;
+  --z-scrim: 45;
+  --z-sheet: 50;
+  --z-popover: 60;
+  --z-skip-link: 100;
+
+  /* Motion: transform and opacity only. */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-io: cubic-bezier(0.65, 0, 0.35, 1);
+  --motion-fast: 140ms;
+  --motion-base: 220ms;
+  --motion-panel: 320ms;
+
+  /* Shell */
+  --top-h: 52px;
+  --deck-h: 48px;
+  --dock-w: 56px;
+  --header-height: var(--top-h);
+  --workspace-width: 352px;
+  --workspace-dock: 52px;
+  --float-w: 352px;
 }

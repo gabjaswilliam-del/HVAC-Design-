@@ -1,58 +1,45 @@
-import { useEffect, useId, useRef, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router";
-import { Beaker, Menu, MessageSquareText, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { Outlet, useLocation } from "react-router";
 import { useStrings } from "../lib/i18n";
-import { scenarios, type ScenarioId } from "../fixtures/scenarios";
-import { AssistantDrawer } from "../features/agent";
-import { requestHeadingFocus } from "../components/PageHeading";
-import { navGroups } from "./navigation";
-import { operating, useOperating } from "./operatingContext";
-import { SiteProvider, useSite } from "./site";
+import { closesOnEscape } from "../components/escape";
+import { Deck } from "./Deck";
+import { Dock } from "./Dock";
+import { segmentOf } from "./navigation";
+import { getOperating, NARROW, operating, useOperating, WIDE } from "./operatingContext";
+import { Shortcuts, useShortcuts } from "./Shortcuts";
+import { SiteProvider } from "./site";
+import { TopBar } from "./TopBar";
+import { useMedia } from "./useMedia";
+import { useWorkspaceLayout } from "./useWorkspaceLayout";
+import { Workspace } from "./workspace/Workspace";
 import "./app.css";
 
 const TICK_MS = 250;
 
-function ScenarioSelect({ className }: { className: string }) {
-  const s = useStrings();
-  const id = useId();
-  const scenarioId = useOperating((x) => x.scenarioId);
+/**
+ * The instrument: a top bar, the dock, the plant (or page) display with the deck
+ * under it, and the workspace display. At 1440 px and wider the workspace is docked
+ * beside the page; below that it collapses to a dock and its panel floats over the
+ * drawing; on a phone it is a full-screen sheet.
+ */
+export function AppShell() {
   return (
-    <div className={className}>
-      <label htmlFor={id}>{s.header.scenario}</label>
-      <select id={id} className="select" value={scenarioId} onChange={(e) => operating.setScenario(e.target.value as ScenarioId)}>
-        {scenarios.map((x) => (
-          <option key={x.id} value={x.id}>
-            {x.label}
-          </option>
-        ))}
-      </select>
-    </div>
+    <SiteProvider>
+      <Shell />
+    </SiteProvider>
   );
 }
 
-function SiteName() {
-  const site = useSite();
-  return <span className="site-header__site">{site.data?.site.name ?? " "}</span>;
-}
-
-export function AppShell() {
+function Shell() {
   const s = useStrings();
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  // First path segment = the screen; /equipment/x and /equipment are the same screen.
-  // When it changes (not on first load), the new page's heading takes focus.
-  const section = location.pathname.split("/")[1] ?? "";
-  const lastSection = useRef(section);
-  const assistantOpen = useOperating((x) => x.assistant.open);
-  // The full assistant page replaces the drawer.
-  const showDrawer = assistantOpen && location.pathname !== "/agent";
-
-  if (lastSection.current !== section) {
-    lastSection.current = section;
-    requestHeadingFocus();
-  }
-  useEffect(() => setDrawerOpen(false), [section]);
+  const section = segmentOf(location.pathname);
+  const wide = useMedia(WIDE);
+  const narrow = useMedia(NARROW);
+  const workspace = useOperating((x) => x.workspace);
+  const layout = useWorkspaceLayout();
+  const [keys, setKeys] = useState(false);
+  useShortcuts(() => setKeys((v) => !v));
 
   // The demo source clock. Independent of any screen being open.
   useEffect(() => {
@@ -60,89 +47,43 @@ export function AppShell() {
     return () => clearInterval(t);
   }, []);
 
+  // A window that stops being wide collapses an open workspace rather than covering
+  // the drawing with it; one opened for Details stays and floats.
+  useEffect(() => {
+    const w = getOperating().workspace;
+    if (!wide && w.open && !w.autoOpened) operating.hideWorkspace();
+  }, [wide]);
+
+  // The phone sheet covers the screen; nothing behind it takes focus.
+  const sheet = layout === "sheet";
+
+  // Escape closes a floating workspace once nothing above it (a popover, Details) is open.
+  useEffect(() => {
+    if (layout !== "float") return;
+    const onKey = (e: KeyboardEvent) => {
+      const o = getOperating();
+      if (!closesOnEscape(e) || o.selectedId || o.kpiKey) return;
+      operating.closeWorkspace();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [layout]);
+
   return (
-    <SiteProvider>
-      <div className={`shell${collapsed ? " shell--collapsed" : ""}${drawerOpen ? " shell--drawer" : ""}${showDrawer ? " shell--assistant" : ""}`}>
-        <a className="skip-link" href="#main">
-          {s.app.skipToContent}
-        </a>
-        <header className="site-header">
-          <button
-            type="button"
-            className="icon-button site-header__menu"
-            aria-label={drawerOpen ? s.header.closeNavigation : s.header.openNavigation}
-            aria-expanded={drawerOpen}
-            aria-controls="main-navigation"
-            onClick={() => setDrawerOpen((open) => !open)}
-          >
-            {drawerOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-          <div className="site-header__identity">
-            <span className="site-header__product">{s.app.productName}</span>
-            <SiteName />
-          </div>
-          <span className="data-mode-badge" title={s.dataMode.demoDescription}>
-            <Beaker size={15} aria-hidden="true" />
-            {s.dataMode.demo}
-          </span>
-          <ScenarioSelect className="scenario-select scenario-select--header" />
-          {location.pathname !== "/agent" && (
-            <button
-              type="button"
-              className="tool-button tool-button--text site-header__assistant"
-              aria-label={s.agent.open}
-              aria-expanded={assistantOpen}
-              aria-controls="assistant-drawer"
-              onClick={() => operating.openAssistant(!assistantOpen)}
-            >
-              <MessageSquareText size={16} aria-hidden="true" />
-              <span className="site-header__assistant-text">{s.agent.open}</span>
-            </button>
-          )}
-        </header>
-
-        <nav id="main-navigation" className="main-nav" aria-label={s.nav.label}>
-          {navGroups.map((group) => (
-            <div className="main-nav__group" key={group.key}>
-              <h2 className="main-nav__group-label">{s.nav.groups[group.key]}</h2>
-              <ul>
-                {group.items.map((item) => (
-                  <li key={item.key}>
-                    <NavLink
-                      to={{ pathname: item.path, search: location.search.replace(/([?&])equipment=[^&]*&?/, "$1").replace(/[?&]$/, "") }}
-                      end={item.path === "/"}
-                      className="main-nav__link"
-                      title={collapsed ? s.nav[item.key] : undefined}
-                    >
-                      <item.icon size={18} aria-hidden="true" />
-                      <span className="main-nav__text">{s.nav[item.key]}</span>
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-          <ScenarioSelect className="scenario-select scenario-select--drawer" />
-          <button
-            type="button"
-            className="main-nav__collapse"
-            aria-label={collapsed ? s.header.expandNavigation : s.header.collapseNavigation}
-            onClick={() => setCollapsed((c) => !c)}
-          >
-            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-          </button>
-        </nav>
-        {drawerOpen && <div className="nav-scrim" onClick={() => setDrawerOpen(false)} />}
-
-        <main id="main" className="main">
+    <div className="shell" data-workspace={layout} style={{ "--ws-width": `${workspace.width}px` } as CSSProperties}>
+      <a className="skip-link" href="#main">
+        {s.app.skipToContent}
+      </a>
+      <TopBar phone={narrow} inert={sheet} />
+      <Dock onShortcuts={() => setKeys((v) => !v)} shortcutsOpen={keys} inert={sheet} />
+      <main id="main" className="main" tabIndex={-1} inert={sheet} data-float={layout === "float" || undefined}>
+        <div className={`main__view${section === "" ? " main__view--stage" : ""}`}>
           <Outlet />
-        </main>
-        {showDrawer && (
-          <div className="shell__assistant">
-            <AssistantDrawer />
-          </div>
-        )}
-      </div>
-    </SiteProvider>
+        </div>
+      </main>
+      <Deck inert={sheet} />
+      <Workspace layout={layout} />
+      <Shortcuts open={keys} onClose={() => setKeys(false)} />
+    </div>
   );
 }

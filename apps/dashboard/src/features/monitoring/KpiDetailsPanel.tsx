@@ -9,15 +9,16 @@ import { shortfallPeriods } from "../../lib/plant";
 import { Notice } from "../../components/Notice";
 import { StateLabel } from "../../components/StateLabel";
 import { TimeSeriesChart, type ChartSeries } from "../../components/TimeSeriesChart";
+import { closesOnEscape } from "../../components/escape";
 import { useDataClient } from "../../app/dataClient";
 import { operating, useOperating } from "../../app/operatingContext";
-import { ISSUES_KPI, KPI_DEFS, KPI_QUESTIONS, type EquipmentRef } from "./kpiDefinitions";
+import { ISSUES_KPI, KPI_DEFS, KPI_QUESTIONS, kpiInputs, type EquipmentRef } from "./kpiDefinitions";
 
 const SEVERITY_ORDER = { critical: 0, warning: 1, info: 2 };
 const SERIES_COLOR: Record<string, string> = {
   "plant:cooling_demand_kw": "var(--chart-observed)",
   "plant:cooling_delivered_kw": "var(--chart-delivered)",
-  "plant:available_capacity_kw": "var(--text-muted)",
+  "plant:available_capacity_kw": "var(--chart-capacity)",
 };
 
 interface KpiDetailsPanelProps {
@@ -50,7 +51,7 @@ export function KpiDetailsPanel({ kpiKey, site, snapshot, issues, onClose, onLoc
     if (focusOnOpen) heading.current?.focus();
   }, [kpiKey, focusOnOpen]);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => closesOnEscape(e) && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
@@ -228,7 +229,8 @@ function IndicatorBody({
     client.getHistory({ metrics, from, to: at! }, { signal }),
   );
 
-  const qualityKeys = [...new Set([kpiKey, ...def.inputs, ...def.measurements])];
+  const inputs = kpiInputs(kpiKey, site);
+  const qualityKeys = [...new Set([kpiKey, ...inputs, ...def.measurements])];
   const problems = qualityKeys.filter((k) => (reading(k)?.quality ?? "unavailable") !== "good");
   const stale = problems.filter((k) => reading(k)?.quality === "stale").length;
   const references = def.references.flatMap((r) => {
@@ -245,8 +247,8 @@ function IndicatorBody({
       id: x.metric,
       label: info(x.metric)?.label ?? x.metric,
       color: SERIES_COLOR[x.metric] ?? "var(--chart-observed)",
-      dashed: x.metric === "plant:available_capacity_kw",
-      width: x.metric === "plant:cooling_delivered_kw" ? 5 : 2,
+      // Capacity is history only, so solid; dashed lines are reserved for forecasts.
+      width: x.metric === "plant:cooling_delivered_kw" ? 4 : x.metric === "plant:available_capacity_kw" ? 1.5 : 2,
       points: history.data!.times.map((t, i) => ({ t: Date.parse(t), v: x.values[i] })),
     }));
   const unmetNow = reading("plant:unmet_kw");
@@ -258,12 +260,12 @@ function IndicatorBody({
         <p className="kpi-panel__text">{text?.about}</p>
       </Section>
 
-      {(text?.definition || def.inputs.length > 0) && (
+      {(text?.definition || inputs.length > 0) && (
         <Section title={p.definition}>
           {text?.definition && <p className="kpi-panel__text">{text.definition}</p>}
-          {def.inputs.length > 0 && (
+          {inputs.length > 0 && (
             <>
-              <ReadingsTable keys={def.inputs} site={site} snapshot={snapshot} />
+              <ReadingsTable keys={inputs} site={site} snapshot={snapshot} />
               <p className="inspector__muted">{p.definitionNote}</p>
             </>
           )}
@@ -342,7 +344,10 @@ function IndicatorBody({
       )}
 
       <Section title={p.quality}>
-        {problems.length === 0 ? (
+        {!snapshot ? (
+          // Until readings arrive nothing is known about their quality.
+          <div className="skeleton" style={{ height: 24 }} />
+        ) : problems.length === 0 ? (
           <p className="kpi-panel__text">{p.allGood}</p>
         ) : (
           <>
@@ -401,8 +406,8 @@ function IssuesBody({
   const resolved = sorted.filter((i) => i.status === "resolved");
 
   const card = (i: Issue) => (
-    <article key={i.id} className={`issue-card issue-line issue-line--${i.severity}`} data-issue={i.id}>
-      <span className="issue-line__severity">
+    <article key={i.id} className={`issue-card issue-line${i.status === "resolved" ? " is-resolved" : ""}`} data-issue={i.id}>
+      <span className={`sev sev--${i.severity}`}>
         {s.issues.severity[i.severity]}, {s.issues.status[i.status].toLowerCase()}, {i.id}
       </span>
       <h3 className="issue-line__title">{i.title}</h3>

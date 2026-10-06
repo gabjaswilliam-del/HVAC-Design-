@@ -1,304 +1,517 @@
-.monitoring {
+/*
+ * Overview: the plant on its display, edge to edge. Only three things float over the
+ * drawing, each in an empty corner: the view switch (top left), the drawing controls
+ * (bottom right) and the disclosure (bottom left). Glass is used for those alone.
+ */
+.stage {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(rgb(255 255 255 / 0.024) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.024) 1px, transparent 1px);
+  background-size:
+    200px 200px,
+    200px 200px,
+    40px 40px,
+    40px 40px;
+  background-position: -1px -1px;
+}
+.stage--list {
+  background: var(--sheet);
+}
+.stage--message {
   display: grid;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4) var(--space-5);
+  place-items: center;
+  padding: var(--space-6);
 }
 
-/* The operating view fills the window below the header: heading, indicators,
-   schematic (with the inspector beside it) and playback. The schematic takes the
-   remaining height so fit-to-screen shows the whole plant without scrolling. */
-.monitoring__top {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  height: calc(100dvh - var(--header-height) - var(--space-3) - var(--space-2));
-  min-height: 600px;
+.plant-view {
+  position: absolute;
+  inset: 0;
 }
-.monitoring__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-4);
-}
-.monitoring__head h1 {
-  font-size: var(--text-xl);
-}
-.monitoring__notice {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-.monitoring__status {
-  margin: 0;
-  min-height: 1.3em;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-
-/* KPI strip */
-.kpi-strip {
-  display: grid;
-  grid-template-columns: repeat(9, minmax(0, 1fr));
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--panel);
-}
-.kpi {
-  display: grid;
-  align-content: space-between;
-  gap: 2px;
-  padding: var(--space-2) var(--space-3);
-  border-right: 1px solid var(--line);
-  min-width: 0;
-}
-.kpi:last-child {
-  border-right: 0;
-}
-.kpi__label {
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  line-height: 1.2;
-}
-.kpi__value {
-  font-size: var(--text-lg);
-  font-weight: 600;
-  white-space: nowrap;
-}
-.kpi__unit {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--text-muted);
-}
-.kpi__missing {
-  color: var(--text-muted);
-  font-size: var(--text-md);
-  padding-top: 2px;
-}
-.kpi__stale {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin-left: 6px;
-  color: var(--state-warning);
-  font-size: var(--text-xs);
-  font-weight: 500;
-}
-.kpi--stale .kpi__value {
-  color: var(--text-muted);
-}
-.kpi__alert {
-  color: var(--state-warning);
-  font-size: var(--text-xs);
-  font-weight: 600;
-}
-.kpi--alert .kpi__value {
-  color: var(--state-fault);
-}
-
-/* Work area: schematic stage plus inspector column */
-.monitoring__work {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-3);
-}
-.monitoring__work--inspecting {
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
-}
-.monitoring__stage {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-height: 0;
-  min-width: 0;
-}
-.monitoring__stage-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-.monitoring__inspector {
-  min-height: 0;
-  overflow: auto;
-  border-radius: var(--radius-md);
-}
-
-/* Viewport */
-.plant-viewport {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  /* clip, not hidden: a hidden overflow is still scrollable by focus(), which would
-     shift the drawing under the pointer when a partly visible node is focused. */
+.plant-view__box {
+  position: absolute;
+  inset: 0;
   overflow: clip;
+  cursor: grab;
+  touch-action: none;
 }
-.plant-viewport__box {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: clip;
+.plant-view__box:active {
+  cursor: grabbing;
 }
-.plant-viewport__box > svg {
+.plant-view__box > svg {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   touch-action: none;
-  cursor: grab;
   /* Dragging pans; it must never start a text selection or native drag, which
      would cancel the pointer stream mid-pan. */
   user-select: none;
   -webkit-user-select: none;
 }
-.plant-viewport__box > svg:active {
-  cursor: grabbing;
+.plant-view__box > svg:focus {
+  outline: none;
 }
-.plant-viewport__box > svg:focus-visible {
+.plant-view__box > svg:focus-visible {
   outline: 2px solid var(--focus);
-  outline-offset: -2px;
+  outline-offset: -8px;
+  border-radius: var(--radius-container);
 }
-.plant-viewport__bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  border-bottom: 1px solid var(--line);
-  background: var(--panel);
+.plant-view__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
-.plant-viewport__toolbar {
+
+/* Glass corners ------------------------------------------------------------------ */
+.viewswitch,
+.stage-controls,
+.stage-note,
+.readmode-hint {
+  background-color: var(--glass);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+}
+.viewswitch {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  z-index: 6;
+  padding: 3px;
+  border-radius: 12px;
+  box-shadow:
+    var(--edge),
+    inset 0 0 0 1px var(--hairline-strong),
+    var(--shadow-float);
+}
+.viewswitch button {
+  width: 34px;
+  min-height: 28px;
+  padding: 0;
+}
+.stage-controls {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 6;
+  display: grid;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 14px;
+  box-shadow:
+    var(--edge),
+    inset 0 0 0 1px var(--hairline-strong),
+    var(--shadow-float);
+}
+.stage-controls__row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
 }
-.plant-viewport__divider {
-  width: 1px;
-  height: 22px;
-  margin: 0 4px;
-  background: var(--line-strong);
+.stage-controls__row + .stage-controls__row {
+  padding-top: 4px;
+  box-shadow: inset 0 1px 0 var(--hairline);
 }
-.plant-viewport__hint {
+.stage-controls__label {
+  margin-right: auto;
+  padding: 0 6px;
+  color: var(--text-3);
+  font-size: var(--type-caption);
+  font-weight: 500;
+}
+.stage-controls .segmented {
+  background: rgb(0 0 0 / 0.25);
+}
+.stage-controls .icon-button {
+  width: 30px;
+  height: 30px;
+}
+.zoom {
+  display: inline-flex;
+  align-items: center;
+  margin-right: auto;
+}
+.zoom__value {
+  min-width: 46px;
+  color: var(--text-1);
+  font-weight: 600;
+  text-align: center;
+}
+.stage-note {
   position: absolute;
-  left: var(--space-2);
-  bottom: var(--space-2);
+  left: 12px;
+  bottom: 12px;
+  z-index: 5;
+  display: grid;
+  justify-items: start;
+  gap: 5px;
+  max-width: 120px;
   margin: 0;
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
-  background: rgb(8 16 30 / 0.85);
-  color: var(--text-muted);
-  font-size: var(--text-xs);
+  padding: 7px 10px 8px 7px;
+  border-radius: 10px;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.stage-note__text {
+  padding-left: 3px;
+}
+/* Appears when Auto readings change mode, then fades; the control keeps the state. */
+.readmode-hint {
+  position: absolute;
+  right: 12px;
+  bottom: 96px;
+  z-index: 6;
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text-2);
+  font-size: var(--type-caption);
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity var(--motion-base) var(--ease),
+    transform var(--motion-base) var(--ease);
   pointer-events: none;
 }
-/* Only where there is room; the same instructions are in the viewport's label. */
-@media (max-width: 1439px) {
-  .plant-viewport__hint {
-    display: none;
+.readmode-hint.is-on {
+  opacity: 1;
+  transform: none;
+}
+.readmode-hint:empty {
+  display: none;
+}
+.legend {
+  position: absolute;
+  right: 12px;
+  bottom: 96px;
+  z-index: 7;
+  width: 320px;
+  max-height: calc(100% - 120px);
+  overflow: auto;
+  padding: 14px;
+  border-radius: var(--radius-container);
+  background: var(--raised) linear-gradient(180deg, rgb(255 255 255 / 0.045), transparent 65%);
+  box-shadow:
+    var(--shadow-float),
+    var(--edge),
+    inset 0 0 0 1px var(--hairline-strong);
+  animation: tray-in var(--motion-base) var(--ease) both;
+}
+.legend[hidden] {
+  display: none;
+}
+/* A floating panel covers the right edge: the drawing controls move left of it. */
+.main[data-float] :is(.stage-controls, .readmode-hint, .legend) {
+  right: calc(var(--float-w) + 28px);
+}
+.stage-notices {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 8;
+  display: grid;
+  gap: var(--space-2);
+  width: min(640px, calc(100% - 200px));
+  transform: translateX(-50%);
+}
+.stage-notices .notice {
+  background: var(--raised);
+  box-shadow:
+    var(--shadow-float),
+    inset 0 0 0 1px var(--hairline-strong);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .viewswitch,
+  .stage-controls,
+  .stage-note,
+  .readmode-hint {
+    background-color: var(--raised);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .viewswitch,
+  .stage-controls,
+  .stage-note,
+  .readmode-hint {
+    background-color: var(--raised);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }
 
-.equipment-list {
-  flex: 1 1 auto;
-  min-height: 0;
+/* Names and key readings in screen space (Key mode) ------------------------------------ */
+.lbl {
+  position: absolute;
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 0 5px;
+  text-align: center;
+  width: max-content;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--plate-name);
+  color: var(--text-2);
+  font: 600 12px/1.3 var(--font-sans);
+  transform: translateX(-50%);
+  animation: fade-in 180ms var(--ease) both;
+}
+.lbl--mid {
+  transform: translate(-50%, -50%);
+}
+.lbl__name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lbl__state {
+  font-size: var(--type-micro);
+}
+.lbl--fault .lbl__state {
+  color: var(--danger);
+}
+.lbl--stopped .lbl__state {
+  color: var(--text-3);
+}
+.lbl__val,
+.key {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  border-radius: 5px;
+  background: var(--plate);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  color: var(--text-1);
+  font: 600 13px/1.25 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.lbl__val {
+  margin: 1px 0 1px 2px;
+  padding: 1px 6px;
+}
+.key {
+  position: absolute;
+  padding: 2px 7px;
+  border-radius: 6px;
+  transform: translateY(-50%);
+  animation: fade-in 180ms var(--ease) both;
+}
+.key--end {
+  transform: translate(-100%, -50%);
+}
+.lbl__val .unit,
+.key .unit {
+  margin-left: 1px;
+  font-size: 11px;
+}
+.key__label {
+  margin-right: 3px;
+  color: var(--text-3);
+  font-size: var(--type-micro);
+  font-weight: 500;
+}
+.key__missing {
+  color: var(--text-3);
+  font-size: var(--type-micro);
+  font-weight: 500;
+}
+.key--stopped,
+.lbl__val--stopped {
+  color: var(--text-3);
+}
+.key--fault,
+.lbl__val--fault {
+  color: var(--danger);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 60%, transparent);
+}
+.key--stale,
+.lbl__val--stale {
+  color: var(--text-2);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--caution) 55%, transparent);
+}
+.key--stale::before {
+  content: "";
+  align-self: center;
+  width: 7px;
+  height: 7px;
+  margin-right: 2px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--caution);
+}
+
+/* Issue tags hung on equipment ------------------------------------------------------ */
+.hang {
+  position: absolute;
+  pointer-events: auto;
+}
+.hang__string {
+  position: absolute;
+  height: 1px;
+  background: color-mix(in srgb, var(--laminate) 70%, transparent);
+  transform-origin: 0 50%;
+}
+.hang .tag--attention {
+  cursor: pointer;
+}
+.hang .tag--attention:hover {
+  background-color: #ffffff;
+}
+/* Further issues fold to their eyelet; hover or focus opens the tag and outlines
+   everything it reaches. */
+.hang--mini .tag--attention {
+  gap: 0;
+  padding: 0 5px;
+}
+.hang--mini .tag--attention > :not(.tag__eye) {
+  display: none;
+}
+.hang--mini:is(:hover, :focus-within) {
+  z-index: 2;
+}
+.hang--mini:is(:hover, :focus-within) .tag--attention {
+  gap: 6px;
+  padding: 0 8px 0 6px;
+}
+.hang--mini:is(:hover, :focus-within) .tag--attention > :not(.tag__eye) {
+  display: inline;
+}
+.hang--edge .tag--attention::after {
+  content: "";
+  width: 6px;
+  height: 8px;
+  margin-left: 2px;
+  background: var(--laminate-ink-2);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+/* The list view ------------------------------------------------------------------------ */
+.listview {
+  position: absolute;
+  inset: 0;
   overflow: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--panel);
+  padding: 56px 20px 40px;
 }
-.equipment-list .is-selected {
-  background: #182a45;
-}
-.equipment-list__name {
-  color: var(--text);
-  font-weight: 600;
-  font-size: var(--text-sm);
-}
-
-/* Below the operating view */
-.monitoring__below {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
-  gap: var(--space-4);
-  align-items: start;
-}
-.issues-panel__list {
-  display: grid;
-  gap: var(--space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.issues-panel__summary {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-.issues-panel__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-3);
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-.issues-panel__empty {
-  margin: 0;
-  color: var(--text-muted);
-}
-.issue-line.is-resolved {
-  opacity: 0.75;
-}
-
-.scene-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3) var(--space-6);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--panel);
-  font-size: var(--text-sm);
-}
-.scene-legend__group {
+.filters {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-4);
+  gap: 8px 10px;
+  margin-bottom: 12px;
+}
+.filters .field {
+  width: 260px;
+}
+.filters__count {
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: 13px;
+}
+/* 38 px rows: all sixteen items fit the display at 1440x900. */
+.equipment-list th,
+.equipment-list td {
+  padding: 7px 10px;
+  vertical-align: middle;
+}
+.equipment-list thead th {
+  position: sticky;
+  top: -56px;
+  z-index: 1;
+  background: var(--sheet);
+}
+.equipment-list tbody tr {
+  transition: background-color var(--motion-fast) var(--ease);
+}
+.equipment-list tbody tr:hover {
+  background: color-mix(in srgb, var(--hover) 70%, transparent);
+}
+.equipment-list .is-selected {
+  background: rgb(255 255 255 / 0.05);
+}
+.equipment-list__name {
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.equipment-list__name:hover {
+  text-decoration: underline;
+}
+.equipment-list__name[aria-pressed="true"] {
+  text-decoration: underline;
+  text-decoration-color: var(--laminate);
+}
+.listview__empty {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  padding: 24px 10px;
+}
+.listview__empty p {
+  margin: 0;
+  color: var(--text-2);
+}
+.listview__note {
+  margin: 14px 10px 0;
+  color: var(--text-3);
+  font-size: var(--type-caption);
+}
+
+/* Scene legend --------------------------------------------------------------------------- */
+.scene-legend {
+  display: grid;
+  gap: var(--space-3);
+  font-size: var(--type-caption);
+}
+.scene-legend__group {
+  display: grid;
+  gap: 6px;
 }
 .scene-legend h2 {
-  font-size: var(--text-sm);
+  color: var(--text-2);
+  font-size: var(--type-caption);
   font-weight: 600;
-  color: var(--text-muted);
 }
 .scene-legend ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-4);
+  display: grid;
+  gap: 5px;
   margin: 0;
   padding: 0;
+  color: var(--text-2);
   list-style: none;
 }
 .scene-legend li {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 10px;
+}
+.legend-sample {
+  position: static;
+  flex: none;
+  transform: none;
+  animation: none;
 }
 .legend-pipe {
-  width: 22px;
-  height: 5px;
+  flex: none;
+  width: 26px;
+  height: 4px;
   border-radius: 2px;
 }
 .legend-pipe--unknown {
   background: repeating-linear-gradient(90deg, var(--state-unavailable) 0 6px, transparent 6px 10px);
 }
 .legend-state {
+  flex: none;
   width: 12px;
   height: 12px;
   border-radius: 3px;
@@ -319,135 +532,59 @@
   background: var(--state-warning);
 }
 .legend-tag {
+  flex: none;
   width: 22px;
   height: 14px;
   border: 1.5px solid;
   border-radius: 2px;
 }
 
-/* Medium widths: inspector stays beside the schematic but narrower. */
-@media (max-width: 1100px) {
-  .kpi-strip {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-  .kpi {
-    border-bottom: 1px solid var(--line);
-  }
-  .monitoring__work--inspecting {
-    grid-template-columns: minmax(0, 1fr) 300px;
-  }
-  .monitoring__below {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* Narrow: natural page flow; the inspector becomes a full-screen panel. */
-@media (max-width: 760px) {
-  .monitoring {
-    padding: var(--space-2) var(--space-2) var(--space-4);
-  }
-  .monitoring__top {
-    height: auto;
-    min-height: 0;
-  }
-  .monitoring__work,
-  .monitoring__work--inspecting {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .plant-viewport {
-    height: 62vh;
-  }
-  .monitoring__inspector {
-    position: fixed;
-    inset: var(--header-height) 0 0 0;
-    z-index: 45;
-    padding: var(--space-2);
-    background: var(--ink);
-  }
-  .kpi-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .kpi:nth-child(2n) {
-    border-right: 0;
-  }
-  .equipment-list__type {
-    display: none;
-  }
-  .kpi {
-    border-bottom: 1px solid var(--line);
-  }
-  .plant-viewport__hint {
-    display: none;
-  }
-}
-
-/* KPI cards are buttons that open the indicator details panel. */
-button.kpi {
-  margin: 0;
-  border-top: 0;
-  border-left: 0;
-  border-bottom: 0;
-  border-radius: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  box-shadow: inset 0 -3px 0 transparent;
-  transition: background var(--motion-fast);
-}
-button.kpi:hover {
-  background: var(--panel-raised);
-}
-button.kpi[aria-pressed="true"] {
-  background: #182a45;
-  box-shadow: inset 0 -3px 0 var(--chart-observed);
-}
-button.kpi:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: -3px;
-}
-.kpi-strip > .kpi:first-child {
-  border-top-left-radius: var(--radius-md);
-  border-bottom-left-radius: var(--radius-md);
-}
-
-/* Indicator details panel (shares the inspector frame). */
+/* Indicator details (in the workspace; shares the inspector frame) ------------------ */
 .kpi-panel__value {
   margin: var(--space-1) 0 0;
-  font-size: var(--text-xl);
+  font-size: var(--type-hero);
   font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+.kpi__unit {
+  color: var(--text-3);
+  font-size: var(--type-body);
+  font-weight: 500;
 }
 .kpi-panel__quality {
-  color: var(--state-warning);
-  font-size: var(--text-sm);
+  color: var(--caution);
+  font-size: var(--type-body);
   font-weight: 500;
 }
 .kpi-panel__synthetic {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin: 0;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--synthetic);
-  border-radius: var(--radius-sm);
-  background: var(--synthetic-bg);
-  color: #f8d8fc;
-  font-size: var(--text-xs);
+  padding: 6px 10px;
+  border-radius: var(--radius-control);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text-2);
+  font-size: var(--type-caption);
+}
+.kpi-panel__synthetic svg {
+  flex: none;
+  color: var(--text-3);
 }
 .kpi-panel__text {
   margin: 0;
-  font-size: var(--text-sm);
+  font-size: var(--type-body);
   line-height: 1.5;
 }
 .kpi-panel__label {
-  color: var(--text-muted);
+  color: var(--text-2);
 }
 .kpi-panel__subhead {
   margin: var(--space-1) 0 0;
-  font-size: var(--text-sm);
+  color: var(--text-2);
+  font-size: var(--type-body);
   font-weight: 600;
-  color: var(--text-muted);
 }
 .kpi-panel__equipment {
   display: grid;
@@ -455,7 +592,7 @@ button.kpi:focus-visible {
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: var(--text-sm);
+  font-size: var(--type-body);
 }
 .kpi-panel__equipment li {
   position: relative;
@@ -464,7 +601,7 @@ button.kpi:focus-visible {
   align-items: center;
   gap: 4px var(--space-2);
   padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--line);
+  box-shadow: inset 0 -1px 0 var(--hairline);
 }
 .kpi-panel__equipment-name {
   font-weight: 600;
@@ -474,15 +611,15 @@ button.kpi:focus-visible {
 }
 .kpi-panel__actions {
   display: flex;
-  gap: 4px;
   flex-basis: 100%;
+  gap: 4px;
 }
 .kpi-panel__bar {
   position: absolute;
   left: 0;
-  bottom: -1px;
+  bottom: 0;
   height: 2px;
-  background: var(--chart-observed);
+  background: var(--text-2);
 }
 .kpi-panel__issues {
   display: grid;
@@ -492,13 +629,63 @@ button.kpi:focus-visible {
   gap: var(--space-1);
 }
 .issue-card h3 {
-  font-size: var(--text-md);
+  font-size: var(--type-section);
+}
+.issue-line.is-resolved {
+  opacity: 0.75;
 }
 .kpi-panel__periods {
   margin: 0;
   padding-left: var(--space-4);
-  font-size: var(--text-sm);
+  font-size: var(--type-body);
 }
 .kpi-panel__ask {
   justify-self: start;
+}
+
+/* Phone: the list is the first view, the drawing controls give way to touch. */
+@media (max-width: 760px) {
+  .stage-controls,
+  .readmode-hint {
+    display: none;
+  }
+  .stage-note {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-width: none;
+    border-radius: 0;
+    background: var(--bezel);
+    padding: 8px 12px;
+  }
+  .listview {
+    padding: 56px 12px 24px;
+  }
+  .filters .field {
+    width: 100%;
+  }
+  .equipment-list__type,
+  .equipment-list__time {
+    display: none;
+  }
+  .stage-notices {
+    width: calc(100% - 120px);
+    left: auto;
+    right: 12px;
+    transform: none;
+  }
+}
+@media (forced-colors: active) {
+  .viewswitch,
+  .stage-controls,
+  .stage-note,
+  .key,
+  .lbl,
+  .lbl__val,
+  .legend {
+    border: 1px solid CanvasText;
+  }
+  .hang__string {
+    background: CanvasText;
+  }
 }

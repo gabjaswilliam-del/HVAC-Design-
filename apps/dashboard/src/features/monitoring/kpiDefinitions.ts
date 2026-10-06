@@ -10,6 +10,7 @@ export const ISSUES_KPI = "issues";
 export const KPI_KEYS = [
   "plant:cooling_demand_kw",
   "plant:cooling_delivered_kw",
+  "plant:available_capacity_kw",
   "plant:power_kw",
   "plant:cop",
   "chw_supply:temp_c",
@@ -36,8 +37,8 @@ export interface EquipmentRef {
 }
 
 export interface KpiDef {
-  /** Reported inputs of the indicator's definition. */
-  inputs: string[];
+  /** Reported inputs of the indicator's definition, from the site's own equipment. */
+  inputs: string[] | ((site: SiteBundle) => string[]);
   /** Further current readings that give context. */
   measurements: string[];
   references: { family: DeviceFamily; labels: string[] }[];
@@ -63,12 +64,21 @@ export const KPI_DEFS: Record<string, KpiDef> = {
     equipment: (site) => [{ id: "terminal", metric: "terminal:cooling_demand_kw" }, ...ofFamily(site, "chiller_plant", "cooling_kw")],
   },
   "plant:cooling_delivered_kw": {
-    inputs: ["chiller_plant_1:cooling_kw", "chiller_plant_2:cooling_kw", "chiller_plant_3:cooling_kw"],
+    // Every chiller the site reports, however many: never a fixed list of IDs.
+    inputs: (site) => site.topology.devices.filter((d) => d.family === "chiller_plant").map((d) => `${d.id}:cooling_kw`),
     measurements: ["plant:cooling_demand_kw", "plant:cooling_delivered_kw", "plant:unmet_kw", "plant:available_capacity_kw"],
     references: [{ family: "chiller_plant", labels: ["Cooling capacity"] }],
     trend: COMPARISON,
     comparison: true,
     equipment: (site) => ofFamily(site, "chiller_plant", "cooling_kw"),
+  },
+  "plant:available_capacity_kw": {
+    inputs: [],
+    measurements: ["plant:cooling_demand_kw", "plant:cooling_delivered_kw", "plant:unmet_kw", "plant:available_capacity_kw"],
+    references: [{ family: "chiller_plant", labels: ["Cooling capacity"] }],
+    trend: COMPARISON,
+    comparison: true,
+    equipment: (site) => ofFamily(site, "chiller_plant", "load_pct"),
   },
   "plant:power_kw": {
     inputs: [],
@@ -117,6 +127,12 @@ export const KPI_DEFS: Record<string, KpiDef> = {
     equipment: (site) => ofFamily(site, "cooling_towers", "frequency_hz"),
   },
 };
+
+/** The reported inputs of an indicator for this site. */
+export function kpiInputs(key: string, site: SiteBundle): string[] {
+  const inputs = KPI_DEFS[key]?.inputs ?? [];
+  return typeof inputs === "function" ? inputs(site) : inputs;
+}
 
 /** Equipment to highlight on the plant while an indicator's details are open. */
 export function kpiEquipment(key: string, site: SiteBundle, issues: Issue[]): string[] {

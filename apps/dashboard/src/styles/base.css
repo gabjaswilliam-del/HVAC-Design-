@@ -13,23 +13,31 @@
 html {
   color-scheme: dark;
   -webkit-text-size-adjust: 100%;
+  scrollbar-color: var(--hairline-strong) transparent;
 }
 
 body {
   margin: 0;
-  background: var(--ink);
-  color: var(--text);
+  background: var(--bezel);
+  color: var(--text-1);
   font-family: var(--font-sans);
-  font-size: var(--text-md);
+  font-size: var(--type-body);
   line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,
 h2,
-h3 {
+h3,
+h4 {
   margin: 0;
   font-weight: 600;
   line-height: 1.2;
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
 }
 
 button,
@@ -44,12 +52,32 @@ a {
   color: inherit;
 }
 
+::selection {
+  background: color-mix(in srgb, var(--laminate) 28%, transparent);
+  color: var(--text-1);
+}
+
+input,
+textarea {
+  caret-color: var(--laminate);
+}
+
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
-/* Every engineering value uses tabular figures so columns of readings align. */
+* {
+  scrollbar-width: thin;
+}
+
+/* One icon stroke weight across the interface (lucide's default is 2). */
+.lucide {
+  stroke-width: 1.75;
+}
+
+/* Every engineering value uses tabular figures so columns of readings align and
+   values that update in place do not jitter. */
 .num {
   font-variant-numeric: tabular-nums;
 }
@@ -72,3 +100,33 @@ a {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Forced colours: Chromium paints text in the forced palette but keeps the author's
+   colour in -webkit-text-fill-color, which accessibility checks read as the text colour.
+   Pin it to the system colours the browser already paints with. */
+@media (forced-colors: active) {
+  * {
+    -webkit-text-fill-color: CanvasText;
+  }
+  a,
+  a * {
+    -webkit-text-fill-color: LinkText;
+  }
+  button,
+  button *,
+  .button,
+  .button *,
+  select {
+    -webkit-text-fill-color: ButtonText;
+  }
+  input,
+  textarea {
+    -webkit-text-fill-color: FieldText;
+  }
+  ::placeholder,
+  :disabled,
+  :disabled * {
+    -webkit-text-fill-color: GrayText;
+  }
+}
+

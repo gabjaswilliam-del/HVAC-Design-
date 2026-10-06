@@ -1,21 +1,37 @@
-import { PageHeading } from "../components/PageHeading";
-import { createBrowserRouter, Link } from "react-router";
+import { createBrowserRouter, Link, Navigate, useLocation } from "react-router";
 import { useStrings } from "../lib/i18n";
-import type { Messages } from "../lib/i18n/en";
 import { AppShell } from "./AppShell";
+import type { PageKey } from "./navigation";
 import { MonitoringPage } from "../features/monitoring";
-import { EquipmentPage } from "../features/equipment";
+import { EngineeringPage, EquipmentRecordPage } from "../features/engineering";
 import { PredictionPage } from "../features/prediction";
 import { AgentPage } from "../features/agent";
 
-// ponytail: temporary stand-in for screens built in later milestones; delete when each lands.
-function PlannedScreen({ title, milestone }: { title: keyof Messages["nav"]; milestone: string }) {
+// ponytail: shared "not available yet" state for screens built in later milestones; each is replaced when it lands.
+function PlannedScreen({ page }: { page: PageKey }) {
   const s = useStrings();
+  const info = s.planned.screens[page];
   return (
-    <section className="planned">
-      <PageHeading>{s.nav[title] as string}</PageHeading>
-      <p>
-        {s.planned.body} {s.planned.milestone} {milestone}.
+    <section className="page planned" aria-labelledby="planned-title">
+      <div className="planned__head">
+        <h2 id="planned-title">{s.planned.unavailable}</h2>
+        <span className="tag-chip tag-chip--planned" title={s.nav.plannedTitle(info.milestone)}>
+          {s.nav.planned}
+        </span>
+      </div>
+      <p>{info.body}</p>
+      <p className="planned__needs">{info.needs}</p>
+      <p className="planned__related">
+        {s.planned.related}{" "}
+        <Link className="link" to="/">
+          {s.nav.sections.overview}
+        </Link>
+        <Link className="link" to="/prediction">
+          {s.nav.pages.prediction}
+        </Link>
+        <Link className="link" to="/engineering">
+          {s.nav.sections.engineering}
+        </Link>
       </p>
     </section>
   );
@@ -24,12 +40,21 @@ function PlannedScreen({ title, milestone }: { title: keyof Messages["nav"]; mil
 function NotFound() {
   const s = useStrings();
   return (
-    <section className="planned">
-      <PageHeading>{s.notFound.heading}</PageHeading>
+    <section className="page planned">
       <p>{s.notFound.body}</p>
-      <Link to="/">{s.notFound.back}</Link>
+      <Link className="link" to="/">
+        {s.notFound.back}
+      </Link>
     </section>
   );
+}
+
+/** The roster is the Overview's list view now; old links keep the demo context. */
+function ToOverviewList() {
+  const { search } = useLocation();
+  const p = new URLSearchParams(search);
+  p.set("view", "list");
+  return <Navigate replace to={{ pathname: "/", search: `?${p}` }} />;
 }
 
 export const router = createBrowserRouter([
@@ -38,16 +63,17 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <MonitoringPage /> },
-      // One route with an optional ID, so selecting does not remount the page (and its filters).
-      { path: "equipment/:equipmentId?", element: <EquipmentPage /> },
+      { path: "engineering", element: <EngineeringPage /> },
+      { path: "equipment", element: <ToOverviewList /> },
+      { path: "equipment/:equipmentId", element: <EquipmentRecordPage /> },
       { path: "prediction", element: <PredictionPage /> },
       { path: "agent", element: <AgentPage /> },
-      { path: "simulation", element: <PlannedScreen title="simulation" milestone="M6" /> },
-      { path: "pilot", element: <PlannedScreen title="pilot" milestone="M6" /> },
-      { path: "cad", element: <PlannedScreen title="cad" milestone="M7" /> },
-      { path: "knowledge", element: <PlannedScreen title="knowledge" milestone="M7" /> },
-      { path: "setup", element: <PlannedScreen title="setup" milestone="M7" /> },
-      { path: "system", element: <PlannedScreen title="system" milestone="M7" /> },
+      { path: "simulation", element: <EngineeringPage /> },
+      { path: "cad", element: <EngineeringPage /> },
+      { path: "pilot", element: <PlannedScreen page="pilot" /> },
+      { path: "knowledge", element: <PlannedScreen page="knowledge" /> },
+      { path: "setup", element: <PlannedScreen page="setup" /> },
+      { path: "system", element: <PlannedScreen page="system" /> },
       { path: "*", element: <NotFound /> },
     ],
   },

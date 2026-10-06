@@ -106,6 +106,11 @@ export const sceneLayout = z.object({
     }),
   ),
   captions: z.array(z.object({ at: xy, text: z.string() })),
+  /** Header readings shown in Key mode (below 80% zoom) and where each sits, beside its
+   *  header. Optional: without them Key mode shows equipment readings only. */
+  keyHeaders: z
+    .array(z.object({ metric: z.string(), label: z.string(), at: xy, align: z.enum(["start", "end"]).optional() }))
+    .optional(),
 });
 export type SceneLayout = z.infer<typeof sceneLayout>;
 

@@ -13,15 +13,15 @@
 }
 .forecast-summary__label {
   margin: 0;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
+  color: var(--text-2);
+  font-size: var(--type-body);
 }
 .forecast-summary__peak {
-  font-size: var(--text-lg);
+  font-size: var(--type-title);
 }
 .forecast-summary__stale {
-  color: var(--state-warning);
-  font-size: var(--text-sm);
+  color: var(--caution);
+  font-size: var(--type-body);
 }
 
 /* Full prediction page */
@@ -37,8 +37,8 @@
 }
 .prediction__control-label,
 .prediction__overlays legend {
-  color: var(--text-muted);
-  font-size: var(--text-xs);
+  color: var(--text-2);
+  font-size: var(--type-caption);
 }
 .prediction__overlays {
   display: flex;
@@ -46,7 +46,7 @@
   margin: 0;
   padding: 0;
   border: 0;
-  font-size: var(--text-sm);
+  font-size: var(--type-body);
 }
 .prediction__overlays label {
   display: inline-flex;
@@ -55,7 +55,7 @@
   min-height: 32px;
 }
 .prediction__overlays input {
-  accent-color: var(--chart-observed);
+  accent-color: var(--laminate);
 }
 .prediction__main {
   display: grid;
@@ -77,17 +77,17 @@
   display: grid;
   gap: 2px;
   padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--hairline);
 }
 .figure__label {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
+  color: var(--text-2);
+  font-size: var(--type-body);
 }
 .figure__value {
-  font-size: var(--text-lg);
+  font-size: var(--type-title);
 }
 .figure__link {
-  font-size: var(--text-sm);
+  font-size: var(--type-body);
   justify-self: start;
 }
 .provenance__value {
@@ -96,8 +96,8 @@
 .provenance__warnings {
   margin: var(--space-1) 0 0;
   padding-left: var(--space-4);
-  font-size: var(--text-sm);
-  color: var(--text-muted);
+  font-size: var(--type-body);
+  color: var(--text-2);
 }
 .readiness {
   display: grid;
@@ -105,26 +105,26 @@
   margin: 0 0 var(--space-3);
   padding: 0;
   list-style: none;
-  font-size: var(--text-sm);
+  font-size: var(--type-body);
 }
 .readiness li {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px var(--space-2);
-  color: var(--text-muted);
+  color: var(--text-2);
 }
 .readiness li.is-available {
-  color: var(--state-running);
+  color: var(--ok);
 }
 .readiness__mode {
   font-weight: 600;
-  color: var(--text);
+  color: var(--text-1);
 }
 .readiness__reason {
   flex-basis: 100%;
   padding-left: 24px;
-  color: var(--text-muted);
+  color: var(--text-2);
 }
 @media (max-width: 1100px) {
   .prediction__main,

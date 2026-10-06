@@ -1,47 +1,70 @@
-/** KPI cards and the indicator details panel on the monitoring screen. */
+/**
+ * The plant's indicators and the indicator details panel. Treatment A (F3) puts the
+ * four headline readings in the top bar, the rest in More readings, and the open-issues
+ * indicator in the attention slot.
+ */
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-const KPIS: [string, string][] = [
-  ["plant:cooling_demand_kw", "Cooling demand"],
-  ["plant:cooling_delivered_kw", "Cooling delivered"],
-  ["plant:power_kw", "Plant electrical power"],
-  ["plant:cop", "System COP"],
-  ["chw_supply:temp_c", "CHW supply temperature"],
-  ["plant:chw_delta_t_c", "CHW ΔT"],
-  ["plant:approach_c", "Condenser approach"],
-  ["weather:wet_bulb_c", "Wet bulb"],
-  ["issues", "Open issues"],
+/** [key, title, where it lives] */
+const KPIS: [string, string, "top" | "tray"][] = [
+  ["plant:cooling_demand_kw", "Cooling demand", "top"],
+  ["plant:cooling_delivered_kw", "Cooling delivered", "top"],
+  ["plant:available_capacity_kw", "Running chiller capacity", "top"],
+  ["plant:cop", "System COP", "top"],
+  ["plant:power_kw", "Plant electrical power", "tray"],
+  ["chw_supply:temp_c", "CHW supply temperature", "tray"],
+  ["plant:chw_delta_t_c", "CHW ΔT", "tray"],
+  ["plant:approach_c", "Condenser approach", "tray"],
+  ["weather:wet_bulb_c", "Wet bulb", "tray"],
 ];
+const TRAY = new Set(KPIS.filter((k) => k[2] === "tray").map((k) => k[0]));
 
 const card = (page: Page, key: string) => page.locator(`button[data-kpi="${key}"]`);
+const more = (page: Page) => page.getByRole("button", { name: "More readings" });
 const panel = (page: Page) => page.getByRole("complementary", { name: "Indicator details" });
 const inspector = (page: Page) => page.getByRole("complementary", { name: "Equipment inspector" });
-const viewport = (page: Page) => page.locator(".plant-viewport__box > svg");
-const zoom = async (page: Page) => Number(await page.locator(".plant-viewport").getAttribute("data-zoom"));
+const viewport = (page: Page) => page.locator(".plant-view__box > svg");
+const zoom = async (page: Page) => Number(await page.locator(".plant-view").getAttribute("data-zoom"));
+
+/** Open an indicator from wherever it lives (top bar or More readings). */
+async function openKpi(page: Page, key: string) {
+  if (TRAY.has(key)) await more(page).click();
+  await card(page, key).click();
+}
 
 async function open(page: Page, url = "/") {
   await page.goto(url);
-  await expect(page.locator(".monitoring__status")).toContainText("Readings at");
+  await expect(page.locator('[data-kpi="plant:cooling_demand_kw"] .readout__value')).toContainText(/\d/);
   await expect(viewport(page).locator("[data-equipment-id]")).toHaveCount(16);
 }
 
-test("every KPI card opens its details panel; Escape closes it and returns focus", async ({ page }) => {
-  await open(page);
-  for (const [key, title] of KPIS) {
-    await card(page, key).click();
+test("every indicator opens its details panel; Escape closes it and returns focus", async ({ page }) => {
+  await open(page, "/?scenario=tower-fault");
+  for (const [key, title, where] of KPIS) {
+    await openKpi(page, key);
     await expect(panel(page).getByRole("heading", { level: 2 })).toHaveText(title);
-    await expect(card(page, key)).toHaveAttribute("aria-pressed", "true");
+    if (where === "top") await expect(card(page, key)).toHaveAttribute("aria-pressed", "true");
     await expect(panel(page).getByText(/Synthetic scenario value/)).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`kpi=${encodeURIComponent(key).replace(/%3A/g, "(:|%3A)")}`));
     await page.keyboard.press("Escape");
     await expect(panel(page)).toHaveCount(0);
-    await expect(card(page, key)).toBeFocused();
+    // Focus returns to the readout, or to More readings for an indicator from its tray.
+    await expect(where === "top" ? card(page, key) : more(page)).toBeFocused();
   }
+  await card(page, "issues").click();
+  await expect(panel(page).getByRole("heading", { level: 2 })).toHaveText("Open issues");
+  await page.keyboard.press("Escape");
+  await expect(card(page, "issues")).toBeFocused();
 });
 
 test("clicking the open card again closes the panel; the schematic refits each way", async ({ page }) => {
+  // Width-bound fit (see monitoring test 6), and the workspace collapsed so the panel opens it.
+  await page.setViewportSize({ width: 1440, height: 1100 });
   await open(page);
+  const docked = await zoom(page);
+  await page.getByRole("button", { name: "Collapse workspace" }).click();
+  await expect.poll(() => zoom(page)).toBeGreaterThan(docked);
   const wide = await zoom(page);
   await card(page, "plant:cop").click();
   await expect(panel(page)).toBeVisible();
@@ -63,7 +86,7 @@ test("indicator panels explain, show inputs, quality, trend and related equipmen
   await expect(p.getByRole("img", { name: /System COP/ })).toBeVisible();
   await expect(p.locator("[data-equipment-row]")).toHaveCount(3);
 
-  await card(page, "plant:power_kw").click();
+  await openKpi(page, "plant:power_kw");
   const rows = panel(page).locator("[data-equipment-row]");
   expect(await rows.count()).toBeGreaterThan(10);
   // Breakdown is ordered by reported power, largest first.
@@ -89,8 +112,10 @@ test("Open issues lists the scenario's active issues with equipment, status and 
 test("issue actions locate equipment on the plant and open its inspector", async ({ page }) => {
   await open(page, "/?scenario=tower-fault&kpi=issues");
   const row = panel(page).locator('[data-issue="ISS-0142"] [data-equipment-row="cooling_towers_4"]');
+  const fit = await zoom(page);
   await row.getByRole("button", { name: "Locate Cooling tower 4" }).click();
-  await expect.poll(() => zoom(page)).toBeGreaterThanOrEqual(1);
+  // In view already, so Locate centres it and keeps the zoom.
+  await expect.poll(() => zoom(page)).toBeCloseTo(fit, 4);
   const box = (await viewport(page).boundingBox())!;
   const art = (await viewport(page).locator('[data-equipment-id="cooling_towers_4"] .eq-node__art').boundingBox())!;
   expect(art.x).toBeGreaterThanOrEqual(box.x);
@@ -114,18 +139,18 @@ test("demand and delivered panels identify a shortfall, and replay keeps card an
   await expect(p.getByRole("alert")).toContainText("Shortfall now");
   await expect(p.locator("[data-shortfall-periods]")).toContainText("14:05–ongoing");
   await expect(p.getByText(/Running capacity is the rated capacity/)).toBeVisible();
-  const cardValue = await card(page, "plant:cooling_delivered_kw").locator(".kpi__value").innerText();
-  const panelValue = await p.locator(".kpi-panel__value").innerText();
-  expect(panelValue.replace(/\s+/g, " ")).toContain(cardValue.replace(/\s+/g, " ").split(" ")[0]);
+  const number = (s: string) => s.match(/[\d,.]+/)![0];
+  const cardValue = number(await card(page, "plant:cooling_delivered_kw").locator(".readout__value").innerText());
+  expect(number(await p.locator(".kpi-panel__value").innerText())).toBe(cardValue);
 
   // Replay past the recovery: no shortfall now, the earlier period remains.
   const slider = page.getByRole("slider", { name: "Time of day" });
   for (let i = 0; i < 6; i++) await slider.press("ArrowRight");
-  await expect(page.locator(".monitoring__status")).toContainText("Readings at 14:40");
+  await expect(page.locator(".clock__time")).toContainText("14:40");
   await expect(p.getByText("No shortfall now: delivered cooling meets demand.")).toBeVisible();
   await expect(p.locator("[data-shortfall-periods]")).toContainText("14:05–14:15");
-  expect((await p.locator(".kpi-panel__value").innerText()).split(/\s/)[0]).toBe(
-    (await card(page, "plant:cooling_delivered_kw").locator(".kpi__value").innerText()).split(/\s/)[0],
+  expect(number(await p.locator(".kpi-panel__value").innerText())).toBe(
+    number(await card(page, "plant:cooling_delivered_kw").locator(".readout__value").innerText()),
   );
 
   await card(page, "plant:cooling_demand_kw").click();
@@ -136,7 +161,7 @@ test("demand and delivered panels identify a shortfall, and replay keeps card an
 test("the panel follows scenario changes", async ({ page }) => {
   await open(page, "/?scenario=tower-fault&kpi=issues");
   await expect(panel(page).locator("[data-issue]")).toHaveCount(2);
-  await page.getByLabel("Demo scenario").filter({ visible: true }).selectOption("normal");
+  await page.getByLabel("Demo scenario").selectOption("normal");
   await expect(panel(page).getByText(/No open issues/)).toBeVisible();
   await expect(viewport(page).locator(".eq-node--highlighted")).toHaveCount(0);
 });
@@ -157,12 +182,12 @@ test("selecting equipment on the plant replaces the indicator panel with the ins
   await viewport(page).locator('[data-equipment-id="chiller_plant_1"] .eq-node__art').click();
   await expect(panel(page)).toHaveCount(0);
   await expect(inspector(page).getByRole("heading", { level: 2 })).toHaveText("Chiller 1");
-  await card(page, "plant:approach_c").click();
+  await openKpi(page, "plant:approach_c");
   await expect(inspector(page)).toHaveCount(0);
   await expect(panel(page)).toBeVisible();
 });
 
-test("keyboard: cards are reachable and operable", async ({ page }) => {
+test("keyboard: readouts and More readings are reachable and operable", async ({ page }) => {
   await open(page);
   await card(page, "plant:cop").focus();
   await page.keyboard.press("Enter");
@@ -170,9 +195,12 @@ test("keyboard: cards are reachable and operable", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(card(page, "plant:cop")).toBeFocused();
   await page.keyboard.press("Tab");
-  await expect(card(page, "chw_supply:temp_c")).toBeFocused();
+  await expect(more(page)).toBeFocused();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Tab");
+  await expect(card(page, "plant:power_kw")).toBeFocused();
   await page.keyboard.press(" ");
-  await expect(panel(page).getByRole("heading", { level: 2 })).toHaveText("CHW supply temperature");
+  await expect(panel(page).getByRole("heading", { level: 2 })).toHaveText("Plant electrical power");
 });
 
 for (const [w, h] of [

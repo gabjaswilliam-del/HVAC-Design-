@@ -1,28 +1,26 @@
-import { PageHeading } from "../../components/PageHeading";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Info } from "lucide-react";
+import { List, Waypoints, X } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
-import { formatAgeMinutes, formatTime } from "../../lib/format";
+import { openIssues } from "../../lib/issues";
+import type { Issue } from "../../lib/contracts";
 import { Notice } from "../../components/Notice";
-import { useRestoreFocus } from "../../components/useRestoreFocus";
-import { operating, useOperating } from "../../app/operatingContext";
-import { PlaybackBar } from "../../app/PlaybackBar";
+import { RadioGroup } from "../../components/RadioGroup";
+import { getOperating, operating, useOperating, type OverviewView } from "../../app/operatingContext";
 import { useIssues, useSite, useSnapshot } from "../../app/site";
-import { EquipmentInspector } from "../equipment";
-import { CoolingForecastSummary } from "../prediction";
+import { useWorkspaceLayout } from "../../app/useWorkspaceLayout";
 import { EquipmentList } from "./EquipmentList";
-import { KpiDetailsPanel } from "./KpiDetailsPanel";
 import { isKpiKey, kpiEquipment } from "./kpiDefinitions";
-import { KpiStrip } from "./KpiStrip";
-import { RecentIssues } from "./RecentIssues";
 import { sceneMatchesTopology } from "./scene/PlantScene";
 import { PlantViewport } from "./scene/PlantViewport";
-import { SceneLegend } from "./SceneLegend";
 import "./monitoring.css";
 
-const NARROW = "(max-width: 760px)";
-
+/**
+ * Overview: the plant on its display, edge to edge. Three things float over it, each
+ * in an empty corner: the view switch, the drawing controls and the disclosure. The
+ * summary readings and the attention slot live in the top bar; Details open in the
+ * workspace.
+ */
 export function MonitoringPage() {
   const s = useStrings();
   const m = s.monitoring;
@@ -30,53 +28,67 @@ export function MonitoringPage() {
   const snapshot = useSnapshot();
   const issues = useIssues();
   const selectedId = useOperating((x) => x.selectedId);
+  const kpiKey = useOperating((x) => x.kpiKey);
   const highlightIds = useOperating((x) => x.highlightIds);
-  const [view, setView] = useState<"schematic" | "list">(() =>
-    typeof matchMedia !== "undefined" && matchMedia(NARROW).matches ? "list" : "schematic",
-  );
+  const locateRequest = useOperating((x) => x.locateRequest);
+  const view = useOperating((x) => x.overviewView);
+  const layout = useWorkspaceLayout();
   const [locate, setLocate] = useState<{ id: string; nonce: number } | null>(null);
-  const [focusInspector, setFocusInspector] = useState(false);
   const [params, setParams] = useSearchParams();
-  // One side panel at a time: indicator details or the equipment inspector.
-  const [kpiKey, setKpiKey] = useState<string | null>(() => {
-    const k = params.get("kpi");
-    return isKpiKey(k) ? k : null;
-  });
-  const [focusKpi, setFocusKpi] = useState(false);
-  const restoreFocus = useRestoreFocus();
+  const mountedAt = useRef(Date.now());
 
-  // URL <-> state. This page is the only writer of `equipment`, `kpi` and `locate`, and
-  // reacts only to values it did not write itself (deep links, assistant links), so
-  // two updates in one tick cannot overwrite each other with a stale copy.
+  // URL <-> state. This page is the only writer of `equipment`, `kpi`, `locate` and
+  // `view`, and reacts only to values it did not write itself (deep links, assistant
+  // links), so two updates in one tick cannot overwrite each other with a stale copy.
   const pEquipment = params.get("equipment");
   const pLocate = params.get("locate");
   const pKpi = params.get("kpi");
+  const pView = params.get("view");
   const written = useRef({ equipment: null as string | null, kpi: null as string | null });
   useEffect(() => {
     if (!pEquipment || pEquipment === written.current.equipment) return;
     written.current.equipment = pEquipment;
-    setKpiKey(null);
     operating.select(pEquipment);
   }, [pEquipment]);
   useEffect(() => {
-    if (pEquipment && pLocate) setLocate({ id: pEquipment, nonce: Date.now() });
+    if (!pEquipment || !pLocate) return;
+    operating.setOverviewView("schematic");
+    setLocate({ id: pEquipment, nonce: Date.now() });
   }, [pEquipment, pLocate]);
   useEffect(() => {
     if (!isKpiKey(pKpi) || pKpi === written.current.kpi) return;
     written.current.kpi = pKpi;
-    setKpiKey(pKpi);
-    operating.select(null);
+    operating.openKpi(pKpi);
   }, [pKpi]);
+  // `?view=list` (and the old /equipment address) open the list. Read when the page
+  // opens only: the address is written below, and a late copy must not flip the view.
   useEffect(() => {
-    written.current = { equipment: selectedId, kpi: kpiKey };
+    if (pView === "list") operating.setOverviewView("list");
+  }, []);
+  useEffect(() => {
+    // Read the store now, not this render's values: a deep link applied by the effects
+    // above is already in the store, and must not be written away for one render.
+    const { selectedId: equipment, kpiKey: kpi, overviewView } = getOperating();
+    const viewParam = overviewView === "list" ? "list" : null;
+    written.current = { equipment, kpi };
     const next = new URLSearchParams(params);
-    if (selectedId) next.set("equipment", selectedId);
+    if (equipment) next.set("equipment", equipment);
     else next.delete("equipment");
-    if (kpiKey) next.set("kpi", kpiKey);
-    else next.delete("kpi");
+    // An unknown indicator stays in the address until dismissed, so its notice can say so.
+    if (kpi) next.set("kpi", kpi);
+    else if (isKpiKey(next.get("kpi"))) next.delete("kpi");
+    if (viewParam) next.set("view", viewParam);
+    else next.delete("view");
     next.delete("locate");
     if (next.toString() !== params.toString()) setParams(next, { replace: true });
-  }, [selectedId, kpiKey, pLocate]); // params are read, not tracked
+  }, [selectedId, kpiKey, view, pLocate]); // params are read, not tracked
+
+  // Locate requests from Details, the top bar and shortcuts (made while this page was open).
+  useEffect(() => {
+    if (!locateRequest || locateRequest.nonce < mountedAt.current) return;
+    operating.setOverviewView("schematic");
+    setLocate(locateRequest);
+  }, [locateRequest?.nonce]);
 
   // While an indicator is open, point out its equipment on the plant. Only clears
   // highlights this page set, so highlights from the assistant survive.
@@ -89,162 +101,94 @@ export function MonitoringPage() {
   }, [highlightSource]);
   useEffect(() => () => void (ownHighlight.current && operating.highlight([])), []);
 
-  const select = useCallback((id: string) => {
-    setKpiKey(null);
-    operating.select(id);
-    setFocusInspector(true);
+  const select = useCallback((id: string) => operating.select(id, true), []);
+  const openIssue = useCallback((issue: Issue) => operating.select(issue.equipmentIds[0], true), []);
+  // Below 1440 px a floating panel is dismissed by clicking empty drawing.
+  const dismiss = useCallback(() => {
+    const o = getOperating();
+    if (o.selectedId || o.kpiKey) operating.closeDetails();
+    else operating.closeWorkspace();
   }, []);
-  const openKpi = useCallback((key: string) => {
-    operating.select(null);
-    setKpiKey((current) => (current === key ? null : key));
-    setFocusKpi(true);
-  }, []);
-  const closeKpi = useCallback(() => {
-    if (kpiKey) restoreFocus(`[data-kpi="${kpiKey}"]`);
-    setKpiKey(null);
-  }, [kpiKey, restoreFocus]);
-  const close = useCallback(() => {
-    if (selectedId) restoreFocus(`[data-equipment-id="${selectedId}"], [data-select-id="${selectedId}"]`);
-    operating.select(null);
-    setFocusInspector(false);
-  }, [selectedId, restoreFocus]);
-  const locateOnPlant = useCallback((id: string) => {
-    setView("schematic");
-    setLocate({ id, nonce: Date.now() });
-  }, []);
+  const dropUnknownKpi = () => {
+    const next = new URLSearchParams(params);
+    next.delete("kpi");
+    setParams(next, { replace: true });
+  };
 
   if (site.error && !site.data) {
     return (
-      <div className="monitoring">
-        <PageHeading>{m.heading}</PageHeading>
+      <section className="stage stage--message" aria-label={m.stage}>
         <Notice tone="critical" action={{ label: m.retry, onClick: site.retry }}>
           {m.siteFailed} {site.error.message}
         </Notice>
-      </div>
+      </section>
     );
   }
   if (!site.data) {
-    return (
-      <div className="monitoring">
-        <PageHeading>{m.heading}</PageHeading>
-        <div className="skeleton" style={{ height: 480 }} aria-busy="true" />
-      </div>
-    );
+    return <section className="stage" aria-label={m.stage} aria-busy="true" />;
   }
 
   const bundle = site.data;
-  const tz = bundle.site.timezone;
-  const tzLabel = bundle.site.timezoneLabel;
   const snap = snapshot.data;
   const matches = sceneMatchesTopology(bundle.scene, bundle.topology);
-  const age = formatAgeMinutes(snap?.latestSampleAt ?? null, Date.parse(snapshot.at));
-  const issueList = issues.data?.issues ?? [];
-  const viewSwitch = (
-    <div className="segmented" role="group" aria-label={m.view}>
-      <button type="button" aria-pressed={view === "schematic"} disabled={!matches} onClick={() => setView("schematic")}>
-        {m.viewSchematic}
-      </button>
-      <button type="button" aria-pressed={view === "list" || !matches} onClick={() => setView("list")}>
-        {m.viewList}
-      </button>
-    </div>
-  );
+  const shown: OverviewView = matches ? view : "list";
   const readings = snap ?? { equipment: {}, values: {} };
+  const unknownKpi = pKpi && !isKpiKey(pKpi) ? pKpi : null;
 
   return (
-    <div className="monitoring">
-      <div className="monitoring__top">
-        <div className="monitoring__head">
-          <PageHeading>{m.heading}</PageHeading>
-          <p className="monitoring__notice">
-            <Info size={16} aria-hidden="true" />
-            {m.topologyNotice}
-          </p>
-        </div>
+    <section className={`stage stage--${shown}`} aria-label={m.stage}>
+      {shown === "schematic" ? (
+        <PlantViewport
+          topology={bundle.topology}
+          layout={bundle.scene}
+          readings={readings}
+          metrics={bundle.metrics}
+          issues={openIssues(issues.data?.issues)}
+          selectedId={selectedId}
+          highlightIds={highlightIds}
+          onSelect={select}
+          onOpenIssue={openIssue}
+          locate={locate}
+          float={layout === "float"}
+          onDismiss={layout === "float" ? dismiss : undefined}
+        />
+      ) : (
+        <EquipmentList site={bundle} snapshot={snap} issues={issues.data?.issues} selectedId={selectedId} onSelect={select} />
+      )}
 
-        <KpiStrip site={bundle} snapshot={snap} issues={issues.data?.issues} activeKey={kpiKey} onOpen={openKpi} />
+      <RadioGroup<OverviewView>
+        className="viewswitch"
+        label={m.view}
+        value={shown}
+        onChange={(v) => operating.setOverviewView(v)}
+        options={[
+          { value: "schematic", label: <Waypoints size={16} aria-hidden="true" />, name: m.viewSchematic, title: `${m.viewSchematic} (L)`, disabled: !matches },
+          { value: "list", label: <List size={16} aria-hidden="true" />, name: m.viewList, title: `${m.viewList} (L)` },
+        ]}
+      />
 
-        <p className="monitoring__status num" aria-live="polite">
-          {snap && (
-            <>
-              {m.readingsAt} {formatTime(snap.at, tz)} {tzLabel}, {m.newestSample}{" "}
-              {snap.latestSampleAt ? formatTime(snap.latestSampleAt, tz) : s.quality.unavailable}
-              {age !== null && <> ({m.minutesOld(age)})</>}
-            </>
+      {(unknownKpi || snapshot.error || !matches) && (
+        <div className="stage-notices">
+          {!matches && (
+            <Notice tone="warning">
+              <strong>{m.mismatchTitle}.</strong> {m.mismatchBody(bundle.scene.configRevision, bundle.topology.configRevision)}
+            </Notice>
           )}
-        </p>
-        {snap?.connection === "disconnected" && (
-          <Notice tone="critical">{m.disconnected(`${formatTime(snap.latestSampleAt!, tz)} ${tzLabel}`)}</Notice>
-        )}
-        {snapshot.error && (
-          <Notice tone="warning" action={{ label: m.retry, onClick: snapshot.retry }}>
-            {m.loadFailed} {snapshot.error.message}
-          </Notice>
-        )}
-
-        <div className={`monitoring__work${selectedId || kpiKey ? " monitoring__work--inspecting" : ""}`}>
-          <div className="monitoring__stage">
-            {!matches && (
-              <Notice tone="warning">
-                <strong>{m.mismatchTitle}.</strong>{" "}
-                {m.mismatchBody(bundle.scene.configRevision, bundle.topology.configRevision)}
-              </Notice>
-            )}
-            {matches && view === "schematic" ? (
-              <PlantViewport
-                topology={bundle.topology}
-                layout={bundle.scene}
-                readings={readings}
-                selectedId={selectedId}
-                highlightIds={highlightIds}
-                onSelect={select}
-                locate={locate}
-                leading={viewSwitch}
-              />
-            ) : (
-              <>
-                <div className="monitoring__stage-bar">{viewSwitch}</div>
-                <EquipmentList site={bundle} snapshot={snap} selectedId={selectedId} onSelect={select} />
-              </>
-            )}
-          </div>
-          {kpiKey ? (
-            <div className="monitoring__inspector">
-              <KpiDetailsPanel
-                kpiKey={kpiKey}
-                site={bundle}
-                snapshot={snap}
-                issues={issues}
-                onClose={closeKpi}
-                onLocate={locateOnPlant}
-                onInspect={select}
-                focusOnOpen={focusKpi}
-              />
-            </div>
-          ) : selectedId && (
-            <div className="monitoring__inspector">
-              <EquipmentInspector
-                equipmentId={selectedId}
-                site={bundle}
-                snapshot={snap}
-                issues={issueList}
-                onSelect={select}
-                onLocate={matches ? locateOnPlant : undefined}
-                onClose={close}
-                focusOnOpen={focusInspector}
-              />
+          {snapshot.error && (
+            <Notice tone="warning" action={{ label: m.retry, onClick: snapshot.retry }}>
+              {m.loadFailed} {snapshot.error.message}
+            </Notice>
+          )}
+          {unknownKpi && (
+            <div className="notice notice--info" role="status">
+              <span className="notice__body">{m.unknownKpi(unknownKpi)}</span>
+              <button type="button" className="icon-button" aria-label={m.dismiss} title={m.dismiss} onClick={dropUnknownKpi}>
+                <X size={16} aria-hidden="true" />
+              </button>
             </div>
           )}
         </div>
-
-        <PlaybackBar timeZone={tz} timezoneLabel={tzLabel} />
-      </div>
-
-      <div className="monitoring__below">
-        <CoolingForecastSummary site={bundle} />
-        <RecentIssues site={bundle} issues={issues} at={snapshot.at} onSelect={select} />
-      </div>
-      <SceneLegend />
-    </div>
+      )}
+    </section>
   );
 }
