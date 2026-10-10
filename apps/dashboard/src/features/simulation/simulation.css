@@ -1,0 +1,773 @@
+/* Simulation and the AI pilot pages: flat sections separated by hairlines (as the
+   Engineering hub), the run band held at the top while the page scrolls, the simulated
+   plant on its own recessed display. Colour only for state, always beside a word or an
+   icon. Layout follows the display's own width (container queries): the display narrows
+   when the workspace is docked beside it. */
+.sim,
+.pilot {
+  container-type: inline-size;
+  max-width: 1440px;
+  gap: 0;
+}
+.sim .page__head,
+.pilot .page__head {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+/* Below 1440 px the workspace floats over the display. These working pages make room
+   beside it, as the Overview's plant refits beside it, so no control sits under it. */
+.main[data-float] :is(.sim, .pilot) {
+  padding-right: calc(var(--float-w) + 26px);
+}
+.sim__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.sim .page__sub,
+.pilot .page__sub {
+  max-width: 90ch;
+}
+.sim > .notice,
+.pilot > .notice {
+  margin-bottom: var(--space-3);
+}
+.sim__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+  gap: 0 var(--space-6);
+  align-items: start;
+}
+.sim__main,
+.sim__side {
+  display: grid;
+  min-width: 0;
+}
+@container (max-width: 1060px) {
+  .sim__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.sim-section {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-5) 0;
+  box-shadow: inset 0 1px 0 var(--hairline);
+}
+.sim-section__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.sim-section__head .button {
+  margin-left: auto;
+}
+.sim-section h2,
+.sim-form h2 {
+  font-size: var(--type-section);
+}
+.sim-section h3,
+.sim-forecast h3,
+.sim-selected h3 {
+  color: var(--text-2);
+  font-size: var(--type-prose);
+}
+.sim-subhead {
+  margin-top: var(--space-2);
+}
+.sim-section p {
+  margin: 0;
+}
+.sim-muted,
+.sim-empty {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--type-body);
+}
+.sim-loading {
+  height: 132px;
+  margin-top: var(--space-4);
+}
+
+/* The run band: label, identity, simulated time and controls, held in view ------- */
+.sim-run {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+  margin: 0 -26px;
+  padding: var(--space-3) 26px var(--space-4);
+  background: var(--surface);
+  box-shadow:
+    inset 0 1px 0 var(--hairline),
+    inset 0 -1px 0 var(--hairline);
+}
+.sim-run__identity {
+  display: flex;
+  flex: 1 1 420px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  min-width: 0;
+}
+.sim-run__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--space-2);
+  min-width: 0;
+  margin: 0;
+  font-size: var(--type-page);
+  font-weight: 600;
+  line-height: 1.15;
+}
+.sim-run__name {
+  overflow-wrap: anywhere;
+}
+.sim-run__id {
+  color: var(--text-3);
+  font-size: var(--type-body);
+  font-weight: 500;
+}
+.sim-run__rename {
+  width: 30px;
+  height: 30px;
+  color: var(--text-3);
+}
+.sim-rename {
+  display: flex;
+  flex: 1 1 220px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.sim-rename .select {
+  flex: 1 1 160px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: var(--type-body);
+}
+.sim-rename__hint {
+  flex: 1 1 100%;
+  font-size: var(--type-caption);
+}
+.history-table__name {
+  color: var(--text-1);
+  font-weight: 600;
+}
+.sim-section--compact {
+  padding: 0;
+  box-shadow: none;
+}
+.sim-run__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  margin: 0;
+}
+.sim-run__facts dt,
+.sim-summary dt,
+.sim-readings dt,
+.pilot-facts dt {
+  color: var(--text-3);
+  font-size: var(--type-micro);
+}
+.sim-run__facts dd,
+.sim-summary dd,
+.sim-readings dd,
+.pilot-facts dd {
+  margin: 0;
+  color: var(--text-1);
+}
+.sim-run__progress {
+  flex: 1 0 100%;
+  height: 4px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--raised);
+  appearance: none;
+}
+.sim-run__progress::-webkit-progress-bar {
+  border-radius: 2px;
+  background: var(--raised);
+}
+.sim-run__progress::-webkit-progress-value {
+  border-radius: 2px;
+  background: var(--text-3);
+}
+.sim-run__progress::-moz-progress-bar {
+  border-radius: 2px;
+  background: var(--text-3);
+}
+.sim-run__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+:is(.sim, .pilot, .pilot-panel) .button[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+:is(.sim, .pilot, .pilot-panel) .button[aria-busy="true"] {
+  cursor: progress;
+}
+
+/* Run and correction state words -------------------------------------------------- */
+.sim-state--running,
+.cor-state--applied {
+  color: var(--ok);
+}
+.sim-state--failed,
+.cor-state--rejected,
+.cor-outcome--short {
+  color: var(--caution);
+}
+.sim-state--created,
+.sim-state--stopped,
+.sim-state--paused,
+.cor-state--superseded,
+.cor-state--expired,
+.cor-state--proposed {
+  color: var(--text-2);
+}
+.cor-state--queued {
+  color: var(--text-1);
+}
+.sim-state,
+.cor-state {
+  font-size: var(--type-body);
+}
+.cor-reason,
+.cor-muted {
+  color: var(--text-3);
+}
+
+/* The simulated plant: the same drawing on its own recessed display ---------------- */
+.sim-plant__box {
+  position: relative;
+  height: clamp(320px, 48vh, 540px);
+  overflow: clip;
+  border-radius: var(--radius-container);
+  background-color: var(--canvas);
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(rgb(255 255 255 / 0.024) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.024) 1px, transparent 1px),
+    radial-gradient(120% 80% at 50% 0%, #25292e, #1a1d21 55%, #14171a);
+  background-size:
+    200px 200px,
+    200px 200px,
+    40px 40px,
+    40px 40px,
+    100% 100%;
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 0.75),
+    inset 0 3px 8px rgb(0 0 0 / 0.45),
+    0 0 0 1px rgb(255 255 255 / 0.07);
+}
+/* The Overview moves its drawing controls left of a floating panel; this drawing sits in
+   a page that already makes room for the panel, so its controls stay in their corner. */
+.main[data-float] .sim-plant__box :is(.stage-controls, .readmode-hint, .legend) {
+  right: 12px;
+}
+.sim-retained-note {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--type-body);
+}
+.sim-selected {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-container);
+  background: var(--sheet);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+.sim-selected__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+}
+.sim-selected__head .icon-button {
+  margin-left: auto;
+}
+.sim-selected .state-label {
+  font-size: var(--type-caption);
+}
+.sim-readings {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+
+/* Results ------------------------------------------------------------------------- */
+.sim-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  margin: 0;
+}
+.sim-summary dd {
+  font-size: var(--type-value);
+  font-weight: 600;
+}
+.sim-compare {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+  align-items: end;
+  gap: var(--space-2) var(--space-4);
+}
+.sim-compare .sim-muted {
+  padding-bottom: 7px;
+}
+.sim-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-5);
+}
+.sim-chart {
+  display: grid;
+  /* A chart keeps the width it last measured; a zero minimum lets it shrink with the display. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  min-width: 0;
+}
+.sim-chart h3 {
+  color: var(--text-2);
+  font-size: var(--type-body);
+  font-weight: 600;
+}
+@container (max-width: 760px) {
+  .sim-charts,
+  .sim-compare {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* A narrow drawing would sit under its corner controls: it is fitted above them instead. */
+  .sim-plant__box {
+    height: clamp(380px, 56vh, 520px);
+  }
+  .sim-plant__box .plant-view__box {
+    bottom: 104px;
+  }
+}
+.sim-forecast {
+  display: grid;
+  gap: var(--space-1);
+  padding-top: var(--space-3);
+  box-shadow: inset 0 1px 0 var(--hairline);
+}
+.sim-forecast p {
+  max-width: 80ch;
+  color: var(--text-3);
+  font-size: var(--type-body);
+}
+
+/* Forms ---------------------------------------------------------------------------- */
+.sim-form {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 880px;
+  padding: var(--space-5) 0;
+  box-shadow: inset 0 1px 0 var(--hairline);
+}
+.sim-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-3) var(--space-4);
+  align-items: start;
+}
+.sim-correct {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 560px;
+}
+.sim-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.sim-field > label {
+  color: var(--text-2);
+  font-size: var(--type-caption);
+}
+.sim-field--wide {
+  grid-column: 1 / -1;
+}
+.sim-field .select {
+  width: 100%;
+  min-height: 34px;
+  font-size: var(--type-body);
+}
+.sim-field input.select {
+  padding: 0 10px;
+}
+.sim-field .select[aria-invalid="true"] {
+  border-color: var(--caution);
+}
+.sim-field small {
+  color: var(--text-3);
+  font-size: var(--type-caption);
+}
+.sim-field .sim-field__error {
+  color: var(--caution);
+}
+.sim-form__meta {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--type-body);
+}
+.sim-form__limits {
+  color: var(--text-2);
+  font-size: var(--type-body);
+}
+.sim-form__limits summary {
+  width: fit-content;
+  cursor: pointer;
+}
+.sim-form__limits ul {
+  display: grid;
+  gap: 4px;
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+}
+.sim-form__actions,
+.sim-correct__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.sim-answer {
+  min-height: 1.4em;
+  color: var(--text-2);
+  font-size: var(--type-body);
+}
+.sim-answer--rejected {
+  color: var(--caution);
+}
+
+/* Overrides and the correction ledger ---------------------------------------------- */
+.sim-overrides,
+.sim-runs,
+.sim-ledger {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sim-overrides li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 2px var(--space-3);
+  padding: 8px 10px;
+  border-radius: var(--radius-control);
+  background: var(--sheet);
+}
+.sim-overrides .sim-muted {
+  grid-column: 1 / span 2;
+}
+.sim-overrides .button {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+}
+.sim-overrides__what b {
+  font-weight: 600;
+}
+.sim-overrides__value {
+  font-weight: 600;
+}
+.sim-ledger {
+  gap: 0;
+  max-height: 420px;
+  overflow: auto;
+}
+.sim-ledger li {
+  display: grid;
+  gap: 3px;
+  padding: 9px 2px;
+  box-shadow: inset 0 -1px 0 var(--hairline);
+  font-size: var(--type-body);
+}
+.sim-ledger__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--space-3);
+}
+.sim-ledger__id {
+  font-weight: 600;
+}
+.sim-ledger__origin {
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: var(--type-caption);
+}
+.sim-ledger .state-label {
+  font-size: var(--type-caption);
+}
+.sim-ledger__what {
+  color: var(--text-1);
+}
+.sim-ledger__meta {
+  color: var(--text-3);
+  font-size: var(--type-micro);
+}
+.sim-ledger__outcome {
+  color: var(--text-2);
+  font-size: var(--type-caption);
+}
+
+/* Timeline and runs ---------------------------------------------------------------- */
+.sim-timeline {
+  display: grid;
+  gap: 0;
+  max-height: 320px;
+  margin: 0;
+  padding: 0 4px 0 0;
+  overflow: auto;
+  list-style: none;
+}
+.sim-timeline:focus-visible,
+.sim-ledger:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-chip);
+}
+.sim-timeline__item {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 2px var(--space-2);
+  padding: 7px 0;
+  box-shadow: inset 0 -1px 0 var(--hairline);
+  font-size: var(--type-body);
+}
+.sim-timeline__item time {
+  color: var(--text-3);
+}
+.sim-timeline__kind {
+  color: var(--text-3);
+  font-size: var(--type-micro);
+}
+.sim-timeline__text {
+  grid-column: 2;
+  color: var(--text-2);
+}
+.sim-timeline__item--failure .sim-timeline__kind {
+  color: var(--caution);
+}
+.sim-runs__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px var(--space-3);
+  padding: 8px 10px;
+  border-radius: var(--radius-control);
+  color: var(--text-1);
+  text-decoration: none;
+}
+.sim-runs__row:hover {
+  background: var(--hover);
+}
+/* The live run in AI Pilot's recent runs is returned to, not opened: a button. */
+button.sim-runs__row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sim-runs__row[aria-current="true"] {
+  background: var(--raised);
+  box-shadow: var(--edge), inset 0 0 0 1px var(--control-border);
+}
+.sim-runs__row .state-label {
+  font-size: var(--type-caption);
+}
+.sim-runs__id {
+  font-weight: 600;
+}
+.sim-runs__row > .sim-muted {
+  grid-column: 3;
+  text-align: right;
+}
+
+/* Phone: the page scrolls the window, so the run band is not held. */
+@media (max-width: 760px) {
+  .sim-run {
+    position: static;
+    margin: 0;
+    padding: var(--space-3) 0 var(--space-4);
+  }
+  .sim-plant__box {
+    height: 320px;
+  }
+}
+
+/* Forced colours: shadows vanish, so framed areas and the current run keep system lines. */
+@media (forced-colors: active) {
+  .sim-run,
+  .sim-selected,
+  .sim-overrides li,
+  .sim-plant__box {
+    border: 1px solid CanvasText;
+  }
+  .sim-runs__row[aria-current="true"] {
+    outline: 2px solid Highlight;
+  }
+}
+
+/* The pilot's run summary ------------------------------------------------------------ */
+.run-summary {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5) 0;
+  box-shadow: inset 0 1px 0 var(--hairline);
+}
+.run-summary h2 {
+  font-size: var(--type-section);
+}
+.run-summary h2:focus {
+  outline: none;
+}
+.run-summary h2:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+  border-radius: var(--radius-chip);
+}
+.run-summary h3 {
+  margin-bottom: var(--space-2);
+  color: var(--text-2);
+  font-size: var(--type-prose);
+}
+.run-summary__figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+}
+.run-summary__figures dt {
+  color: var(--text-3);
+  font-size: var(--type-micro);
+}
+.run-summary__figures dd {
+  margin: 0;
+}
+.run-summary__figures dd.num:first-of-type {
+  color: var(--text-1);
+  font-size: var(--type-value);
+  font-weight: 600;
+}
+.run-summary__cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-6);
+}
+@container (max-width: 820px) {
+  .run-summary__cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.run-summary__list,
+.run-summary__links {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+ol.run-summary__list {
+  padding-left: var(--space-5);
+  list-style: decimal;
+}
+.run-summary__item {
+  display: grid;
+  gap: 2px;
+  color: var(--text-2);
+  font-size: var(--type-body);
+}
+.run-summary__kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-3);
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+.run-summary__item--improved .run-summary__kind {
+  color: var(--ok);
+}
+.run-summary__item--not_improved .run-summary__kind,
+.run-summary__item--concern .run-summary__kind {
+  color: var(--caution);
+}
+.run-summary__timeline {
+  max-height: 280px;
+}
+
+/* Simulation history ------------------------------------------------------------------ */
+.history__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: var(--space-2);
+}
+.history__empty {
+  padding: var(--space-5) 0;
+}
+.history-table th,
+.history-table td {
+  vertical-align: middle;
+}
+.history-table .state-label {
+  font-size: var(--type-caption);
+}
+@container (max-width: 760px) {
+  /* Each run becomes a card of labelled figures. */
+  .history-table thead {
+    display: none;
+  }
+  .history-table,
+  .history-table tbody,
+  .history-table tr,
+  .history-table th,
+  .history-table td {
+    display: block;
+  }
+  .history-table tr {
+    padding: var(--space-2) 0;
+    box-shadow: inset 0 -1px 0 var(--hairline);
+  }
+  .history-table th,
+  .history-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: 3px 0;
+    border: 0;
+    text-align: right;
+  }
+  .history-table [data-label]::before {
+    content: attr(data-label);
+    color: var(--text-3);
+    font-size: var(--type-caption);
+    font-weight: 500;
+    text-align: left;
+  }
+}

@@ -1,0 +1,726 @@
+/* AI Pilot: the operator console in the workspace, and the Simulation view of its run in
+   the main display. Shares the Simulation sections and facts (simulation.css), and lays
+   out by its own width (container queries): the console is a column, the view a page. */
+.pilot {
+  container-type: inline-size;
+}
+.pilot__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) 0;
+  box-shadow: inset 0 1px 0 var(--hairline);
+}
+.pilot__bar > .button {
+  margin-left: auto;
+}
+.pilot__muted {
+  color: var(--text-3);
+  font-size: var(--type-body);
+}
+.pilot__note {
+  margin: 0 0 var(--space-3);
+}
+.pilot__layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: 0 var(--space-6);
+  align-items: start;
+  padding-top: var(--space-4);
+  box-shadow: inset 0 1px 0 var(--hairline);
+}
+@container (max-width: 820px) {
+  .pilot__layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+  }
+}
+.pilot__h {
+  font-size: var(--type-section);
+}
+.pilot__group {
+  margin: var(--space-3) 0 var(--space-1);
+  color: var(--text-3);
+  font-size: var(--type-caption);
+  font-weight: 500;
+}
+.pilot-issues__list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* An issue row: severity mark, title, then stage and assessment as words. */
+.pilot-row {
+  display: grid;
+  gap: 4px;
+  padding: 9px 10px;
+  border-radius: var(--radius-control);
+  color: var(--text-1);
+  text-decoration: none;
+}
+.pilot-row:hover {
+  background: var(--hover);
+}
+.pilot-row[aria-current="true"] {
+  background: var(--raised);
+  box-shadow: var(--edge), inset 0 0 0 1px var(--control-border);
+}
+.pilot-row__main {
+  display: grid;
+  gap: 2px;
+}
+.pilot-row__title {
+  font-weight: 600;
+}
+.pilot-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--space-3);
+  color: var(--text-3);
+  font-size: var(--type-caption);
+}
+.pilot-stage-word {
+  color: var(--text-2);
+}
+.pilot-row__thinking {
+  color: var(--notice);
+}
+
+/* The chosen issue ------------------------------------------------------------------ */
+.pilot-detail {
+  min-width: 0;
+}
+.pilot-issue {
+  display: grid;
+  gap: var(--space-4);
+}
+.pilot-issue__head {
+  display: grid;
+  gap: var(--space-1);
+}
+.pilot-issue__title {
+  font-size: var(--type-page);
+  font-weight: 600;
+}
+.pilot-issue__assessment {
+  margin: 0;
+  color: var(--text-2);
+}
+.pilot-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: stage;
+}
+.pilot-stages li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 0 9px 0 7px;
+  border-radius: var(--radius-chip);
+  color: var(--text-3);
+  font-size: var(--type-caption);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.pilot-stages__mark {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--hairline-strong);
+}
+.pilot-stages li.is-done {
+  color: var(--text-2);
+}
+.pilot-stages li.is-done .pilot-stages__mark {
+  background: var(--text-3);
+  box-shadow: none;
+}
+/* The current stage: raised and outlined, with its word (laminate stays for decisions). */
+.pilot-stages li.is-current {
+  background: var(--raised);
+  color: var(--text-1);
+  font-weight: 600;
+  box-shadow: var(--edge), inset 0 0 0 1px var(--control-border);
+}
+.pilot-stages li.is-current .pilot-stages__mark {
+  box-shadow: inset 0 0 0 2px var(--text-1);
+}
+.pilot-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.pilot-equip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: var(--space-3);
+}
+.pilot-block {
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  box-shadow: inset 0 1px 0 var(--hairline);
+}
+.pilot-block h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-section);
+}
+.pilot-block p {
+  margin: 0;
+  max-width: 80ch;
+  color: var(--text-2);
+}
+.pilot-working {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pilot-advisory b,
+.pilot-proposal b {
+  color: var(--text-1);
+}
+.pilot-stale {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--caution) !important;
+}
+.pilot-proposal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.pilot-outcomes {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pilot-outcomes li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--space-3);
+  font-size: var(--type-body);
+}
+
+/* Evidence: one tab stop, arrow keys between entries; timestamps kept as recorded. */
+.pilot-evidence {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pilot-evidence__item {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 2px var(--space-2);
+  padding: 8px 6px;
+  border-radius: var(--radius-chip);
+  box-shadow: inset 0 -1px 0 var(--hairline);
+  font-size: var(--type-body);
+}
+.pilot-evidence__item:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.pilot-evidence__item time,
+.pilot-evidence__kind {
+  color: var(--text-3);
+}
+.pilot-evidence__kind {
+  font-size: var(--type-micro);
+}
+.pilot-evidence__text {
+  grid-column: 2;
+  color: var(--text-2);
+}
+.pilot-evidence__item.is-error .pilot-evidence__kind,
+.pilot-evidence__failed {
+  color: var(--caution);
+}
+.pilot-res-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+/* Pilot status words -------------------------------------------------------------- */
+.pilot-status {
+  font-size: var(--type-body);
+}
+.pilot-status--monitoring {
+  color: var(--ok);
+}
+.pilot-status--investigating {
+  color: var(--notice);
+}
+.pilot-status--disconnected {
+  color: var(--caution);
+}
+.pilot-status--off,
+.pilot-status--waiting,
+.pilot-status--ended,
+.pilot-status--no_run,
+.pilot-status--no_backend,
+.pilot-status--loading {
+  color: var(--text-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pilot-working .agent-working__meter i {
+    animation: none;
+  }
+}
+
+/* Forced colours: shadows vanish, so the current stage and row keep a system outline. */
+@media (forced-colors: active) {
+  .pilot-stages li {
+    border: 1px solid CanvasText;
+  }
+  .pilot-stages li.is-current,
+  .pilot-row[aria-current="true"] {
+    outline: 2px solid Highlight;
+  }
+}
+
+/* AI Pilot as the live surface ------------------------------------------------------ */
+.pilot-recent {
+  align-self: start;
+}
+
+/* Simulated readings: figures with their units, the source tag beside the heading. */
+.pilot-readings {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) 0 var(--space-3);
+}
+.pilot-readings__grid {
+  display: grid;
+  /* Six readings: one row, or two rows of three, or three of two; never one left over. */
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+@container (max-width: 760px) {
+  .pilot-readings__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@container (max-width: 440px) {
+  .pilot-readings__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.pilot-readings__grid dt {
+  color: var(--text-3);
+  font-size: var(--type-micro);
+}
+.pilot-readings__grid dd {
+  margin: 0;
+  color: var(--text-1);
+  font-size: var(--type-value);
+  font-weight: 600;
+}
+.pilot-readings__unit {
+  color: var(--text-3);
+  font-size: var(--type-micro);
+  font-weight: 500;
+}
+
+/* Run views: a tab row; the chosen view is raised and outlined (laminate stays for
+   decisions), with its name as the only label. */
+.pilot-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  box-shadow: inset 0 -1px 0 var(--hairline);
+}
+.pilot-tabs__tab {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pilot-tabs__tab:hover {
+  background: var(--hover);
+  color: var(--text-1);
+}
+.pilot-tabs__tab[aria-selected="true"] {
+  background: var(--raised) linear-gradient(180deg, rgb(255 255 255 / 0.045), transparent 65%);
+  box-shadow: var(--edge), inset 0 0 0 1px var(--control-border);
+  color: var(--text-1);
+}
+
+@media (forced-colors: active) {
+  .pilot-tabs__tab[aria-selected="true"] {
+    outline: 2px solid Highlight;
+  }
+}
+
+/* AI Pilot console ---------------------------------------------------------------- */
+.pilot-console {
+  container-type: inline-size;
+  display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: var(--space-3);
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 14px var(--space-4);
+}
+.pilot-console[hidden] {
+  display: none;
+}
+.pilot-console__scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 0;
+}
+.pilot-console__note {
+  flex: 1 1 100%;
+  color: var(--text-3);
+  font-size: var(--type-caption);
+}
+.pilot-console__body {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.pilot-console p {
+  margin: 0;
+}
+.pilot-console__h {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 var(--space-1);
+  font-size: var(--type-section);
+}
+.pilot-console__section {
+  display: grid;
+  gap: var(--space-3);
+}
+/* The run band, held at the top of the console while it scrolls; identity first, the
+   controls on their own row beneath. */
+.pilot-console .sim-run {
+  top: -4px;
+  margin: 0 -14px;
+  padding: var(--space-2) 14px var(--space-3);
+  gap: var(--space-2);
+}
+.pilot-console .sim-run__identity {
+  flex: 1 1 100%;
+  gap: var(--space-1) var(--space-3);
+}
+.pilot-console .sim-run__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  flex: 1 1 100%;
+  gap: var(--space-1) var(--space-3);
+}
+.pilot-console .sim-run__controls {
+  flex: 1 1 100%;
+}
+.pilot-console .sim-form {
+  padding: var(--space-3) 0 0;
+  box-shadow: none;
+}
+.pilot-console .sim-form__grid {
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+}
+.pilot-console__strip {
+  padding: var(--space-2) 0;
+  gap: var(--space-1) var(--space-3);
+}
+.pilot-console__strip > .button {
+  margin-left: 0;
+}
+.pilot-console__status {
+  display: inline-flex;
+}
+.pilot-console__tabs {
+  padding: var(--space-1) 0;
+}
+.pilot-console__tabs .pilot-tabs__tab {
+  min-height: 32px;
+  padding: 0 10px;
+}
+.pilot-console__panel {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  animation: tab-in var(--motion-fast, 140ms) var(--ease) both;
+}
+@keyframes tab-in {
+  from {
+    opacity: 0;
+  }
+}
+/* Rows reach the console's edges: their padding lines the text up with the headings. */
+.pilot-console .pilot-row {
+  width: calc(100% + 20px);
+  margin: 0 -10px;
+}
+.pilot-console__recent {
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  box-shadow: inset 0 1px 0 var(--hairline);
+}
+.pilot-console__recent-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.pilot-console .sim-runs__row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.sim-runs__name {
+  overflow: hidden;
+  color: var(--text-1);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pilot-readings--compact .pilot-readings__grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-3);
+}
+.pilot-readings--compact .pilot-readings__grid dd {
+  font-size: var(--type-section);
+}
+@container (max-width: 300px) {
+  .pilot-readings--compact .pilot-readings__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.pilot-panel__activity {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--type-body);
+}
+.pilot-panel__activity li {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: var(--space-2);
+  color: var(--text-2);
+}
+.pilot-panel__activity time {
+  color: var(--text-3);
+}
+
+/* An issue row that chooses (a button): it reads as the list's row, not as a button. */
+button.pilot-row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+button.pilot-row[aria-pressed="true"] {
+  background: var(--raised);
+  box-shadow: var(--edge), inset 0 0 0 1px var(--control-border);
+}
+
+/* The decision on a proposal, under its issue: what it would change, Apply and Decline. */
+.pilot-decision {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 var(--space-2);
+  padding: var(--space-3) 0 var(--space-2);
+  box-shadow: inset 0 1px 0 var(--hairline);
+  font-size: var(--type-body);
+}
+.pilot-decision__stage {
+  color: var(--text-2);
+}
+.pilot-decision__what {
+  color: var(--text-1);
+}
+.pilot-decision__done {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.pilot-decision__note {
+  font-size: var(--type-caption);
+}
+/* Why: the pilot's investigation and its newest evidence, under the decision. */
+.pilot-decision__why {
+  color: var(--text-1);
+}
+.pilot-decision__h {
+  margin: var(--space-1) 0 0;
+  color: var(--text-3);
+  font-size: var(--type-micro);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.pilot-decision__evidence {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-2);
+  font-size: var(--type-caption);
+}
+.pilot-decision__evidence time,
+.pilot-decision__kind {
+  color: var(--text-3);
+}
+.pilot-decision__evidence .is-error .pilot-decision__kind {
+  color: var(--caution);
+}
+
+/* The run has ended: a short result and the way to its replay. */
+.pilot-completion__title {
+  margin: 0;
+  color: var(--text-1);
+  font-size: var(--type-title);
+}
+.pilot-completion__run {
+  margin: 0;
+  color: var(--text-2);
+}
+.pilot-completion__figures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+}
+.pilot-completion__figures dt {
+  color: var(--text-3);
+  font-size: var(--type-micro);
+}
+.pilot-completion__figures dd {
+  margin: 0;
+  color: var(--text-1);
+  font-weight: 600;
+}
+.pilot-completion__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+/* A control someone pointed to (the assistant cannot press it): a note saying whose it is,
+   and a laminate ring on the control. The control swells twice inside the ring (GSAP,
+   transform only); the ring stays, still, until the note is dismissed or a control is used. */
+.pilot-pointer {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--raised);
+  box-shadow: var(--edge), inset 0 0 0 1px var(--control-border);
+}
+.pilot-pointer__text {
+  flex: 1 1 auto;
+  color: var(--text-1);
+  font-size: var(--type-body);
+}
+.pilot-pointer__text:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+[data-pointed] {
+  position: relative;
+  z-index: 1;
+  box-shadow:
+    0 0 0 2px var(--laminate),
+    0 0 0 6px color-mix(in srgb, var(--laminate) 28%, transparent);
+}
+
+/* The Simulation replay: one recorded run ------------------------------------------- */
+.replay__content {
+  display: grid;
+  min-width: 0;
+}
+.replay__findings {
+  scroll-margin-top: var(--space-4);
+  padding-top: var(--space-5);
+  box-shadow: inset 0 1px 0 var(--hairline);
+}
+/* The scrubber under the plant: every recorded step, the time and step it shows. */
+.replay-scrubber {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0 0;
+}
+.replay-scrubber label {
+  color: var(--text-2);
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+.replay-scrubber__at {
+  color: var(--text-2);
+  font-size: var(--type-caption);
+}
+@container (max-width: 560px) {
+  .replay-scrubber {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (pointer: coarse) {
+  .pilot-console .button,
+  .pilot-console__tabs .pilot-tabs__tab,
+  .pilot-pointer .icon-button,
+  button.pilot-row {
+    min-height: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pilot-console__panel {
+    animation: none;
+  }
+}
+@media (forced-colors: active) {
+  [data-pointed] {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+  .pilot-pointer {
+    border: 1px solid CanvasText;
+  }
+  button.pilot-row[aria-pressed="true"] {
+    outline: 2px solid Highlight;
+  }
+}

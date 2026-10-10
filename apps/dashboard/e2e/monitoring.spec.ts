@@ -257,7 +257,9 @@ test("7: detailed equipment artwork is preserved in the interactive scene", asyn
 });
 
 test("8: every item of equipment is reachable by zooming in and panning", async ({ page }) => {
-  test.setTimeout(90_000); // dozens of pans and clicks
+  // Dozens of pans and clicks: about 25 s alone, several times that beside seven other
+  // workers on one dev server.
+  test.setTimeout(180_000);
   await page.setViewportSize({ width: 1280, height: 720 });
   await open(page);
   const zoomIn = controls(page).getByRole("button", { name: "Zoom in" });
@@ -344,7 +346,8 @@ test("playback and scenarios change the readings and states", async ({ page }) =
   await expect(page.locator(".attention .att__open")).toHaveAttribute("aria-label", /Critical issue ISS-0142/);
   await expect(page.locator(".attention .tag__more")).toHaveCount(0);
 
-  await page.getByLabel("Demo scenario").selectOption("normal");
+  // Another scenario comes with the address (there is no scenario switch outside AI Pilot).
+  await open(page, "/?scenario=normal");
   await expect(node(page, "cooling_towers_4")).toHaveAttribute("aria-label", /Stopped/);
   await expect(page.locator(".clock__time")).toContainText("15:15");
 });

@@ -41,6 +41,9 @@ export type ErrorCode =
   | "PERMISSION_DENIED"
   | "MALFORMED_RESPONSE"
   | "NOT_FOUND"
+  | "INVALID_REQUEST"
+  /** The operation is not allowed in the resource's current state (a stopped run, say). */
+  | "CONFLICT"
   | "ABORTED";
 
 export class ApiError extends Error {
@@ -48,6 +51,8 @@ export class ApiError extends Error {
     readonly code: ErrorCode,
     message: string,
     readonly retryable: boolean,
+    /** What the service added for the client, e.g. the existing document of a duplicate. */
+    readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "ApiError";

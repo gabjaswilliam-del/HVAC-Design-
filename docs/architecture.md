@@ -66,6 +66,28 @@ Interfaces and schemas are not implemented in this scaffold. As code is added,
 place a contract in `core` only when it actually needs to be shared. Keep a module's
 private types within that module and avoid circular imports.
 
+## UI and prediction implementation handoff
+
+Folder-local engineering briefs are indexed in
+[apps/dashboard/README.md](../apps/dashboard/README.md). Within the dashboard,
+`src/app/` composes routes and operating context; `src/features/` owns screens and
+domain panels; `src/components/` and `src/styles/` supply common controls/tokens;
+`src/lib/api/` owns browser communication; `src/lib/contracts/` owns shared boundary
+schemas; `src/fixtures/` supplies explicitly labeled synthetic development scenarios.
+These are source ownership boundaries, not a frontend framework selection.
+
+`src/features/prediction/` owns the full prediction page and the forecast summary
+imported by monitoring. `src/hvac_agent/prediction/` owns data preparation, inference,
+adaptation and evaluation; `apps/api/routes/prediction/` adapts that public interface
+to the UI. No model logic belongs in charts or transport handlers. The initial UI
+target is future site-wide cooling demand in thermal kW, not delivered cooling or
+electrical power. Model family, supported horizons and accuracy goals remain open.
+
+The [UI data contract brief](ui-data-contracts.md) proposes common context and forecast
+wire semantics. It is not an implemented API. Agree/version schemas jointly and
+keep fixtures, backend responses and frontend validation aligned. The code and
+runtime capabilities remain unimplemented on this scaffold checkout.
+
 ## Data shared between modules
 
 | Planned artifact | Producer | Consumers |

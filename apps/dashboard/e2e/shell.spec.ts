@@ -14,13 +14,13 @@ const systemMenu = (name: string): Step => async (page) => {
 const ROUTES: [string, string, Step][] = [
   ["/prediction", "Cooling prediction", dock("Analytics")],
   ["/engineering", "Engineering", dock("Engineering")],
+  ["/simulation", "Simulation history", async (page) => {
+    await dock("Engineering")(page);
+    await page.locator("#hub-simulation").getByRole("link", { name: "Open Simulation history" }).click();
+  }],
   ["/knowledge", "Knowledge", dock("Knowledge")],
   ["/system", "System", systemMenu("System")],
   ["/setup", "Installation", systemMenu("Installation")],
-  ["/pilot", "AI pilot", async (page) => {
-    await page.getByRole("tab", { name: "Pilot" }).click();
-    await page.getByRole("complementary", { name: "AI pilot" }).getByRole("link", { name: "Pilot page" }).click();
-  }],
   ["/agent", "AI assistant", async (page) => {
     await page.getByRole("tab", { name: "Assistant" }).click();
     await page.getByRole("link", { name: "Open full page" }).click();
@@ -48,12 +48,29 @@ test("the top bar reads as one location: site / page", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Overview");
 });
 
-test("the dock marks the current section; old Engineering addresses open the hub at their row", async ({ page }) => {
+test("no scenario switch outside AI Pilot: the deck keeps the source, playback and the clock; a demo scenario comes with the address", async ({ page }) => {
+  await page.goto("/?scenario=tower-fault");
+  const deck = page.getByRole("contentinfo", { name: "Data source and time" });
+  await expect(deck.getByRole("radiogroup", { name: "Data source" })).toBeVisible();
+  await expect(deck.getByRole("slider", { name: "Time of day" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Demo scenario" })).toHaveCount(0);
+  await expect(deck.getByRole("option", { name: "Cooling tower 4 fan fault" })).toHaveCount(0);
+  // The deterministic scenarios stay: the address's scenario drives the demo telemetry.
+  await expect(page.locator(".attention")).toContainText("Cooling tower 4 fan fault");
+  await page.goto("/?scenario=normal");
+  await expect(page.locator(".attention")).toContainText("No open issues");
+});
+
+test("the dock marks the current section; /simulation and /trend are their own screens, /cad opens the hub at its row", async ({ page }) => {
+  // M6: Simulation history is its own screen inside the Engineering section.
   await page.goto("/simulation");
-  await expect(page.locator("#hub-simulation")).toBeFocused();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Simulation history");
   await expect(nav(page).getByRole("link", { name: "Engineering", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(nav(page).getByRole("link", { name: "Overview", exact: true })).not.toHaveAttribute("aria-current", "page");
-  await expect(page.locator("#hub-simulation")).toHaveClass(/is-target/);
+  // An indicator's trend, the workspace's answer to "show me COP", belongs to Analytics.
+  await page.goto("/trend?metric=plant:cop");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Trend");
+  await expect(nav(page).getByRole("link", { name: "Analytics", exact: true })).toHaveAttribute("aria-current", "page");
   await page.goto("/cad");
   await expect(page.locator("#hub-cad")).toHaveClass(/is-target/);
   await expect(page.locator("#hub-cad")).toBeFocused();
@@ -137,6 +154,37 @@ test("the deck's data source is a radio group operated with arrow keys", async (
   await expect(page.getByRole("slider", { name: "Time of day" })).toBeDisabled();
   await page.keyboard.press("ArrowRight");
   await expect(source.getByRole("radio", { name: "Replay" })).toHaveAttribute("aria-checked", "true");
+});
+
+test("long pages scroll smoothly by wheel, as far as the wheel says; keys, the workspace and the stage keep their own", async ({ page }) => {
+  await page.goto("/engineering?scenario=tower-fault");
+  const view = page.locator(".main__view");
+  const top = () => view.evaluate((el) => Math.round(el.scrollTop));
+  await expect(view).toHaveClass(/\blenis\b/);
+  const box = (await view.boundingBox())!;
+  await page.mouse.move(box.x + 200, box.y + 300);
+  await page.mouse.wheel(0, 100);
+  await expect.poll(top).toBe(100); // a glide, to where a native notch lands
+  // Keys scroll natively, and the smoothing follows: the next notch goes on from there.
+  await page.locator(".hub").getByRole("link").first().focus();
+  await page.keyboard.press("End");
+  const end = await view.evaluate((el) => el.scrollHeight - el.clientHeight);
+  await expect.poll(top).toBe(end);
+  await page.mouse.wheel(0, -100);
+  await expect.poll(top).toBe(end - 100);
+  // The workspace scrolls on its own; the page stays where it is.
+  const ws = (await page.locator(".workspace").boundingBox())!;
+  await page.mouse.move(ws.x + 100, ws.y + 300);
+  await page.mouse.wheel(0, 300);
+  await page.waitForTimeout(400);
+  expect(await top()).toBe(end - 100);
+  // Off where it would get in the way: the Overview's stage (its wheel zooms the plant) and a phone.
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Overview", exact: true }).click();
+  await expect(view).not.toHaveClass(/\blenis\b/);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/engineering");
+  await expect(page.locator(".hub")).toBeVisible();
+  await expect(view).not.toHaveClass(/\blenis\b/);
 });
 
 test("unknown address explains itself", async ({ page }) => {

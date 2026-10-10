@@ -1,8 +1,6 @@
-import { useId } from "react";
 import { Clock, Pause, Play } from "lucide-react";
 import { useStrings } from "../lib/i18n";
 import { formatAgeMinutes, formatTime } from "../lib/format";
-import { scenarios, type ScenarioId } from "../fixtures/scenarios";
 import { DAY_START, MINUTE_MS, STEP_MIN } from "../fixtures/generate";
 import { RadioGroup } from "../components/RadioGroup";
 import { DAY_END, operating, REPLAY_SPEEDS, useOperating, type PlaybackMode } from "./operatingContext";
@@ -10,31 +8,12 @@ import { useSite, useSnapshot } from "./site";
 
 const TICKS = [0, 6, 12, 18, 24];
 
-/** The demo source selector: in demo mode the scenario is the data source. */
-export function ScenarioSelect() {
-  const s = useStrings();
-  const id = useId();
-  const scenarioId = useOperating((x) => x.scenarioId);
-  return (
-    <span className="scenario">
-      <label htmlFor={id} className="visually-hidden">
-        {s.header.scenario}
-      </label>
-      <select id={id} className="select select--quiet" value={scenarioId} onChange={(e) => operating.setScenario(e.target.value as ScenarioId)}>
-        {scenarios.map((x) => (
-          <option key={x.id} value={x.id}>
-            {x.label}
-          </option>
-        ))}
-      </select>
-    </span>
-  );
-}
-
 /**
- * The deck under the plant: the data source (scenario, live or replay), playback, the
- * day's timeline and the one clock, with how fresh the readings are. The playback
- * clock is the demo's source clock; it never steps a simulation.
+ * The deck under the plant: the data source (live or replay), playback, the day's
+ * timeline and the one clock, with how fresh the readings are. The playback clock is the
+ * demo's source clock; it never steps a simulation. There is no scenario switch here:
+ * simulations choose their scenario in AI Pilot, and the demo telemetry's scenario comes
+ * with the address (`?scenario=`) or a conversation's recorded context.
  */
 export function Deck({ inert }: { inert?: boolean }) {
   const s = useStrings();
@@ -57,7 +36,6 @@ export function Deck({ inert }: { inert?: boolean }) {
 
   return (
     <footer className="deck" aria-label={d.label} inert={inert}>
-      <ScenarioSelect />
       <RadioGroup<PlaybackMode>
         className="segmented--small"
         label={d.source}

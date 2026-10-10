@@ -4,10 +4,24 @@
  * the workspace, expanding to the full page). Every view subscribes to this one
  * session. Every streamed event is validated at the boundary; a malformed event ends
  * the turn as an error instead of being rendered.
+ *
+ * A validated workspace action (open a typed view) is handed to the app's listener, which
+ * maps its target to a screen; the assistant never reaches a component or a URL. Actions
+ * apply only while their turn streams in the conversation being shown, and not once the
+ * operator has pressed Stop.
  */
 import { useSyncExternalStore } from "react";
 import { ApiError, isAbort } from "../../lib/api/client";
-import { agentEvent, applyEvent, type AgentContext, type Conversation, type Turn } from "../../lib/contracts/agent";
+import {
+  agentEvent,
+  applyEvent,
+  type AgentContext,
+  type AgentMessage,
+  type AttachmentInput,
+  type Conversation,
+  type Turn,
+  type WorkspaceAction,
+} from "../../lib/contracts/agent";
 import { agentClient as agent } from "../../app/dataClient";
 
 export interface Session {
@@ -22,6 +36,8 @@ export interface Session {
   /** From the moment a question is sent until its turn has ended. */
   busy: boolean;
   draft: string;
+  /** Files read for the next question; sent with it. */
+  attachments: AttachmentInput[];
   /** Increments when a turn ends, so history lists refresh. */
   version: number;
 }
@@ -35,6 +51,7 @@ let state: Session = {
   cancelling: false,
   busy: false,
   draft: "",
+  attachments: [],
   version: 0,
 };
 const listeners = new Set<() => void>();
@@ -64,6 +81,16 @@ let streaming: { conversationId: string; turnId: string } | null = null;
 
 const asError = (e: unknown) => (e instanceof ApiError ? e : new ApiError("UNAVAILABLE", String(e), true));
 
+type ActionListener = (action: WorkspaceAction, context: AgentContext) => void;
+const actionListeners = new Set<ActionListener>();
+/** Actions the app applied, by turn and target, so a turn can say what it opened. */
+const applied = new Set<string>();
+// The same action, streamed (as parsed) or stored (as the harness wrote it), in any key order.
+const canonical = (v: unknown): unknown =>
+  v && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canonical((v as Record<string, unknown>)[k])])) : v;
+const actionKey = (turnId: string, a: WorkspaceAction) => `${turnId}|${JSON.stringify(canonical(a))}`;
+export const wasApplied = (turnId: string, a: WorkspaceAction) => applied.has(actionKey(turnId, a));
+
 export const session = {
   /** Show a conversation, or none for a new one. Loads only when the ID changes. An
    *  answer still streaming elsewhere carries on and is stored with its conversation. */
@@ -80,12 +107,26 @@ export const session = {
     );
   },
 
+  /** The state now, for code that must not act on a render's stale copy. */
+  current: () => state,
   setDraft: (draft: string) => set({ draft }),
+  setAttachments: (attachments: AttachmentInput[]) => set({ attachments }),
+  attachments: () => state.attachments,
 
-  /** Send a question; creates a conversation with `context` first if none is open. */
-  async send(prompt: string, context: AgentContext, onCreated: (id: string) => void): Promise<boolean> {
+  /** The app applies the assistant's workspace actions; returns the unsubscribe. */
+  onAction(listener: ActionListener) {
+    actionListeners.add(listener);
+    return () => void actionListeners.delete(listener);
+  },
+
+  /** Send a question (typed, transcribed, with files or not); creates a conversation with
+   *  `context` first if none is open. */
+  async send(message: AgentMessage, context: AgentContext, onCreated: (id: string) => void): Promise<boolean> {
     const key = `asked-${++asked}`;
-    set({ sendError: null, busy: true, live: { id: key, prompt, at: context.at, parts: [], status: "running" } });
+    const prompt = message.prompt;
+    const files = message.attachments.map(({ name, type, size }) => ({ name, type, size }));
+    const attachments = files.length ? { attachments: files } : {};
+    set({ sendError: null, busy: true, live: { id: key, prompt, ...attachments, at: context.at, parts: [], status: "running" } });
     let id = state.id;
     try {
       if (!id) {
@@ -98,7 +139,7 @@ export const session = {
         }
       }
       let turn: Turn | null = null;
-      for await (const raw of agent.sendMessage(id, prompt)) {
+      for await (const raw of agent.sendMessage(id, message)) {
         const parsed = agentEvent.safeParse(raw);
         if (!parsed.success) throw new ApiError("MALFORMED_RESPONSE", "The assistant sent an event this dashboard cannot read.", false);
         const e = parsed.data;
@@ -107,8 +148,16 @@ export const session = {
           streaming = { conversationId: id, turnId: e.turnId };
           // Cancel pressed before the harness started the turn applies now.
           if (state.cancelling) void agent.cancelTurn(id, e.turnId);
-          turn = { id: e.turnId, prompt: e.prompt, at: e.at, parts: [], status: "running" };
-        } else if (turn) turn = applyEvent(turn, e);
+          turn = { id: e.turnId, prompt: e.prompt, ...attachments, at: e.at, parts: [], status: "running" };
+        } else if (turn && (!state.cancelling || e.type === "turn_end")) {
+          // Once Cancel is pressed nothing more is drawn: what is shown stays as it was
+          // until the harness confirms the end of the turn.
+          turn = applyEvent(turn, e);
+          if (e.type === "action" && state.id === id && actionListeners.size) {
+            applied.add(actionKey(turn.id, e.action));
+            actionListeners.forEach((l) => l(e.action, context));
+          }
+        }
         if (state.id === id) set({ live: turn });
       }
       if (state.id === id) set({ conversation: await agent.getConversation(id), live: null });

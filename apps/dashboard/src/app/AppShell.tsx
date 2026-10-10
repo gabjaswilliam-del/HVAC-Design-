@@ -1,10 +1,12 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Outlet, useLocation } from "react-router";
 import { useStrings } from "../lib/i18n";
 import { closesOnEscape } from "../components/escape";
 import { Deck } from "./Deck";
 import { Dock } from "./Dock";
 import { segmentOf } from "./navigation";
+import { useAssistantActions } from "./openTarget";
+import { scrollMainTo, useMainScroll } from "./smoothScroll";
 import { getOperating, NARROW, operating, useOperating, WIDE } from "./operatingContext";
 import { Shortcuts, useShortcuts } from "./Shortcuts";
 import { SiteProvider } from "./site";
@@ -39,7 +41,18 @@ function Shell() {
   const workspace = useOperating((x) => x.workspace);
   const layout = useWorkspaceLayout();
   const [keys, setKeys] = useState(false);
+  const view = useRef<HTMLDivElement>(null);
   useShortcuts(() => setKeys((v) => !v));
+  useAssistantActions();
+
+  // The main display's long pages scroll smoothly under a mouse wheel (not the stage).
+  useMainScroll(view, section !== "");
+  // Another screen opens at its top (the display, or the window on a phone, would
+  // otherwise keep the previous screen's scroll position). A changed query keeps it.
+  useEffect(() => {
+    scrollMainTo(view.current, 0);
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   // The demo source clock. Independent of any screen being open.
   useEffect(() => {
@@ -77,7 +90,7 @@ function Shell() {
       <TopBar phone={narrow} inert={sheet} />
       <Dock onShortcuts={() => setKeys((v) => !v)} shortcutsOpen={keys} inert={sheet} />
       <main id="main" className="main" tabIndex={-1} inert={sheet} data-float={layout === "float" || undefined}>
-        <div className={`main__view${section === "" ? " main__view--stage" : ""}`}>
+        <div ref={view} className={`main__view${section === "" ? " main__view--stage" : ""}`}>
           <Outlet />
         </div>
       </main>

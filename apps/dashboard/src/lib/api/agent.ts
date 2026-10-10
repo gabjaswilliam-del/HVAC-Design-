@@ -3,7 +3,7 @@
  * implements it with scripted conversations; a local-LLM harness (streamed over the
  * local API) will implement the same methods and event stream.
  */
-import type { AgentCapabilities, AgentContext, AgentEvent, Conversation, ConversationSummary } from "../contracts/agent";
+import type { AgentCapabilities, AgentContext, AgentEvent, AgentMessage, Conversation, ConversationSummary } from "../contracts/agent";
 import type { RequestOptions } from "./client";
 
 export interface AgentClient {
@@ -11,8 +11,9 @@ export interface AgentClient {
   listConversations(o?: RequestOptions): Promise<ConversationSummary[]>;
   getConversation(id: string, o?: RequestOptions): Promise<Conversation>;
   createConversation(context: AgentContext, o?: RequestOptions): Promise<Conversation>;
-  /** Start a turn and stream its events. The stream ends with exactly one turn_end. */
-  sendMessage(conversationId: string, prompt: string): AsyncIterable<AgentEvent>;
+  /** Start a turn and stream its events. The stream ends with exactly one turn_end. Text,
+   *  a voice transcription and attached files all arrive as one message. */
+  sendMessage(conversationId: string, message: AgentMessage): AsyncIterable<AgentEvent>;
   /** Ask the harness to cancel; the stream's turn_end confirms the outcome. */
   cancelTurn(conversationId: string, turnId: string): Promise<void>;
 }

@@ -19,6 +19,9 @@ export const KPI_KEYS = [
   "weather:wet_bulb_c",
 ] as const;
 
+/** Plant indicators the trend view draws: the indicator panels' and unmet demand. */
+export const TREND_KEYS: readonly string[] = [...KPI_KEYS, "plant:unmet_kw"];
+
 /** Questions the assistant can answer about an indicator (scripted demo coverage). */
 export const KPI_QUESTIONS: Record<string, string> = {
   issues: "What needs attention right now?",

@@ -87,15 +87,19 @@ test("replay updates the list", async ({ page }) => {
   await expect(page.locator('[data-row="cooling_towers_4"]')).toContainText("Fault");
 });
 
-test("Engineering is a hub: investigations, records, then Simulation and CAD as planned rows", async ({ page }) => {
+test("Engineering is a hub: investigations, records, Simulation, then CAD as a planned row", async ({ page }) => {
   await page.goto("/engineering?scenario=tower-fault");
   // The page header, then four flat sections.
   await expect(page.locator(".hub .page__head h2")).toHaveText("Engineering");
   await expect(page.locator(".hub .page__head")).toContainText("Investigations, equipment records, simulation and CAD for this plant.");
   const headings = page.locator(".hub__section h2");
-  await expect(headings).toHaveText(["Investigations", "Equipment records", "Simulation", "CAD and topology"]);
-  await expect(page.locator("#hub-simulation")).toContainText("Planned");
-  await expect(page.locator("#hub-simulation")).toContainText("Needs the simulation service");
+  await expect(headings).toHaveText(["Investigations", "Equipment records", "Simulation history", "CAD and topology"]);
+  // M6: Simulation is a labelled mock service; runs start in AI Pilot and are kept in the history.
+  await expect(page.locator("#hub-simulation")).toContainText("Mock simulation service");
+  await expect(page.locator("#hub-simulation")).toContainText("No simulation is running.");
+  await expect(page.locator("#hub-simulation").getByRole("link", { name: "Open Simulation history" })).toHaveAttribute("href", "/simulation");
+  await expect(page.locator("#hub-simulation").getByRole("button", { name: "Set up a simulation in AI Pilot" })).toBeVisible();
+  await expect(page.locator("#hub-simulation")).not.toContainText("Planned");
   await expect(page.locator("#hub-cad")).toContainText("Needs the CAD service");
   // Real topology evidence, not a placeholder.
   await expect(page.getByRole("img", { name: "24 confirmed, 6 inferred, 1 unknown, 31 connections" })).toBeVisible();
@@ -103,6 +107,11 @@ test("Engineering is a hub: investigations, records, then Simulation and CAD as 
   const records = page.getByRole("region", { name: "Equipment records" });
   await records.getByLabel("Find equipment").fill("chiller");
   await expect(records.getByRole("listitem")).toHaveCount(3);
+
+  // Runs are set up in AI Pilot, which opens beside the hub; the hub stays.
+  await page.locator("#hub-simulation").getByRole("button", { name: "Set up a simulation in AI Pilot" }).click();
+  await expect(page.getByRole("complementary", { name: "AI Pilot" }).getByRole("heading", { name: "Start a simulation" })).toBeVisible();
+  await expect(page).toHaveURL(/\/engineering/);
 
   await page.getByRole("link", { name: /Cooling tower 4 fan fault/ }).click();
   await expect(page).toHaveURL(/\/equipment\/cooling_towers_4/);

@@ -1,6 +1,6 @@
 # HVAC Agent System — Product Description
 
-**Status:** planned product; repository scaffold only · **Updated:** 2026-09-20
+**Status:** planned product; scaffold and engineering briefs · **Updated:** 2026-10-01
 · Chinese mirror: [PRODUCT-zh.md](PRODUCT-zh.md)
 
 ## 1. Product and deployment
@@ -85,6 +85,12 @@ Without that history, start from our pretrained model conditioned on the site's
 configuration. Report uncertainty and limitations, particularly before site-specific
 validation is available. The model family, horizon, and accuracy targets remain open.
 
+The first prediction UI target is future site-wide cooling demand in thermal kW.
+Show a compact forecast summary on the primary monitoring screen and a full page
+for history, forecasts, uncertainty and model/input provenance. Both consume the
+same forecast result. This is distinct from delivered cooling, electrical power,
+temperature or COP. No pretrained artifact or forecasting implementation exists yet.
+
 ### 2.6 AI pilot
 
 An HVAC-informed pilot monitors operating state in real time. While a simulation
@@ -157,9 +163,17 @@ Operation on one DGX Spark
 
 ## 5. Current work and open decisions
 
-This change establishes the folder structure and product context only. None of the
-components above is implemented. The architecture is documented in
+This checkout contains the scaffold, product context and folder-local engineering
+briefs. UI and prediction are not implemented. The simulation foundation exists on
+the separate PR #2 branch; consult [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for its
+last verified review/merge status. Architecture is documented in
 [docs/architecture.md](docs/architecture.md).
+
+Junior-engineer assignments start in [apps/dashboard/README.md](apps/dashboard/README.md)
+and [src/hvac_agent/prediction/README.md](src/hvac_agent/prediction/README.md).
+Each UI feature has an implementation-folder README; API/data integration proposals
+are in [docs/ui-data-contracts.md](docs/ui-data-contracts.md). These documents specify
+future behavior and acceptance, not completed features or endpoints.
 
 The local `openclaw-hvac` project is a reference for workflow ideas and lessons, not
 an implementation to copy. Its legacy multi-station architecture, remote simulation

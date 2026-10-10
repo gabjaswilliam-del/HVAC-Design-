@@ -1,24 +1,29 @@
 /**
- * SCRIPTED demo implementation of the AgentClient. No language model: prompts are
- * matched to pre-written investigations (agentScripts.ts) whose simulated tools read
- * the synthetic scenario data. It streams the same event types a local-LLM harness
- * would, confirms cancellation through the stream, and keeps conversations in memory
- * for this browser session. Each conversation always runs against the scenario and
- * time it was recorded with, never silently against the current one.
+ * Demo implementation of the AgentClient with NO language model: offline rules read each
+ * message into a typed intent (lib/agent/understand.ts) and a responder (agentScripts.ts)
+ * answers it with simulated, read-only tools over the synthetic scenario data and the mock
+ * simulation service. It streams the same event types a local-LLM harness would, including
+ * typed workspace actions, confirms cancellation through the stream, and keeps
+ * conversations in memory for this browser session. Each conversation always runs against
+ * the scenario and time it was recorded with, never silently against the current one.
  */
 import { ApiError, type RequestOptions } from "../lib/api/client";
 import type { AgentClient } from "../lib/api/agent";
+import type { PilotReader, SimulationReader } from "../lib/api/simulation";
 import {
+  agentMessage,
   applyEvent,
   type AgentCapabilities,
   type AgentContext,
   type AgentEvent,
+  type AgentMessage,
   type Conversation,
   type DataView,
 } from "../lib/contracts/agent";
 import type { SiteBundle } from "../lib/contracts";
+import { MAX_BYTES, MAX_FILES } from "../lib/agent/attachments";
 import { TOOL_INFO, tools, type ToolEnv, type ToolName } from "./agentTools";
-import { runScript, SUGGESTED_PROMPTS, type ScriptHost } from "./agentScripts";
+import { respond, SUGGESTED_PROMPTS, type ScriptHost } from "./agentScripts";
 import { createFixtureClient, type FixtureOptions } from "./fixtureClient";
 import { DAY_START, MINUTE_MS } from "./generate";
 import { scenarioById } from "./scenarios";
@@ -29,7 +34,14 @@ export interface AgentFixtureOptions {
   unavailable?: boolean;
   /** Failures injected into the data the simulated tools read. */
   dataFailures?: FixtureOptions["failures"];
+  /** Read-only access to the simulation and the pilot (F10); without it their tools fail. */
+  simulation?: SimulationReader;
+  pilot?: PilotReader;
 }
+
+const notConnected = () => Promise.reject(new Error("The simulation service is not connected to the assistant."));
+const noSimulation: SimulationReader = { getCapabilities: notConnected, listRuns: notConnected, getRun: notConnected };
+const noPilot: PilotReader = { getState: notConnected, getRunSummary: notConnected, listRunSummaries: notConnected };
 
 class Cancelled extends Error {}
 
@@ -40,6 +52,20 @@ let counter = 0;
 const nextId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${(counter++).toString(36)}`;
 
 const sleep = (ms: number) => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
+/** Wakes a turn's current pause, so a cancelled turn stops at once instead of after it. */
+const wakers = new Map<string, () => void>();
+const pauseTurn = (turnId: string, ms: number) =>
+  ms > 0
+    ? new Promise<void>((resolve) => {
+        const done = () => {
+          clearTimeout(t);
+          wakers.delete(turnId);
+          resolve();
+        };
+        const t = setTimeout(done, ms);
+        wakers.set(turnId, done);
+      })
+    : Promise.resolve();
 
 /** Simulated pacing in ms at delayScale 1, varied each time so it never feels mechanical. */
 const TOOL_MS: Record<ToolName, number> = {
@@ -49,6 +75,10 @@ const TOOL_MS: Record<ToolName, number> = {
   get_history: 600,
   get_forecast: 560,
   search_knowledge: 520,
+  list_simulation_runs: 380,
+  get_simulation_run: 420,
+  get_run_summary: 440,
+  get_pilot_findings: 420,
 };
 const vary = (ms: number, random = Math.random) => ms * (0.75 + random() * 0.5);
 
@@ -88,22 +118,25 @@ export function paceText(text: string, random = Math.random) {
   return pieces;
 }
 
-const envCache = new Map<string, Promise<ToolEnv>>();
-function envFor(context: AgentContext, opts: AgentFixtureOptions): Promise<ToolEnv> {
+const envCache = new Map<string, Promise<Pick<ToolEnv, "client" | "site">>>();
+async function envFor(context: AgentContext, opts: AgentFixtureOptions): Promise<ToolEnv> {
   const scenarioId = context.demoScenario?.id ?? "normal";
   const key = `${scenarioId}|${JSON.stringify(opts.dataFailures ?? {})}`;
   if (!envCache.has(key)) {
     const client = createFixtureClient(scenarioId, { latencyMs: 0, failures: opts.dataFailures });
     envCache.set(key, client.getSite().then((site: SiteBundle) => ({ client, site })));
   }
-  return envCache.get(key)!;
+  return { ...(await envCache.get(key)!), simulation: opts.simulation ?? noSimulation, pilot: opts.pilot ?? noPilot };
 }
 
-/** Run one scripted turn, emitting events to `emit`. Resolves when the turn has ended. */
-async function runTurn(conv: Conversation, prompt: string, opts: AgentFixtureOptions, emit: (e: AgentEvent) => void) {
+/** Run one turn, emitting events to `emit`. Resolves when the turn has ended. */
+async function runTurn(conv: Conversation, message: AgentMessage, opts: AgentFixtureOptions, emit: (e: AgentEvent) => void) {
   const scale = opts.delayScale ?? 1;
   const turnId = nextId("turn");
-  conv.turns.push({ id: turnId, prompt, at: conv.context.at, parts: [], status: "running" });
+  const prompt = message.prompt;
+  // The stored turn names the files; their text is used for this answer only.
+  const attachments = message.attachments.map(({ name, type, size }) => ({ name, type, size }));
+  conv.turns.push({ id: turnId, prompt, ...(attachments.length ? { attachments } : {}), at: conv.context.at, parts: [], status: "running" });
   const record = (e: AgentEvent) => {
     const i = conv.turns.findIndex((t) => t.id === turnId);
     conv.turns[i] = applyEvent(conv.turns[i], e);
@@ -112,18 +145,22 @@ async function runTurn(conv: Conversation, prompt: string, opts: AgentFixtureOpt
   const check = () => {
     if (cancelled.has(turnId)) throw new Cancelled();
   };
+  // A cancelled turn starts no new pause: it reaches its next check at once.
+  const pause = (ms: number) => (cancelled.has(turnId) ? Promise.resolve() : pauseTurn(turnId, ms));
   record({ type: "turn_start", turnId, prompt, at: conv.context.at });
   try {
     const env = await envFor(conv.context, opts);
-    await sleep(vary(300) * scale); // a moment before the first step
+    await pause(vary(300) * scale); // a moment before the first step
     const host: ScriptHost = {
       env,
       context: conv.context,
+      message,
+      previous: conv.turns.slice(0, -1).map((t) => t.prompt),
       async tool(name: ToolName, args: Record<string, string | number>) {
         check();
         const callId = nextId("call");
         record({ type: "tool_call", callId, tool: name, args, simulated: true });
-        await sleep(vary(TOOL_MS[name]) * scale);
+        await pause(vary(TOOL_MS[name]) * scale);
         check();
         let value: unknown = null;
         try {
@@ -133,24 +170,32 @@ async function runTurn(conv: Conversation, prompt: string, opts: AgentFixtureOpt
         } catch (e) {
           record({ type: "tool_result", callId, status: "error", summary: e instanceof Error ? e.message : String(e) });
         }
-        await sleep(vary(90) * scale);
+        await pause(vary(90) * scale);
         return value as never;
       },
       async say(text: string) {
         // A short pause, then the answer in token-like pieces at a calm, varied pace.
-        await sleep(vary(460) * scale);
+        await pause(vary(460) * scale);
         for (const piece of paceText(text)) {
           check();
           record({ type: "text_delta", text: piece.text });
-          await sleep(piece.ms * scale);
+          await pause(piece.ms * scale);
         }
       },
       view(view: DataView) {
         check();
         record({ type: "view", view });
       },
+      open(target, label) {
+        check();
+        record({ type: "action", action: { kind: "open", target, label } });
+      },
+      reveal(control, label, ids = {}) {
+        check();
+        record({ type: "action", action: { kind: "reveal", control, label, ...ids } });
+      },
     };
-    await runScript(host, prompt);
+    await respond(host);
     check();
     record({ type: "turn_end", status: "complete" });
   } catch (e) {
@@ -184,7 +229,7 @@ function seed(opts: AgentFixtureOptions) {
     for (const [i, [context, prompt]] of recordings.entries()) {
       const conv: Conversation = { id: `demo-${i + 1}`, title: prompt, createdAt: new Date(now - (3 - i) * 3_600_000).toISOString(), context, turns: [] };
       store.set(conv.id, conv);
-      await runTurn(conv, prompt, { ...opts, delayScale: 0, dataFailures: undefined }, () => {});
+      await runTurn(conv, { prompt, attachments: [] }, { ...opts, delayScale: 0, dataFailures: undefined }, () => {});
     }
   })();
   return seeded;
@@ -205,7 +250,10 @@ export function createFixtureAgent(opts: AgentFixtureOptions = {}): AgentClient 
     async getCapabilities(o) {
       await ready(o);
       const caps: AgentCapabilities = {
-        mode: "scripted_demo",
+        mode: "offline_rules",
+        connection: opts.unavailable
+          ? { state: "unavailable", detail: "The assistant service is not available." }
+          : { state: "offline", detail: "No language model is connected. Offline rules in this browser read each request; answers come from simulated, read-only tools." },
         model: null,
         tools: TOOL_INFO.map((t) => ({ ...t, available: t.name !== "search_knowledge", simulated: true })),
         suggestedPrompts: SUGGESTED_PROMPTS,
@@ -230,18 +278,26 @@ export function createFixtureAgent(opts: AgentFixtureOptions = {}): AgentClient 
       store.set(c.id, c);
       return copy(c);
     },
-    sendMessage(conversationId, prompt) {
+    sendMessage(conversationId, input) {
       return {
         async *[Symbol.asyncIterator]() {
           await ready();
           if (opts.unavailable) throw new ApiError("UNAVAILABLE", "The assistant service is not available.", true);
+          // The harness boundary: a message is checked here, whatever sent it.
+          const parsed = agentMessage.safeParse(input);
+          const message = parsed.success ? parsed.data : null;
+          if (!message || (!message.prompt.trim() && !message.attachments.length)) throw new ApiError("INVALID_REQUEST", "A message needs a question or a file.", false);
+          if (message.attachments.length > MAX_FILES || message.attachments.some((a) => a.text.length > MAX_BYTES)) {
+            throw new ApiError("INVALID_REQUEST", `At most ${MAX_FILES} text files of 512 kB each can be sent with a question.`, false);
+          }
           const conv = store.get(conversationId);
           if (!conv) throw new ApiError("NOT_FOUND", `No conversation ${conversationId}.`, false);
-          if (conv.turns.length === 0) conv.title = prompt.length > 60 ? `${prompt.slice(0, 57)}…` : prompt;
+          const title = message.prompt.trim() || message.attachments.map((a) => a.name).join(", ");
+          if (conv.turns.length === 0) conv.title = title.length > 60 ? `${title.slice(0, 57)}…` : title;
           const queue: AgentEvent[] = [];
           let wake: (() => void) | null = null;
           let done = false;
-          const finished = runTurn(conv, prompt, opts, (e) => {
+          const finished = runTurn(conv, message, opts, (e) => {
             queue.push(e);
             if (e.type === "turn_end") done = true;
             wake?.();
@@ -257,6 +313,7 @@ export function createFixtureAgent(opts: AgentFixtureOptions = {}): AgentClient 
     },
     async cancelTurn(_conversationId, turnId) {
       cancelled.add(turnId);
+      wakers.get(turnId)?.();
       await sleep(60 * (opts.delayScale ?? 1));
     },
   };

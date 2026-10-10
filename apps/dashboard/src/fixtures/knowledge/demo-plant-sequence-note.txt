@@ -1,0 +1,12 @@
+DEMO SITE NOTE: CHILLED WATER PLANT SEQUENCE
+
+Synthetic demonstration note for the dashboard's demo plant. It is not a real site's sequence of operation.
+
+1.1 Normal operation
+Chiller 1 and Chiller 2 run in normal operation, and Chiller 3 is the lag chiller. CHW pump 1 serves Chiller 1, CHW pump 2 serves Chiller 2 and CHW pump 3 serves Chiller 3. The chilled water supply temperature setpoint is 7 °C.
+
+1.2 Staging
+The lag chiller starts when the running chillers are fully loaded or when the chilled water supply rises above its setpoint. A low chilled water delta-T makes the plant start chillers early, so check the control valves of the CRAH units in the data hall before adding a chiller.
+
+1.3 Free cooling
+When the wet-bulb temperature is low enough, the plate heat exchanger provides free cooling and the chillers stage off.

@@ -1,14 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Plus } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import { Notice } from "../../components/Notice";
 import { operating } from "../../app/operatingContext";
 import { useSite } from "../../app/site";
-import { useSuggestions } from "./AssistantPanel";
+import { EngineBadge, useSuggestions } from "./AssistantPanel";
 import { ConversationList } from "./ConversationList";
 import { ConversationView } from "./ConversationView";
-import { useSession } from "./conversationSession";
+import { session, useSession } from "./conversationSession";
 import "./agent.css";
 
 /**
@@ -21,14 +21,24 @@ export function AgentPage() {
   const a = s.agent;
   const site = useSite();
   const [params, setParams] = useSearchParams();
-  const conversationId = params.get("conversation");
   const { caps, suggestions } = useSuggestions();
-  const version = useSession().version;
+  const st = useSession();
+  const version = st.version;
+  // Expanded while a question asked in the workspace is in flight: the page shows that
+  // question's conversation, also when it is created only after the page opened.
+  const [adopting, setAdopting] = useState(() => !params.get("conversation") && session.current().busy);
+  const conversationId = params.get("conversation") ?? (adopting ? st.id : null);
+  useEffect(() => {
+    if (!adopting || !st.id) return;
+    setAdopting(false);
+    if (!params.get("conversation")) setParams((p) => (p.set("conversation", st.id!), p), { replace: true });
+  }, [adopting, st.id]);
 
   // The page's conversation is also the workspace's, so docking again shows it.
   useEffect(() => operating.showConversation(conversationId), [conversationId]);
 
   const open = (id: string | null) => {
+    setAdopting(false);
     const next = new URLSearchParams(params);
     if (id) next.set("conversation", id);
     else next.delete("conversation");
@@ -38,7 +48,7 @@ export function AgentPage() {
   return (
     <div className="page agent-page">
       <div className="page__head">
-        <span className="agent-badge">{a.scripted}</span>
+        <EngineBadge caps={caps} />
       </div>
       {site.error && !site.data && (
         <Notice tone="critical" action={{ label: s.monitoring.retry, onClick: site.retry }}>

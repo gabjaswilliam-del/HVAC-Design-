@@ -17,3 +17,8 @@ step path, and validate run identity and observation freshness before correction
 The reference project's pilot is advisory; its code is not a ready-made correction loop.
 
 Placeholder only; no monitoring loop or control policy is implemented.
+
+UI assignment: [pilot issues and correction history](../../../apps/dashboard/src/features/pilot/README.md).
+The frontend displays this module's issue/evidence/outcome states and reuses the
+simulation command boundary. It does not duplicate policy or decide that an accepted
+action achieved its goal. Coordinate API contracts with `apps/api/`.

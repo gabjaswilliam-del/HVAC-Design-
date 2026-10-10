@@ -100,16 +100,22 @@ test("resize by keyboard, the width is remembered, and the workspace collapses t
   await expect(page.getByRole("complementary", { name: "AI pilot" })).toBeVisible();
 });
 
-test("the pilot works on simulations only and says what it needs", async ({ page }) => {
+test("AI Pilot works on simulations only; with nothing to watch it opens on setting one up", async ({ page }) => {
   await openOverview(page);
-  await page.getByRole("tab", { name: "Pilot" }).click();
-  const pilot = page.getByRole("complementary", { name: "AI pilot" });
+  await page.getByRole("tab", { name: "AI Pilot" }).click();
+  const pilot = page.getByRole("complementary", { name: "AI Pilot" });
   await expect(pilot.getByText("Simulation only", { exact: true })).toBeVisible();
   await expect(pilot).toContainText("The pilot never controls physical equipment.");
-  await expect(pilot).toContainText("Not available yet");
-  await expect(pilot.getByText("Planned", { exact: true })).toBeVisible();
+  // A labelled mock; the set-up is here, in AI Pilot, not on another page.
+  await expect(pilot.getByText("Mock pilot service", { exact: true })).toBeVisible();
+  await expect(pilot.getByRole("heading", { name: "Start a simulation" })).toBeVisible();
+  await expect(pilot.getByRole("button", { name: "Start simulation" })).toBeVisible();
+  // The main display only shows the run: the Simulation view, read only.
+  // AI Pilot has no page of its own: nothing here opens a second, main-display copy of it.
+  await expect(page.getByRole("link", { name: "Show the simulation in the main display" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Open full page" })).toHaveCount(0);
   await expect(assistant(page)).toHaveCount(0);
-  await page.getByRole("tab", { name: "Pilot" }).press("ArrowLeft");
+  await page.getByRole("tab", { name: "AI Pilot" }).press("ArrowLeft");
   await expect(page.getByRole("tab", { name: "Assistant" })).toBeFocused();
   await expect(assistant(page)).toBeVisible();
 });

@@ -4,6 +4,10 @@ Updated from the owner's project definition on 2026-09-20. Read [PRODUCT.md](PRO
 and [docs/architecture.md](docs/architecture.md) before making architectural changes.
 Reference-project findings and the development sequence are in
 [docs/reference-review.md](docs/reference-review.md).
+Read [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for the portable LLM context prompt,
+including branch-specific implementation status, review findings, and remaining work.
+Verify its dated snapshot against the current checkout and relevant PR before relying
+on it; implementation on an open PR is not implementation merged into this branch.
 
 ## What we are building
 
@@ -54,6 +58,13 @@ Reference-project findings and the development sequence are in
 - The initial request is **folder structure and documentation only**, followed by
   a PR. The follow-up is reference review and planning only. No feature development
   is authorized by either scaffolding or reference review.
+- On 2026-10-01 the owner requested folder-local UI and cooling-load prediction
+  implementation briefs for junior engineers. This handoff change is documentation
+  and folder setup only. When assigned implementation, follow
+  `apps/dashboard/README.md`, the relevant feature README, and
+  `src/hvac_agent/prediction/README.md`; coordinate API shapes through
+  `docs/ui-data-contracts.md`. Draft components/endpoints are not existing code.
+  Keep UI fixtures explicitly labeled and preserve the single-DGX/site constraints.
 - Backend modules live under `src/hvac_agent/`; entry points under `apps/` compose
   them. See the architecture document for dependency direction and ownership.
 - `core` owns shared domain contracts, not provider clients or application logic.
@@ -77,6 +88,13 @@ Reference-project findings and the development sequence are in
 - Run checks appropriate to the change and report what was actually verified.
 
 ## Maintaining this context
+
+After substantive work, update [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) in the same
+handoff, following its context-maintenance protocol. Record actual branch/commit/PR
+status, decisions, completed and remaining work, and validation evidence. Distinguish
+planned, implemented, reviewed, merged, deployed, and validated states. If you cannot
+edit it, provide a proposed patch and state that it has not been saved. The context
+prompt is informational and does not authorize starting its roadmap.
 
 Keep this file, both product descriptions, module READMEs, and the architecture
 document consistent when the owner changes product scope. This file is durable

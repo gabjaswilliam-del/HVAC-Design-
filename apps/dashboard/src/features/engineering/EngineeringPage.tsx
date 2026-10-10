@@ -12,12 +12,14 @@ import { sceneMatchesTopology } from "../monitoring";
 import { operating } from "../../app/operatingContext";
 import { useIssues, useSite, useSnapshot } from "../../app/site";
 import { useShowOnPlant } from "../../app/useShowOnPlant";
+import { useSimulation } from "../simulation";
+import { targetPath } from "../../app/navigation";
 import "./engineering.css";
 
 /**
- * Engineering: a hub in four flat sections, in the order engineers work. Simulation
- * and CAD are not built in this release; their rows say what each needs. `/simulation`
- * and `/cad` open the hub at their row.
+ * Engineering: a hub in four flat sections, in the order engineers work. Simulation has
+ * its own screen (`/simulation`); its row here says which run is open. CAD is not built
+ * in this release; its row says what it needs, and `/cad` opens the hub at that row.
  */
 export function EngineeringPage() {
   const s = useStrings();
@@ -25,9 +27,9 @@ export function EngineeringPage() {
   const location = useLocation();
   const focus = location.pathname.split("/")[1];
 
-  // `/simulation` and `/cad` open the hub with their row focused.
+  // `/cad` opens the hub with its row focused.
   useEffect(() => {
-    if (focus !== "simulation" && focus !== "cad") return;
+    if (focus !== "cad") return;
     const row = document.getElementById(`hub-${focus}`);
     row?.focus({ preventScroll: true });
     row?.scrollIntoView({ block: "center" });
@@ -52,6 +54,7 @@ function Hub({ site, focus }: { site: SiteBundle; focus: string }) {
   const issues = useIssues();
   const snapshot = useSnapshot();
   const showOnPlant = useShowOnPlant();
+  const sim = useSimulation();
   const searchId = useId();
   const [query, setQuery] = useState("");
   const tz = site.site.timezone;
@@ -146,15 +149,25 @@ function Hub({ site, focus }: { site: SiteBundle; focus: string }) {
         )}
       </section>
 
-      <section id="hub-simulation" className={`hub__section${focus === "simulation" ? " is-target" : ""}`} aria-labelledby="hub-simulation-title" tabIndex={-1}>
+      <section id="hub-simulation" className="hub__section" aria-labelledby="hub-simulation-title">
         <div className="hub__section-head">
           <h2 id="hub-simulation-title">{s.nav.pages.simulation}</h2>
-          <span className="tag-chip tag-chip--planned" title={s.nav.plannedTitle(s.planned.screens.simulation.milestone)}>
-            {s.nav.planned}
-          </span>
+          <span className="tag-chip tag-chip--demo">{s.simulation.mock}</span>
         </div>
         <p>{e.simulationBody}</p>
-        <p className="hub__needs">{e.simulationNeeds}</p>
+        <p className="hub__needs num">
+          {sim.run && sim.run.runId === sim.runId
+            ? e.simulationRun(sim.run.runId, s.simulation.state[sim.run.state], sim.run.scenario.label)
+            : e.simulationNoRun}{" "}
+        </p>
+        <p className="hub__links">
+          <Link className="link" to={targetPath({ type: "simulation" })}>
+            {e.openSimulation}
+          </Link>
+          <button type="button" className="text-button" onClick={() => operating.openWorkspace("pilot")}>
+            {e.startSimulation}
+          </button>
+        </p>
       </section>
 
       <section id="hub-cad" className={`hub__section${focus === "cad" ? " is-target" : ""}`} aria-labelledby="hub-cad-title" tabIndex={-1}>

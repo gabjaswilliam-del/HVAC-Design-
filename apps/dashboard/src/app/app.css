@@ -814,10 +814,6 @@
     url("../assets/grain.png"),
     linear-gradient(180deg, var(--bezel), #24282d);
 }
-.scenario .select {
-  max-width: 210px;
-  font-weight: 500;
-}
 .deck__speed .select {
   width: 72px;
 }

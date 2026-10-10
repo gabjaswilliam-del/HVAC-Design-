@@ -48,10 +48,13 @@ export function TopBar({ phone, inert }: { phone: boolean; inert?: boolean }) {
   const lastSegment = useRef(segment);
   const workspaceOpen = useOperating((x) => x.workspace.open);
 
-  // The new screen's heading takes focus after navigation (not on first load).
+  // The new screen's heading takes focus after navigation (not on first load), unless
+  // focus is in the assistant or AI Pilot: a view either opened appears beside it, which
+  // keeps focus (a follow-up can be typed at once, the run operated on).
   useEffect(() => {
     if (lastSegment.current === segment) return;
     lastSegment.current = segment;
+    if (document.activeElement?.closest("#assistant-panel, #pilot-panel")) return;
     heading.current?.focus({ preventScroll: true });
   }, [segment]);
 

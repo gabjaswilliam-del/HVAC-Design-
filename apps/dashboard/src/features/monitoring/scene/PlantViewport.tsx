@@ -30,6 +30,11 @@ type PlantViewportProps = Omit<ComponentProps<typeof PlantScene>, "showTags" | "
   /** Clicking empty drawing dismisses a floating panel. */
   onDismiss?: () => void;
   onOpenIssue: (issue: Issue) => void;
+  /** The provenance note in the bottom-left corner; the synthetic-plant note by default. */
+  note?: { tag: string; text: string; title?: string };
+  /** The drawing sits in a scrolling page: the wheel scrolls the page, and Ctrl or Cmd
+   *  with the wheel (or a pinch) zooms. The Overview's drawing zooms on any wheel. */
+  inPage?: boolean;
 };
 
 /**
@@ -39,7 +44,7 @@ type PlantViewportProps = Omit<ComponentProps<typeof PlantScene>, "showTags" | "
  * drag to pan, keyboard zoom and pan. Two corners carry the drawing controls and the
  * disclosure; readings switch to key readings below 80% zoom unless chosen otherwise.
  */
-export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, issues, ...sceneProps }: PlantViewportProps) {
+export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, issues, note, inPage = false, ...sceneProps }: PlantViewportProps) {
   const s = useStrings();
   const t = s.monitoring.toolbar;
   const legendId = useId();
@@ -59,8 +64,8 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
   const autoPanned = useRef(false);
   const drag = useRef<{ x: number; y: number; view: View; moved: boolean; id: number } | null>(null);
   const suppressClick = useRef(false);
-  const latest = useRef({ view, box, scene, float });
-  latest.current = { view, box, scene, float };
+  const latest = useRef({ view, box, scene, float, inPage });
+  latest.current = { view, box, scene, float, inPage };
 
   const fitFor = (sc: Size, b: Size, f: boolean): View => (f ? fitBeside(sc, b) : fitView(sc, b));
   const limitOf = (b: Size | null, f: boolean) => (b ? (f ? b.w - FLOAT_COVER : b.w) : 0);
@@ -128,8 +133,8 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
   useEffect(() => {
     const svg = svgRef.current!;
     const onWheel = (e: WheelEvent) => {
-      const { box: b, view: v, scene: sc } = latest.current;
-      if (!b) return;
+      const { box: b, view: v, scene: sc, inPage: page } = latest.current;
+      if (!b || (page && !e.ctrlKey && !e.metaKey)) return;
       e.preventDefault();
       const rect = svg.getBoundingClientRect();
       const factor = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015));
@@ -306,9 +311,9 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
         )}
       </div>
 
-      <p className="stage-note" title={s.monitoring.syntheticTitle}>
-        <span className="tag-chip">{s.monitoring.synthetic}</span>
-        <span className="stage-note__text">{s.monitoring.syntheticNote}</span>
+      <p className="stage-note" title={note?.title ?? s.monitoring.syntheticTitle}>
+        <span className={note ? "tag-chip tag-chip--notice" : "tag-chip"}>{note?.tag ?? s.monitoring.synthetic}</span>
+        <span className="stage-note__text">{note?.text ?? s.monitoring.syntheticNote}</span>
       </p>
 
       <div className="stage-controls" role="toolbar" aria-label={t.label}>

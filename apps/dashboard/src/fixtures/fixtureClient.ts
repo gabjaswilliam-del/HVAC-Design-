@@ -49,7 +49,7 @@ const dataset = (def: ScenarioDef) => {
   return datasets.get(def.id)!;
 };
 
-function delay(ms: number, signal?: AbortSignal) {
+export function delay(ms: number, signal?: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
     const aborted = () => reject(new ApiError("ABORTED", "Request cancelled", false));
     if (signal?.aborted) return aborted();

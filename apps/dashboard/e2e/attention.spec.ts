@@ -83,6 +83,7 @@ test("the tag opens the issues, Locate finds the equipment, and . steps through 
 
   // From any screen: "." opens the next open issue's equipment on the Overview.
   await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Analytics", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Cooling prediction"); // the key acts on the screen shown
   await page.locator("body").press(".");
   await expect(page).toHaveURL(/\/\?.*equipment=cooling_towers_1/);
   await expect(inspector.getByRole("heading", { level: 2 })).toHaveText("Cooling tower 1");

@@ -1,61 +1,18 @@
 import { useId, useState } from "react";
 import { useNavigate } from "react-router";
-import { ChevronDown, ChevronRight, CircleAlert, CircleCheck, Crosshair, Highlighter, LoaderCircle, PanelRight } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleAlert, CircleCheck, Crosshair, FileText, Highlighter, LoaderCircle, PanelRight, PanelsTopLeft, SquareMousePointer } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
-import type { AgentContext, DataView, NavTarget, Turn, TurnPart } from "../../lib/contracts/agent";
+import type { AgentContext, DataView, Turn, TurnPart, WorkspaceAction } from "../../lib/contracts/agent";
 import type { SiteBundle } from "../../lib/contracts";
 import { formatTime } from "../../lib/format";
-import { TimeSeriesChart, type ChartSeries } from "../../components/TimeSeriesChart";
-import { getOperating, operating } from "../../app/operatingContext";
-import type { ScenarioId } from "../../fixtures/scenarios";
-import { isKpiKey } from "../monitoring/kpiDefinitions";
+import { formatBytes } from "../../lib/agent/attachments";
+import { NARROW, operating } from "../../app/operatingContext";
+import { applyAction, openInContext, openTarget } from "../../app/openTarget";
+import { targetPath } from "../../app/navigation";
+import { wasApplied } from "./conversationSession";
 import { Prose } from "./Prose";
 
 type ToolPart = Extract<TurnPart, { type: "tool" }>;
-
-const ROLE_STYLE: Record<string, Pick<ChartSeries, "color" | "dashed" | "width">> = {
-  observed: { color: "var(--chart-observed)" },
-  forecast: { color: "var(--chart-forecast)", dashed: true },
-  delivered: { color: "var(--chart-delivered)", width: 4 },
-  capacity: { color: "var(--chart-capacity)", width: 1.5 },
-};
-
-export function targetPath(target: NavTarget) {
-  switch (target.type) {
-    case "monitoring_kpi":
-      return `/?kpi=${encodeURIComponent(target.kpi)}`;
-    case "equipment":
-      return `/?equipment=${encodeURIComponent(target.id)}&locate=1`;
-    case "prediction":
-      return target.forecastId ? `/prediction?forecast=${encodeURIComponent(target.forecastId)}` : "/prediction";
-    case "equipment_page":
-      return target.id ? `/equipment/${encodeURIComponent(target.id)}` : "/equipment";
-  }
-}
-
-/**
- * Navigation from an answer opens the dashboard in the conversation's own context:
- * the demo scenario and time it was recorded with, so linked views show the same data.
- */
-function useContextNavigate(context: AgentContext) {
-  const navigate = useNavigate();
-  return (path: string, prepare?: () => void) => {
-    const now = getOperating();
-    const scenario = context.demoScenario?.id as ScenarioId | undefined;
-    if (scenario && scenario !== now.scenarioId) operating.setScenario(scenario);
-    if (Date.parse(context.at) !== now.cursor) operating.setCursor(Date.parse(context.at));
-    operating.setPlaying(false);
-    prepare?.();
-    // Details opened from an answer wait as a strip, so the answer stays in view.
-    const q = new URLSearchParams(path.split("?")[1] ?? "");
-    const equipment = q.get("equipment");
-    const kpi = q.get("kpi");
-    if (equipment) operating.select(equipment);
-    else if (isKpiKey(kpi)) operating.openKpi(kpi);
-    if (equipment || isKpiKey(kpi)) operating.setDetailsCollapsed(true);
-    navigate(path);
-  };
-}
 
 /** Consecutive tool calls form one activity group; text and views stand alone. */
 function groupParts(parts: TurnPart[]) {
@@ -157,7 +114,8 @@ function Working() {
 function ViewBlock({ view, site, context }: { view: DataView; site: SiteBundle; context: AgentContext }) {
   const s = useStrings();
   const a = s.agent;
-  const go = useContextNavigate(context);
+  const navigate = useNavigate();
+  const go = (path: string, prepare?: () => void) => openInContext(navigate, context, path, prepare);
   const label = (id: string) => site.topology.devices.find((d) => d.id === id)?.label ?? id;
 
   switch (view.kind) {
@@ -214,38 +172,10 @@ function ViewBlock({ view, site, context }: { view: DataView; site: SiteBundle; 
           </button>
         </section>
       );
-    case "chart": {
-      const series: ChartSeries[] = view.series.map((x) => ({
-        id: x.id,
-        label: x.label,
-        ...ROLE_STYLE[x.role],
-        points: x.times.map((t, i) => ({ t: Date.parse(t), v: x.values[i] })),
-      }));
-      return (
-        <section className="agent-view" data-view="chart">
-          <TimeSeriesChart
-            title={view.title}
-            series={series}
-            band={
-              view.band && {
-                label: view.band.label,
-                color: "var(--chart-forecast)",
-                points: view.band.times.map((t, i) => ({ t: Date.parse(t), lo: view.band!.lo[i], hi: view.band!.hi[i] })),
-              }
-            }
-            unit={view.unit}
-            decimals={view.decimals}
-            timeZone={site.site.timezone}
-            marker={view.cutoff ? { t: Date.parse(view.cutoff), label: s.forecast.dataThrough } : undefined}
-            height={150}
-          />
-        </section>
-      );
-    }
     case "link":
       return (
         <p className="agent-view" data-view="link">
-          <button type="button" className="text-button" onClick={() => go(targetPath(view.target))}>
+          <button type="button" className="text-button" onClick={() => openTarget(navigate, context, view.target)}>
             {view.label}
           </button>
         </p>
@@ -254,9 +184,44 @@ function ViewBlock({ view, site, context }: { view: DataView; site: SiteBundle; 
 }
 
 /**
+ * What the assistant did in the workspace (or asked to: a turn stopped or shown elsewhere
+ * did not), with a way back to it: a view it opened, or an operator control it pointed to
+ * in AI Pilot (which only the operator presses). On a phone, where the conversation covers
+ * the screen, reopening a view closes the sheet to show it.
+ */
+function ActionLine({ turnId, action, context }: { turnId: string; action: WorkspaceAction; context: AgentContext }) {
+  const a = useStrings().agent;
+  const navigate = useNavigate();
+  const applied = wasApplied(turnId, action);
+  const reveal = action.kind === "reveal";
+  const again = reveal ? (applied ? a.showAgain : a.showControl) : applied ? a.openAgain : a.openView;
+  const Icon = reveal ? SquareMousePointer : PanelsTopLeft;
+  return (
+    <p className="agent-action" data-view="action" data-action={action.kind} data-applied={applied || undefined}>
+      <Icon size={14} aria-hidden="true" className="agent-action__icon" />
+      <span className="agent-action__text">
+        {reveal ? (applied ? a.actionPointed : a.actionControl) : applied ? a.actionOpened : a.actionView} <span className="agent-action__label">{action.label}</span>
+      </span>
+      <button
+        type="button"
+        className="text-button agent-action__open"
+        onClick={() => {
+          if (reveal) return applyAction(navigate, context, action);
+          openTarget(navigate, context, action.target);
+          if (action.target.type !== "pilot" && matchMedia(NARROW).matches) operating.closeWorkspace();
+        }}
+        aria-label={`${again}: ${action.label}`}
+      >
+        {again}
+      </button>
+    </p>
+  );
+}
+
+/**
  * One question and its answer as it arrives: the question at once, a working line until
- * the first step, the tool activity, then the answer streaming in; typed views follow.
- * New kinds of part (an assistant action, say) render here from their own typed payload.
+ * the first step, the tool activity, then the answer streaming in; typed views and the
+ * views the assistant opened follow, each rendered from its own typed payload.
  */
 export function TurnView({ turn, site, context }: { turn: Turn; site: SiteBundle; context: AgentContext }) {
   const s = useStrings();
@@ -264,16 +229,27 @@ export function TurnView({ turn, site, context }: { turn: Turn; site: SiteBundle
   const running = turn.status === "running";
   const groups = groupParts(turn.parts);
   const tail = turn.parts.at(-1);
-  const working = running && (!tail || tail.type === "view" || (tail.type === "tool" && tail.status !== "running"));
+  const working = running && (!tail || tail.type === "view" || tail.type === "action" || (tail.type === "tool" && tail.status !== "running"));
   return (
     <article className="agent-turn" data-turn-status={turn.status} aria-busy={running || undefined}>
       <div className="agent-turn__prompt">
         <span className="agent-turn__who">{a.you}</span>
-        <p>{turn.prompt}</p>
+        {turn.prompt && <p>{turn.prompt}</p>}
+        {turn.attachments?.length ? (
+          <ul className="agent-files" aria-label={a.attachedFiles}>
+            {turn.attachments.map((f) => (
+              <li key={f.name} className="agent-file">
+                <FileText size={13} aria-hidden="true" />
+                <span className="agent-file__name" title={f.name}>{f.name}</span>
+                <span className="agent-file__size num">{formatBytes(f.size)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
       <div className="agent-turn__answer">
         <span className="agent-turn__who">
-          {a.assistant} <span className="agent-badge">{a.scripted}</span>
+          {a.assistant} <span className="agent-badge" title={a.offlineTitle}>{a.offline}</span>
           <span className="agent-turn__paced">{a.paced}</span>
           <span className="agent-turn__time num">
             {formatTime(turn.at, site.site.timezone)} {site.site.timezoneLabel}
@@ -283,6 +259,7 @@ export function TurnView({ turn, site, context }: { turn: Turn; site: SiteBundle
           const last = i === groups.length - 1;
           if (g.type === "tools") return <ToolGroup key={i} tools={g.tools} startOpen={last && turn.status !== "complete"} />;
           if (g.type === "text") return <Prose key={i} text={g.text} streaming={running && last} />;
+          if (g.type === "action") return <ActionLine key={i} turnId={turn.id} action={g.action} context={context} />;
           return <ViewBlock key={i} view={g.view} site={site} context={context} />;
         })}
         {working && <Working />}

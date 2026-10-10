@@ -1,31 +1,48 @@
 /**
- * Agent harness boundary: conversations, a streamed turn of events, and typed data
- * views. A local-LLM harness and the scripted demo produce the same events, so the UI
- * does not change when the scripted demo is replaced. Views are typed presentation
- * payloads with typed navigation targets; model output never supplies HTML, scripts or
- * arbitrary URLs.
+ * Agent harness boundary: conversations, a streamed turn of events, typed data views and
+ * typed workspace actions. A local-LLM harness and the offline demo produce the same
+ * events, so the UI does not change when the demo is replaced. Views and actions carry
+ * typed navigation targets; model output never supplies HTML, scripts, components or
+ * arbitrary URLs. Charts are not drawn in the conversation: a view or action opens them
+ * in the main display.
  */
 import { z } from "zod";
 import { isoTime } from "./common";
 
 const severity = z.enum(["info", "warning", "critical"]);
 
-/** Where a view may send the operator. Mapped to routes by the UI, never a raw URL. */
+/**
+ * Where a view may send the operator: a typed address of a screen in the workspace,
+ * mapped to a route by the app (`targetPath`), never a raw URL. The simulation and pilot
+ * targets only open a run, equipment on it or a pilot issue for reading (F10): no
+ * target, tool or event lets the assistant start, pause, stop or correct a simulation.
+ */
 export const navTarget = z.discriminatedUnion("type", [
   z.object({ type: z.literal("monitoring_kpi"), kpi: z.string() }),
   z.object({ type: z.literal("equipment"), id: z.string() }),
   z.object({ type: z.literal("prediction"), forecastId: z.string().optional() }),
   z.object({ type: z.literal("equipment_page"), id: z.string().optional() }),
+  /** Simulation history, or one recorded run's replay: optionally at one of its findings or
+   *  items, or compared with a matched run. */
+  z.object({
+    type: z.literal("simulation"),
+    runId: z.string().optional(),
+    issueId: z.string().optional(),
+    equipmentId: z.string().optional(),
+    compareWith: z.string().optional(),
+  }),
+  /** AI Pilot, in the workspace: the run it operates, its findings or one issue. The main
+   *  display stays where it is. */
+  z.object({
+    type: z.literal("pilot"),
+    runId: z.string().optional(),
+    issueId: z.string().optional(),
+    view: z.enum(["live", "summary", "findings", "corrections"]).optional(),
+  }),
+  /** One plant indicator's trend in the main display (telemetry): today, or the last hours. */
+  z.object({ type: z.literal("metric"), key: z.string(), hours: z.number().int().min(1).max(24).optional() }),
 ]);
 export type NavTarget = z.infer<typeof navTarget>;
-
-const chartSeries = z.object({
-  id: z.string(),
-  label: z.string(),
-  role: z.enum(["observed", "forecast", "delivered", "capacity"]),
-  times: z.array(isoTime),
-  values: z.array(z.number().finite().nullable()),
-});
 
 export const dataView = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("equipment"), title: z.string(), ids: z.array(z.string()) }),
@@ -34,18 +51,34 @@ export const dataView = z.discriminatedUnion("kind", [
     title: z.string(),
     issues: z.array(z.object({ id: z.string(), title: z.string(), severity, status: z.string(), equipmentIds: z.array(z.string()) })),
   }),
-  z.object({
-    kind: z.literal("chart"),
-    title: z.string(),
-    unit: z.string(),
-    decimals: z.number().int(),
-    series: z.array(chartSeries),
-    band: z.object({ label: z.string(), times: z.array(isoTime), lo: z.array(z.number().nullable()), hi: z.array(z.number().nullable()) }).optional(),
-    cutoff: isoTime.optional(),
-  }),
   z.object({ kind: z.literal("link"), label: z.string(), target: navTarget }),
 ]);
 export type DataView = z.infer<typeof dataView>;
+
+/**
+ * A change the assistant asks the workspace to make. `open`: show a typed view (applied by
+ * the app through `targetPath`). `reveal`: point to one of the operator's AI Pilot controls,
+ * which the app outlines and names, and never presses or focuses (F10: only the operator
+ * operates a simulation). Both are validated like every event; model output never names a
+ * component, a URL or a command.
+ */
+export const pilotControl = z.enum(["start", "pause", "resume", "step", "stop", "monitoring", "apply", "corrections"]);
+export const workspaceAction = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("open"), target: navTarget, label: z.string() }),
+  z.object({ kind: z.literal("reveal"), control: pilotControl, runId: z.string().optional(), issueId: z.string().optional(), label: z.string() }),
+]);
+export type WorkspaceAction = z.infer<typeof workspaceAction>;
+
+/** A file sent with a question: what it is, and its text, which the assistant reads. */
+export const attachmentMeta = z.object({ name: z.string().min(1), type: z.string(), size: z.number().int().nonnegative() });
+export type AttachmentMeta = z.infer<typeof attachmentMeta>;
+export const attachmentInput = attachmentMeta.extend({ text: z.string() });
+export type AttachmentInput = z.infer<typeof attachmentInput>;
+
+/** One assistant turn's input. Typed text, a transcription and attachments all arrive
+ *  here, so every input takes the same path through the assistant. */
+export const agentMessage = z.object({ prompt: z.string(), attachments: z.array(attachmentInput) });
+export type AgentMessage = z.infer<typeof agentMessage>;
 
 export const agentContext = z.object({
   source: z.literal("telemetry"),
@@ -71,6 +104,7 @@ export const agentEvent = z.discriminatedUnion("type", [
     summary: z.string(),
   }),
   z.object({ type: z.literal("view"), view: dataView }),
+  z.object({ type: z.literal("action"), action: workspaceAction }),
   z.object({
     type: z.literal("turn_end"),
     status: z.enum(["complete", "cancelled", "error"]),
@@ -92,12 +126,15 @@ export const turnPart = z.discriminatedUnion("type", [
     summary: z.string().nullable(),
   }),
   z.object({ type: z.literal("view"), view: dataView }),
+  z.object({ type: z.literal("action"), action: workspaceAction }),
 ]);
 export type TurnPart = z.infer<typeof turnPart>;
 
 export const turn = z.object({
   id: z.string(),
   prompt: z.string(),
+  /** Files sent with the question (their text is not kept in the stored turn). */
+  attachments: z.array(attachmentMeta).optional(),
   at: isoTime,
   parts: z.array(turnPart),
   status: z.enum(["running", "complete", "cancelled", "error"]),
@@ -120,8 +157,14 @@ export const conversationSummary = conversation.pick({ id: true, title: true, cr
 export type ConversationSummary = z.infer<typeof conversationSummary>;
 
 export const agentCapabilities = z.object({
-  /** `scripted_demo` today; a local model harness would report `local_llm`. */
-  mode: z.enum(["scripted_demo", "local_llm"]),
+  /**
+   * How requests are understood. `offline_rules`: no language model; rules in this browser
+   * read the request into a typed intent. `local_llm`: the local model harness (not part of
+   * this build). `scripted_demo`: the M5 prepared conversations only.
+   */
+  mode: z.enum(["scripted_demo", "offline_rules", "local_llm"]),
+  /** Whether a language model is connected, said plainly; `unavailable` when the service fails. */
+  connection: z.object({ state: z.enum(["connected", "offline", "unavailable"]), detail: z.string() }),
   model: z.object({ id: z.string(), revision: z.string() }).nullable(),
   tools: z.array(z.object({ name: z.string(), description: z.string(), available: z.boolean(), simulated: z.boolean() })),
   suggestedPrompts: z.array(z.string()),
@@ -147,6 +190,8 @@ export function applyEvent(t: Turn, e: AgentEvent): Turn {
       };
     case "view":
       return { ...t, parts: [...t.parts, { type: "view", view: e.view }] };
+    case "action":
+      return { ...t, parts: [...t.parts, { type: "action", action: e.action }] };
     case "turn_end":
       return {
         ...t,

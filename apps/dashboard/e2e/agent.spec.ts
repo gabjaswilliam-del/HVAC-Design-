@@ -1,10 +1,13 @@
 /**
- * M5: AI assistant (scripted demonstration). Treatment A: the workspace is open beside
- * the plant at 1440 px; Details opened from an answer wait as a strip so the answer
- * stays in view.
+ * M5/M6: AI assistant, offline (no language model connected): offline rules read each
+ * request into a typed intent; answers come from simulated, read-only tools; views the
+ * request asks to see open in the workspace through typed actions. Treatment A: the
+ * workspace is open beside the plant at 1440 px; Details opened from an answer wait as a
+ * strip so the answer stays in view.
  */
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { consoleBand, consoleState, openConsole, pilotConsole, pilotStatus, startRun } from "./pilot-console";
 
 const drawer = (page: Page) => page.getByRole("complementary", { name: "AI assistant" });
 const viewport = (page: Page) => page.locator(".plant-view__box > svg");
@@ -33,8 +36,9 @@ test("the assistant is clearly labelled and narrows the page instead of covering
   const wide = await zoom(page);
   await page.getByRole("toolbar", { name: "Workspace" }).getByRole("button", { name: "Assistant" }).click();
   await expect(drawer(page)).toBeVisible();
-  await expect(drawer(page).getByText("Scripted demo", { exact: true }).first()).toBeVisible();
-  await expect(drawer(page).getByText(/No language model is connected/)).toBeVisible();
+  // What answers is said in words: no language model, offline rules.
+  await expect(drawer(page).locator('[data-engine="offline"]')).toHaveText("No language model connected");
+  await expect(drawer(page).getByText(/No language model is connected: offline rules read each request/)).toBeVisible();
   await expect.poll(() => zoom(page)).toBeLessThan(wide);
   const box = (await viewport(page).boundingBox())!;
   for (const id of ["cooling_towers_1", "terminal", "cooling_water_pump_4"]) {
@@ -106,7 +110,11 @@ test("asking from the equipment inspector investigates that equipment, with a fa
   await expect(lastTurn(page).locator(".agent-prose")).toContainText("Cooling tower 4 is in fault");
   await expect(lastTurn(page).locator('[data-tool="search_knowledge"]')).toHaveAttribute("data-tool-status", "error");
   await expect(lastTurn(page).locator('[data-tool="search_knowledge"]')).toContainText("not available in this demo build");
-  await expect(lastTurn(page).getByRole("img", { name: /Fan frequency today/ })).toBeVisible();
+  // The chat is not the chart surface: no chart here. Asked from its own Details, the
+  // record is one link away and nothing else opens.
+  await expect(lastTurn(page).locator(".ts-chart")).toHaveCount(0);
+  await expect(lastTurn(page).getByRole("button", { name: "Cooling tower 4 record" })).toBeVisible();
+  await expect(lastTurn(page).locator('[data-view="action"]')).toHaveCount(0);
 });
 
 test("asking from a KPI panel identifies a cooling shortfall", async ({ page }) => {
@@ -115,16 +123,22 @@ test("asking from a KPI panel identifies a cooling shortfall", async ({ page }) 
   await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "complete", { timeout: 15_000 });
   await expect(lastTurn(page).locator(".agent-prose")).toContainText("of demand is not being met");
   await expect(lastTurn(page).locator(".agent-prose")).toContainText("The shortfall began at 14:05 UTC+8 and is still going on");
-  await expect(lastTurn(page).locator(".ts-chart__legend")).toContainText("Running chiller capacity");
+  // The chart opens in the main display, in the conversation's context, not in the chat.
+  await expect(lastTurn(page).locator(".ts-chart")).toHaveCount(0);
+  await lastTurn(page).getByRole("button", { name: "Unmet demand today" }).click();
+  await expect(page).toHaveURL(/\/trend\?metric=plant%3Aunmet_kw/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Trend");
+  await expect(page.getByRole("img", { name: "Unmet demand today (kWt)" })).toBeVisible();
 });
 
-test("the forecast answer is a labelled baseline and links to the exact forecast", async ({ page }) => {
+test("the forecast answer is a labelled baseline and opens the exact forecast it read", async ({ page }) => {
   await openMonitoring(page);
   await ask(page, "What cooling demand is forecast for the next 6 hours?");
   await expect(lastTurn(page).locator(".agent-prose")).toContainText("not a trained model");
-  await lastTurn(page).getByRole("button", { name: "Open cooling prediction" }).click();
+  // The answer is a view, so it opens without being asked to.
   await expect(page).toHaveURL(/\/prediction\?forecast=fc-normal-/);
   await expect(page.getByText(/Showing the forecast issued at/)).toBeVisible();
+  await expect(lastTurn(page).locator('[data-view="action"]')).toHaveText(/Opened in the workspace: Cooling prediction/);
 });
 
 test("unmatched questions get an honest scripted reply; Enter sends", async ({ page }) => {
@@ -187,7 +201,8 @@ test("conversation history keeps recorded context; links follow it; new question
   // A link inside a recorded conversation switches the dashboard to its scenario.
   await history.getByRole("button", { name: /Is the plant meeting cooling demand\?/ }).click();
   await page.getByRole("button", { name: "Cooling delivered details" }).click();
-  await expect(page.getByLabel("Demo scenario")).toHaveValue("pump-trip");
+  await expect(page.getByLabel("Demo scenario")).toHaveCount(0); // no scenario switch outside AI Pilot
+  await expect(page.locator(".attention")).toContainText("CHW pump 2");
   await expect(page.locator(".clock__time")).toContainText("14:10");
 });
 
@@ -372,10 +387,402 @@ test("cancelling mid-answer keeps what was written, and the next question follow
 });
 
 test("Cancel pressed before the first step still stops the answer", async ({ page }) => {
+  await page.clock.install();
   await page.goto("/?scenario=tower-fault");
-  await page.getByRole("button", { name: "What needs attention right now?" }).click();
+  const question = page.getByRole("button", { name: "What needs attention right now?" });
+  await expect(question).toBeVisible();
+  // Time stands still while the question is asked and cancelled: no step can have begun.
+  // A margin the page's clock cannot pass before the pause, however loaded the machine.
+  await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 2000);
+  await question.click();
   await drawer(page).getByRole("button", { name: "Cancel" }).click();
+  await page.clock.resume();
   await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "cancelled");
   await expect(lastTurn(page).locator("[data-tool]")).toHaveCount(0);
   await expect(drawer(page).getByRole("button", { name: "Send" })).toBeVisible();
+});
+
+// M6 ---------------------------------------------------------------------------------
+
+test("Stop from the keyboard: Escape in the composer stops the answer at once and keeps what was written", async ({ page }) => {
+  await page.goto("/?scenario=tower-fault"); // the full demonstration pace
+  const box = drawer(page).getByLabel("Question for the assistant");
+  await box.fill("What needs attention right now?");
+  await box.press("Enter");
+  const turn = lastTurn(page);
+  await expect(turn.locator(".agent-word").nth(3)).toBeVisible({ timeout: 15_000 });
+  await expect(box).toBeFocused();
+  await box.press("Escape");
+  await expect(turn).toHaveAttribute("data-turn-status", "cancelled");
+  const kept = (await turn.locator(".agent-prose").textContent())!;
+  expect(kept.length).toBeGreaterThan(0);
+  await page.waitForTimeout(800); // nothing more arrives after Stop
+  await expect(turn.locator(".agent-prose")).toHaveText(kept);
+  await expect(box).toBeFocused();
+  await expect(drawer(page).getByRole("button", { name: "Send" })).toBeVisible();
+  await expect(drawer(page)).toBeVisible(); // Escape here closes nothing else
+});
+
+test("the Stop button names its shortcut and hands focus back to the composer", async ({ page }) => {
+  await page.goto("/?scenario=tower-fault");
+  await page.getByRole("button", { name: "Investigate Cooling tower 4" }).click();
+  await expect(drawer(page).locator("[data-tool]").first()).toBeVisible();
+  const stop = drawer(page).getByRole("button", { name: "Cancel" });
+  await expect(stop).toHaveAttribute("aria-keyshortcuts", "Escape");
+  await stop.focus();
+  await page.keyboard.press("Enter");
+  await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "cancelled");
+  await expect(drawer(page).getByLabel("Question for the assistant")).toBeFocused();
+});
+
+/* Workspace actions: what a request asks to see opens in the main display ------------- */
+
+async function askTyped(page: Page, text: string, scope = drawer(page)) {
+  const turns = await page.locator(".agent-turn").count();
+  const box = scope.getByLabel("Question for the assistant");
+  await box.fill(text);
+  await box.press("Enter");
+  await expect(page.locator(".agent-turn")).toHaveCount(turns + 1);
+  await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "complete", { timeout: 15_000 });
+}
+
+test("a request to see something opens it in the main display through one typed action; questions only answer", async ({ page }) => {
+  await openMonitoring(page);
+  await askTyped(page, "Show me COP today");
+  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Trend");
+  await expect(page.getByRole("img", { name: "System COP today" })).toBeVisible();
+  const action = page.locator(".agent-turn").first().locator('[data-view="action"]');
+  await expect(action).toHaveText(/Opened in the workspace: System COP today/);
+  await expect(lastTurn(page).locator(".agent-prose")).toContainText(/^System COP is [\d.]+ at 15:15 UTC\+8\. Since the start of the day it has ranged from /);
+  // The conversation keeps focus for a follow-up; the opened view is announced.
+  await expect(drawer(page).getByLabel("Question for the assistant")).toBeFocused();
+  await expect(drawer(page).getByRole("status").filter({ hasText: "Answer complete. Opened in the workspace: System COP today." })).toBeAttached();
+
+  // An ordinary question is answered in the conversation; the display stays where it is.
+  await askTyped(page, "What's the COP now?");
+  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop/);
+  await expect(lastTurn(page).locator('[data-view="action"]')).toHaveCount(0);
+  await askTyped(page, "Is the plant meeting cooling demand?");
+  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop/);
+
+  // Equipment opens its record; the earlier view is one press away again.
+  await askTyped(page, "open Chiller 2");
+  await expect(page).toHaveURL(/\/equipment\/chiller_plant_2/);
+  await action.getByRole("button", { name: "Open again: System COP today" }).click();
+  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop/);
+});
+
+test("simulation requests read the history and open recorded runs' replays, comparisons and findings", async ({ page }) => {
+  // Two matched runs, ended, monitored from their first observation.
+  await page.goto("/?simSpeed=fast&agentSpeed=fast");
+  await openConsole(page);
+  for (const run of ["RUN-0001", "RUN-0002"]) {
+    expect(await startRun(page, { hours: "1 h", step: "15 min" })).toBe(run);
+    await expect(consoleState(page)).toHaveText("Stopped", { timeout: 10_000 });
+  }
+  // Ending them opened nothing: the main display is still the Overview.
+  await expect(page).toHaveURL(/\/\?simSpeed=fast&agentSpeed=fast$/);
+  await page.getByRole("tab", { name: "Assistant" }).click(); // the docked workspace switches by tab
+
+  await askTyped(page, "tell me our simulation history");
+  await expect(page).toHaveURL(/\/simulation$/);
+  await expect(lastTurn(page).locator('[data-tool="list_simulation_runs"]')).toHaveCount(1);
+  await expect(lastTurn(page).locator(".agent-prose")).toContainText("Two simulation runs are recorded, all ended.");
+
+  await askTyped(page, "How did the last simulation go?");
+  await expect(page).toHaveURL(/\/simulation\/RUN-0002$/);
+  await expect(page.getByRole("region", { name: "Run summary, RUN-0002" })).toBeVisible();
+  await expect(lastTurn(page).locator(".agent-prose")).toContainText("RUN-0002 (Normal operation) completed after 60 of 60 simulated minutes.");
+  await expect(lastTurn(page).locator('[data-view="action"]')).toHaveText(/Opened in the workspace: RUN-0002 summary and replay/);
+
+  await askTyped(page, "compare the latest two simulations");
+  await expect(page).toHaveURL(/\/simulation\/RUN-0002\?compare=RUN-0001/);
+  await expect(page.getByLabel("Compare with")).toHaveValue("RUN-0001");
+  await expect(lastTurn(page).locator(".agent-prose table")).toContainText("Average COP");
+
+  // A recorded run asked to be shown is its replay.
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Overview", exact: true }).click();
+  await askTyped(page, "Show me the last simulation.");
+  await expect(page).toHaveURL(/\/simulation\/RUN-0002$/);
+  await expect(page.locator("main .replay .sim-run")).toHaveAttribute("data-run", "RUN-0002");
+  const scrubber = page.locator("main").getByRole("slider", { name: "Replay" });
+  await scrubber.focus();
+  await page.keyboard.press("Home");
+  await expect(scrubber).toHaveAttribute("aria-valuetext", /step 0 of 4$/);
+
+  // An ended run's finding opens in its replay, chosen and in view; that replay starts at
+  // its own last step, not where the previous one was scrubbed to.
+  await askTyped(page, "inspect PIL-0001-1");
+  await expect(page).toHaveURL(/\/simulation\/RUN-0001\?issue=PIL-0001-1/);
+  await expect(page.locator('main [data-pilot-detail="PIL-0001-1"]')).toBeInViewport();
+  await expect(scrubber).toHaveAttribute("aria-valuetext", /step 4 of 4$/);
+
+  // Not found is said, and nothing opens.
+  await askTyped(page, "open RUN-0099");
+  await expect(page).toHaveURL(/\/simulation\/RUN-0001\?issue=PIL-0001-1/);
+  await expect(lastTurn(page).locator(".agent-prose")).toHaveText("There is no RUN-0099 in the simulation history; the latest run is RUN-0002.");
+});
+
+test("F10: asked to operate the simulation, the assistant points to the operator's control and presses nothing", async ({ page }) => {
+  await page.goto("/?simSpeed=fast&agentSpeed=fast");
+  await openConsole(page);
+  await startRun(page, { paused: true });
+  await expect(consoleState(page)).toHaveText("Paused");
+  const elapsed = await consoleBand(page).locator("[data-elapsed]").innerText();
+  const pointed = pilotConsole(page).locator("[data-pointed]");
+  const readOnly = ["list_simulation_runs", "get_simulation_run", "get_pilot_findings"];
+  for (const [request, control] of [
+    ["Stop the simulation", "stop"],
+    ["Resume the simulation", "resume"],
+    ["stop RUN-0001", "stop"],
+    ["pause monitoring", "monitoring"],
+    ["apply PIL-0001-1", "apply"], // the pilot's proposal from the first observation
+    ["set chiller 1 setpoint to 9", "corrections"],
+  ] as const) {
+    await page.getByRole("tab", { name: "Assistant" }).click();
+    await askTyped(page, request);
+    await expect(lastTurn(page).locator(".agent-prose")).toContainText(/^I can't /);
+    for (const tool of await lastTurn(page).locator("[data-tool]").evaluateAll((els) => els.map((e) => e.getAttribute("data-tool")))) expect(readOnly).toContain(tool);
+    // The one action points: AI Pilot opens with the control outlined, named in a note
+    // that takes focus; the control itself is neither pressed nor focused.
+    await expect(lastTurn(page).locator('[data-view="action"]')).toHaveAttribute("data-action", "reveal");
+    await expect(lastTurn(page).locator('[data-view="action"]')).toContainText("Pointed to in AI Pilot (yours to press):");
+    await expect(pointed).toHaveAttribute("data-pilot-control", control);
+    await expect(pointed).not.toBeFocused();
+    await expect(pilotConsole(page).locator(`[data-pointer="${control}"]`)).toBeFocused();
+    await expect(consoleState(page)).toHaveText("Paused");
+    await expect(consoleBand(page).locator("[data-elapsed]")).toHaveText(elapsed);
+  }
+  // Nothing to point to: said, and nothing opens.
+  await page.getByRole("tab", { name: "Assistant" }).click();
+  await askTyped(page, "apply PIL-0001-9");
+  await expect(lastTurn(page).locator(".agent-prose")).toHaveText("I can't apply pilot proposals; only the operator can, in AI Pilot. PIL-0001-9 has no proposal waiting for a decision.");
+  await expect(lastTurn(page).locator('[data-view="action"]')).toHaveCount(0);
+  await askTyped(page, "Pause the simulation");
+  await expect(lastTurn(page).locator(".agent-prose")).toHaveText("I can't pause RUN-0001, and it is paused, so that control is not offered now. Only you operate it, in AI Pilot.");
+  await expect(lastTurn(page).locator('[data-view="action"]')).toHaveCount(0);
+  await askTyped(page, "turn off chiller 1");
+  await expect(lastTurn(page).locator(".agent-prose")).toContainText("I can't operate equipment, and nothing in this dashboard can");
+  await expect(lastTurn(page).locator("[data-tool]")).toHaveCount(0);
+
+  await openConsole(page);
+  await expect(consoleState(page)).toHaveText("Paused");
+  await expect(consoleBand(page).locator("[data-elapsed]")).toHaveText(elapsed);
+  await expect(pilotStatus(page)).toHaveText("Waiting"); // still monitoring
+  await pilotConsole(page).getByRole("tab", { name: "Corrections" }).click();
+  await expect(pilotConsole(page).getByText("No corrections yet.")).toBeVisible();
+  // Pointing moved nothing in the main display either: it is still the Overview.
+  await expect(page).toHaveURL(/\/\?simSpeed=fast&agentSpeed=fast$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Overview");
+});
+
+test("questions whose answer is a view open it; follow-ups read the conversation; a value stays in the conversation", async ({ page }) => {
+  await openMonitoring(page);
+  // Nothing earlier to refer to: the assistant asks rather than guesses.
+  await askTyped(page, "Show me its history");
+  await expect(lastTurn(page).locator(".agent-prose")).toContainText(/^I can't tell what “its” refers to here/);
+  await expect(lastTurn(page).locator('[data-view="action"]')).toHaveCount(0);
+  expect(new URL(page.url()).pathname).toBe("/");
+
+  await askTyped(page, "How has COP been today?");
+  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop$/);
+  await expect(page.getByRole("img", { name: "System COP today" })).toBeVisible();
+  // The indicator carries over; the period changes.
+  await askTyped(page, "What about the last 6 hours?");
+  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop&hours=6$/);
+  await expect(lastTurn(page).locator('[data-view="action"]')).toHaveText(/Opened in the workspace: System COP, the last 6 hours/);
+  // Outside the one demo day: said plainly, and the display stays.
+  await askTyped(page, "How about yesterday?");
+  await expect(lastTurn(page).locator(".agent-prose")).toContainText("The demo data holds one synthetic day, so there is nothing for yesterday");
+  await expect(lastTurn(page).locator('[data-view="action"]')).toHaveCount(0);
+  await expect(page).toHaveURL(/hours=6$/);
+
+  // Equipment opens its record; "its history" is that equipment's.
+  await askTyped(page, "What is happening with Chiller 2?");
+  await expect(page).toHaveURL(/\/equipment\/chiller_plant_2/);
+  await askTyped(page, "Show me its history");
+  await expect(lastTurn(page).locator(".agent-prose")).toContainText(/^Chiller 2 today:/);
+  await expect(page).toHaveURL(/\/equipment\/chiller_plant_2/);
+
+  // A value now is answered in the conversation; the display stays, the trend a press away.
+  await askTyped(page, "What's the COP now?");
+  await expect(lastTurn(page).locator(".agent-prose")).toContainText(/^System COP is [\d.]+ at /);
+  await expect(lastTurn(page).locator('[data-view="action"]')).toHaveCount(0);
+  await expect(page).toHaveURL(/\/equipment\/chiller_plant_2/);
+  await lastTurn(page).getByRole("button", { name: "System COP today" }).click();
+  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop$/);
+});
+
+test("F10: the assistant's tools only read; simulation and pilot tools are named read only", async ({ page }) => {
+  await page.goto("/agent?agentSpeed=fast");
+  const tools = page.locator("[data-tool-name]");
+  await expect(tools).toHaveCount(10);
+  const names = await tools.evaluateAll((els) => els.map((e) => e.getAttribute("data-tool-name") ?? ""));
+  expect(names.filter((n) => /correct|override|setpoint|release|start|stop|pause|resume|step|apply|monitor|create|command|submit/i.test(n))).toEqual([]);
+  for (const name of ["list_simulation_runs", "get_simulation_run", "get_run_summary", "get_pilot_findings"]) {
+    await expect(page.locator(`[data-tool-name="${name}"]`)).toContainText("Read only.");
+  }
+});
+
+test("Stop before the action: a stopped answer opens nothing", async ({ page }) => {
+  await page.goto("/?scenario=normal"); // the full demonstration pace
+  await expect(drawer(page).getByRole("heading", { name: "Suggested questions" })).toBeVisible();
+  const box = drawer(page).getByLabel("Question for the assistant");
+  await box.fill("Show me COP today");
+  await box.press("Enter");
+  await expect(lastTurn(page).locator("[data-tool]").first()).toBeVisible({ timeout: 15_000 });
+  await box.press("Escape");
+  await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "cancelled");
+  await page.waitForTimeout(1500); // past where the action would have come
+  expect(new URL(page.url()).pathname).toBe("/");
+  await expect(lastTurn(page).locator('[data-view="action"]')).toHaveCount(0);
+});
+
+test("from the full assistant page, an opened view takes the display and the conversation moves to the workspace", async ({ page }) => {
+  await page.goto("/agent?agentSpeed=fast");
+  await askTyped(page, "Show me COP today", page.getByRole("region", { name: "AI assistant" }));
+  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop/);
+  await expect(drawer(page)).toBeVisible();
+  await expect(drawer(page).locator('[data-view="action"]')).toHaveText(/Opened in the workspace: System COP today/);
+});
+
+test("on a phone the opened view waits behind the conversation; Open again shows it", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/?agentSpeed=fast");
+  await page.getByRole("button", { name: "Assistant", exact: true }).click();
+  await askTyped(page, "Show me COP today");
+  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop/);
+  await lastTurn(page).getByRole("button", { name: "Open again: System COP today" }).click();
+  await expect(drawer(page)).toHaveCount(0);
+  await expect(page.getByRole("img", { name: "System COP today" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
+});
+
+/* Attachments: read in this browser; their content reaches the assistant ----------------- */
+
+/** Node's Buffer, which file payloads take, reached through globalThis (no Node typings here). */
+const bytes = (data: string | number[]) => (globalThis as unknown as { Buffer: { from(d: string | number[]): Uint8Array } }).Buffer.from(data);
+
+test("attached text files are read, named in the question and described from their content; other files are refused with a reason", async ({ page }) => {
+  await openMonitoring(page);
+  const input = drawer(page).locator("[data-attach-input]");
+  await expect(input).toHaveAttribute("accept", ".txt,.md,.csv,.tsv,.json,.log");
+  await expect(drawer(page).getByRole("button", { name: "Attach text files" })).toHaveAccessibleDescription(/Text files only/);
+  await input.setInputFiles([
+    { name: "shift.csv", mimeType: "text/csv", buffer: bytes("time,cop,power_kw\n10:00,4.4,300\n10:15,4.6,310\n") },
+    { name: "photo.png", mimeType: "image/png", buffer: bytes([137, 80, 78, 71, 13, 10, 26, 10]) },
+  ]);
+  const chips = drawer(page).getByRole("list", { name: "Attached files" });
+  await expect(chips.getByRole("listitem")).toHaveText([/shift\.csv/]);
+  await expect(drawer(page).getByRole("alert")).toHaveText("photo.png was not attached: only text files (.txt, .md, .csv, .tsv, .json, .log) can be read.");
+
+  // A file can be removed, and chosen again.
+  await chips.getByRole("button", { name: "Remove shift.csv" }).click();
+  await expect(chips).toHaveCount(0);
+  await expect(drawer(page).getByLabel("Question for the assistant")).toBeFocused();
+  await input.setInputFiles([{ name: "shift.csv", mimeType: "text/csv", buffer: bytes("time,cop,power_kw\n10:00,4.4,300\n10:15,4.6,310\n") }]);
+  await askTyped(page, "summarize this file");
+  const turn = lastTurn(page);
+  await expect(turn.locator(".agent-turn__prompt .agent-file")).toContainText("shift.csv");
+  await expect(turn.locator(".agent-prose")).toContainText("It is a table of 2 rows and 3 columns: time, cop and power_kw.");
+  await expect(turn.locator(".agent-prose")).toContainText("cop from 4.40 to 4.60 (mean 4.50)");
+  await expect(drawer(page).getByRole("list", { name: "Attached files" })).toHaveCount(1); // only the sent turn's
+});
+
+/* Voice: behind the speech-to-text boundary -------------------------------------------- */
+
+const countMicrophone = () => {
+  const w = window as unknown as { micRequests: number };
+  w.micRequests = 0;
+  navigator.mediaDevices.getUserMedia = async () => {
+    w.micRequests++;
+    throw new DOMException("not expected", "NotAllowedError");
+  };
+};
+
+test("voice without a speech-to-text service says so and never opens the microphone", async ({ page }) => {
+  const stt: string[] = [];
+  page.on("request", (r) => r.url().includes("/api/stt") && stt.push(r.url()));
+  await page.addInitScript(countMicrophone);
+  await openMonitoring(page);
+  const mic = drawer(page).getByRole("button", { name: "Voice input: speech-to-text not connected" });
+  await expect(mic).toHaveAttribute("aria-disabled", "true");
+  // aria-disabled, not disabled: it stays reachable and a press explains.
+  await mic.focus();
+  await page.keyboard.press("Enter");
+  await expect(drawer(page).getByRole("status").filter({ hasText: "Voice input needs a speech-to-text service. No speech-to-text service is connected in this build. The microphone is not used." })).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { micRequests: number }).micRequests)).toBe(0);
+  expect(stt).toEqual([]); // nothing probed or sent: no service is configured
+  await expect(page.locator(".agent-turn")).toHaveCount(0);
+});
+
+test.describe("with a speech-to-text service", () => {
+  /** A synthetic microphone: a tone, so MediaRecorder has real audio to encode. */
+  const fakeMicrophone = () => {
+    const w = window as unknown as { micRequests: number };
+    w.micRequests = 0;
+    navigator.mediaDevices.getUserMedia = async () => {
+      w.micRequests++;
+      const ctx = new AudioContext();
+      const tone = ctx.createOscillator();
+      const out = ctx.createMediaStreamDestination();
+      tone.connect(out);
+      tone.start();
+      return out.stream;
+    };
+  };
+
+  async function withService(page: Page, transcript = "show me COP today") {
+    const posted: { type: string; bytes: number }[] = [];
+    await page.route("**/api/stt/v1/models", (r) => r.fulfill({ json: { data: [{ id: "whisper-test" }] } }));
+    await page.route("**/api/stt/v1/audio/transcriptions", async (r) => {
+      posted.push({ type: r.request().headers()["content-type"] ?? "", bytes: r.request().postDataBuffer()?.length ?? 0 });
+      await r.fulfill({ json: { text: transcript } });
+    });
+    return posted;
+  }
+
+  test("a recording is transcribed into the draft and sent like typed text", async ({ page }) => {
+    const posted = await withService(page);
+    await page.addInitScript(fakeMicrophone);
+    await openMonitoring(page, "&stt=local");
+    const mic = drawer(page).getByRole("button", { name: "Start voice input" });
+    await mic.click();
+    await expect(drawer(page).locator('[data-voice="recording"]')).toContainText("Recording");
+    await expect(drawer(page).getByRole("button", { name: "Stop and transcribe" }).first()).toBeVisible();
+    await page.waitForTimeout(600);
+    await drawer(page).locator(".agent-voice").getByRole("button", { name: "Stop and transcribe" }).click();
+    const box = drawer(page).getByLabel("Question for the assistant");
+    await expect(box).toHaveValue("show me COP today");
+    await expect(box).toBeFocused();
+    expect(posted).toHaveLength(1);
+    expect(posted[0].type).toMatch(/^multipart\/form-data/);
+    expect(posted[0].bytes).toBeGreaterThan(200);
+    // The words are the operator's to send: the same path as typing.
+    await expect(page.locator(".agent-turn")).toHaveCount(0);
+    await box.press("Enter");
+    await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "complete", { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop/);
+  });
+
+  test("a discarded recording sends nothing; a refused microphone is explained", async ({ page }) => {
+    const posted = await withService(page);
+    await page.addInitScript(fakeMicrophone);
+    await openMonitoring(page, "&stt=local");
+    await drawer(page).getByRole("button", { name: "Start voice input" }).click();
+    await drawer(page).getByRole("button", { name: "Discard recording" }).click();
+    await expect(drawer(page).locator(".agent-voice")).toHaveCount(0);
+    await page.waitForTimeout(300);
+    expect(posted).toHaveLength(0);
+    await expect(drawer(page).getByLabel("Question for the assistant")).toHaveValue("");
+
+    await page.evaluate(() => {
+      navigator.mediaDevices.getUserMedia = async () => {
+        throw new DOMException("denied", "NotAllowedError");
+      };
+    });
+    await drawer(page).getByRole("button", { name: "Start voice input" }).click();
+    await expect(drawer(page).getByRole("alert")).toHaveText(/Microphone access was refused/);
+  });
 });

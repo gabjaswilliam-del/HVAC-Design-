@@ -41,6 +41,13 @@ This sequence describes requirements, not commands that exist today. The install
 must report progress and actionable failures, and clearly distinguish an incomplete
 setup from an operational installation.
 
+The operator-facing commissioning flow is specified in
+[the installation UI brief](../../apps/dashboard/src/features/installation/README.md),
+with ongoing health/maintenance in [the system UI brief](../../apps/dashboard/src/features/system/README.md).
+Those screens consume durable local job/readiness state; a browser visit does not
+run installation or prove that a step completed. No installer is implemented by
+these UI handoffs.
+
 ## Product lifecycle and release acceptance
 
 Provide managed startup/shutdown and restart after reboot, local health reporting,

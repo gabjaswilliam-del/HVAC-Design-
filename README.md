@@ -17,6 +17,31 @@ Product scope: [PRODUCT.md](PRODUCT.md) · [中文版](PRODUCT-zh.md).
 Module boundaries: [docs/architecture.md](docs/architecture.md).
 Reference-project lessons and plan: [docs/reference-review.md](docs/reference-review.md).
 Project context for coding agents: [AGENTS.md](AGENTS.md).
+Portable LLM context prompt and current project/PR snapshot:
+[PROJECT_CONTEXT.md](PROJECT_CONTEXT.md). Copy the entire file to brief another LLM;
+its maintenance protocol keeps implementation status and remaining work current.
+
+## Junior-engineer implementation handoffs
+
+Start with [apps/dashboard/README.md](apps/dashboard/README.md). It maps every
+planned screen/shared UI area to its implementation folder and README, including
+layout, interactions, data dependencies, edge states and acceptance criteria.
+
+The cooling-load prediction assignment is split across:
+
+- [Backend prediction](src/hvac_agent/prediction/README.md): data preparation,
+  local inference, site adaptation and evaluation.
+- [Prediction API routes](apps/api/routes/prediction/README.md): proposed transport
+  and job contracts connecting the backend to the dashboard.
+- [Prediction UI](apps/dashboard/src/features/prediction/README.md): full forecast
+  page and the shared summary panel on the main monitoring screen.
+- [Shared contract brief](docs/ui-data-contracts.md): target meaning, units, timing,
+  uncertainty, provenance, failure states and end-to-end acceptance.
+
+These are implementation briefs, not existing features or endpoints. UI fixture
+work and real backend integration must be reported separately. No frontend/model
+framework is chosen by these instructions. Update the relevant README and project
+context as implementation progresses.
 
 ## Layout
 

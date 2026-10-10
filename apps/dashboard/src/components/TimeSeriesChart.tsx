@@ -185,7 +185,7 @@ export function TimeSeriesChart({ title, series, band, unit, decimals, timeZone,
             width={width}
             height={height}
             role="img"
-            aria-label={`${title} (${unit})`}
+            aria-label={unit ? `${title} (${unit})` : title}
             onPointerMove={onMove}
             onPointerLeave={() => setHoverT(null)}
           >
@@ -296,7 +296,8 @@ export function TimeSeriesChart({ title, series, band, unit, decimals, timeZone,
                 <th scope="col">{s.chart.time}</th>
                 {series.map((x0) => (
                   <th key={x0.id} scope="col">
-                    {x0.label} ({unit})
+                    {x0.label}
+                    {unit && ` (${unit})`}
                   </th>
                 ))}
                 {band && (

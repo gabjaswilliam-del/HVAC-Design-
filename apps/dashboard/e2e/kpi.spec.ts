@@ -158,10 +158,10 @@ test("demand and delivered panels identify a shortfall, and replay keeps card an
   await expect(panel(page).getByRole("heading", { name: "Demand against delivered cooling" })).toBeVisible();
 });
 
-test("the panel follows scenario changes", async ({ page }) => {
+test("the panel reads the demo scenario the address names", async ({ page }) => {
   await open(page, "/?scenario=tower-fault&kpi=issues");
   await expect(panel(page).locator("[data-issue]")).toHaveCount(2);
-  await page.getByLabel("Demo scenario").selectOption("normal");
+  await open(page, "/?scenario=normal&kpi=issues");
   await expect(panel(page).getByText(/No open issues/)).toBeVisible();
   await expect(viewport(page).locator(".eq-node--highlighted")).toHaveCount(0);
 });

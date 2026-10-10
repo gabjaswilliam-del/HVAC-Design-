@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
-import { useResource } from "../../lib/api/useResource";
+import { useResource, type Resource } from "../../lib/api/useResource";
+import type { AgentCapabilities } from "../../lib/contracts/agent";
 import { useAgentClient } from "../../app/dataClient";
 import { operating, useOperating } from "../../app/operatingContext";
 import { useIssues, useSite } from "../../app/site";
@@ -25,6 +26,22 @@ export function useSuggestions() {
   return { caps, suggestions: target ? [`Investigate ${target.label}`, ...general] : general };
 }
 
+/**
+ * What answers: a local model, offline rules with no language model connected, or no
+ * assistant at all. Said in words, never implied by the absence of a badge.
+ */
+export function EngineBadge({ caps }: { caps: Resource<AgentCapabilities> }) {
+  const a = useStrings().agent;
+  const c = caps.data;
+  if (!c) return caps.error ? <span className="agent-badge agent-badge--off">{a.engine.unavailable}</span> : null;
+  const label = c.connection.state === "connected" ? a.engine.connected(c.model?.id ?? "") : c.connection.state === "offline" ? a.engine.offline : a.engine.unavailable;
+  return (
+    <span className={`agent-badge${c.connection.state === "unavailable" ? " agent-badge--off" : ""}`} title={c.connection.detail} data-engine={c.connection.state}>
+      {label}
+    </span>
+  );
+}
+
 /** The assistant in the workspace, beside every screen. Hidden, not unmounted, while
  *  the Pilot tab is shown. */
 export function AssistantPanel({ hidden = false }: { hidden?: boolean }) {
@@ -32,13 +49,13 @@ export function AssistantPanel({ hidden = false }: { hidden?: boolean }) {
   const a = s.agent;
   const site = useSite();
   const { conversationId, request } = useOperating((x) => x.assistant);
-  const { suggestions } = useSuggestions();
+  const { caps, suggestions } = useSuggestions();
   const version = useSession().version;
 
   return (
     <aside id="assistant-panel" className="assistant-panel" aria-label={a.drawerLabel} data-escape-ignore hidden={hidden}>
       <div className="assistant-panel__bar">
-        <span className="agent-badge">{a.scripted}</span>
+        <EngineBadge caps={caps} />
         <button
           type="button"
           className="button button--small button--quiet assistant-panel__new"

@@ -11,3 +11,8 @@ retrieval in `knowledge/`. Report unavailable tools, missing data, and uncertain
 Simulation actions and physical equipment control are distinct scopes.
 
 Placeholder only; no harness, tools, provider, or memory store is implemented.
+
+UI assignment: [conversation and contextual assistant](../../../apps/dashboard/src/features/agent/README.md).
+Expose tool/answer progress, typed data presentations, citations and cancellation
+through the local API. The browser renders these; model execution and conversation
+memory stay here or behind adapters. Reuse prediction/simulation public interfaces.

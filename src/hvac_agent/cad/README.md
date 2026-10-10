@@ -1,5 +1,11 @@
 # CAD Studio
 
+UI implementation belongs in
+[apps/dashboard/src/features/cad-studio/](../../../apps/dashboard/src/features/cad-studio/README.md),
+with commissioning composition in the installation feature. That brief specifies
+upload, evidence review, topology edits, scene editing, generation and revision
+activation. This backend module owns analysis/generation; it does not host UI code.
+
 Installation-time CAD analysis and scene generation. Turn a customer drawing into
 a 2D design scene and machine-readable equipment topology, with shared equipment
 identifiers. Coordinate image-model adapters to generate sprites and animation

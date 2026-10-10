@@ -4,10 +4,10 @@ import { Bot, Maximize2, MessageSquareText, PanelRight, PanelRightClose, type Lu
 import { useStrings } from "../../lib/i18n";
 import { useRestoreFocus } from "../../components/useRestoreFocus";
 import { AssistantPanel } from "../../features/agent";
+import { PilotConsole } from "../../features/pilot";
 import { clampWidth, getOperating, operating, useOperating, WORKSPACE_DEFAULT, WORKSPACE_MAX, WORKSPACE_MIN, type WorkspaceTab } from "../operatingContext";
 import type { WorkspaceLayout } from "../useWorkspaceLayout";
 import { DetailsPane, DetailsStrip } from "./DetailsPane";
-import { PilotPanel } from "./PilotPanel";
 import "./workspace.css";
 
 
@@ -113,21 +113,24 @@ export function Workspace({ layout }: { layout: WorkspaceLayout }) {
               ))}
             </div>
             <div className="workspace__actions">
-              <Link
-                className="icon-button"
-                to={tab === "pilot" ? "/pilot" : conversationId ? `/agent?conversation=${encodeURIComponent(conversationId)}` : "/agent"}
-                aria-label={s.agent.openPage}
-                title={s.agent.openPage}
-              >
-                <Maximize2 size={15} aria-hidden="true" />
-              </Link>
+              {/* The assistant expands to its full page; AI Pilot lives here only. */}
+              {tab === "assistant" && (
+                <Link
+                  className="icon-button"
+                  to={conversationId ? `/agent?conversation=${encodeURIComponent(conversationId)}` : "/agent"}
+                  aria-label={s.agent.openPage}
+                  title={s.agent.openPage}
+                >
+                  <Maximize2 size={15} aria-hidden="true" />
+                </Link>
+              )}
               <button type="button" className="icon-button" aria-label={w.collapse} title={w.collapse} onClick={() => operating.closeWorkspace()}>
                 <PanelRightClose size={17} aria-hidden="true" />
               </button>
             </div>
           </div>
           <AssistantPanel hidden={tab !== "assistant"} />
-          <PilotPanel hidden={tab !== "pilot"} />
+          <PilotConsole hidden={tab !== "pilot"} />
         </div>
       </aside>
     </>

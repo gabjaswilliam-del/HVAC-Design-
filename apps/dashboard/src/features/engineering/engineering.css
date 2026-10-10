@@ -53,6 +53,11 @@
 .hub__needs {
   color: var(--text-3) !important;
 }
+.hub__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
 .hub__search {
   max-width: 360px;
 }
