@@ -1,8 +1,9 @@
 /**
- * The document library: what the service can do (formats, limits, extraction, vectors,
- * answers), the documents with their ingestion status, and adding a document. Adding is
- * a job: a document is queued, processed in stages and indexed; import is not indexing,
- * so the status says which it is. In the demo the library is fixed and says so.
+ * The document library, beside the graph: what the service can do (formats, limits,
+ * extraction, vectors, answers), the documents with their ingestion status, and adding a
+ * document. Choosing a document opens it and focuses its group in the graph. Adding is a
+ * job: a document is queued, processed in stages and indexed; import is not indexing, so
+ * the status says which it is. In the demo the library is fixed and says so.
  */
 import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { CircleCheck, Clock, FilePlus2, Hourglass, TriangleAlert } from "lucide-react";
@@ -13,7 +14,7 @@ import { ApiError } from "../../../lib/api/client";
 import type { Resource } from "../../../lib/api/useResource";
 import type { KnowledgeClient } from "../../../lib/api/knowledge";
 import { DOCUMENT_KINDS, type DocumentList, type DocumentStatus, type DocumentSummary, type KnowledgeStatus } from "../../../lib/contracts/knowledge";
-import { formatUtc } from "../shared";
+import { SidePanel, formatUtc } from "../shared";
 import type { RagNav } from "./RagWorkspace";
 
 const ICONS = { queued: Clock, processing: Hourglass, ready: CircleCheck, partial: TriangleAlert, failed: TriangleAlert };
@@ -36,14 +37,14 @@ export function Library({
   status,
   nav,
   refresh,
-  selected,
+  onClose,
 }: {
   client: KnowledgeClient;
   docs: Resource<DocumentList>;
   status: Resource<KnowledgeStatus>;
   nav: RagNav;
   refresh: () => void;
-  selected: string | null;
+  onClose: () => void;
 }) {
   const s = useKnowledgeStrings().rag;
   const [adding, setAdding] = useState(false);
@@ -63,13 +64,13 @@ export function Library({
   }, [list]);
 
   return (
-    <section className="kn-section" aria-labelledby="kn-library-title">
-      <div className="kn-section__head">
-        <h2 id="kn-library-title">{s.library.title}</h2>
-        {list && <span className="kn-count">{s.library.count(list.length, totals.chunks ?? 0, totals.relations ?? 0)}</span>}
+    // With a document being added, Escape and close put the form away first.
+    <SidePanel variant="drawer" title={s.library.title} subject="library" onClose={adding ? () => setAdding(false) : onClose} labelledBy="kn-library-title">
+      <div className="kn-panel__row">
+        {list && <span className="kn-meta">{s.library.count(list.length, totals.chunks ?? 0, totals.relations ?? 0)}</span>}
         {local && !adding && (
-          <button type="button" className="button button--primary kn-section__action" onClick={() => setAdding(true)}>
-            <FilePlus2 size={16} aria-hidden="true" />
+          <button type="button" className="button button--primary button--small kn-section__action" onClick={() => setAdding(true)}>
+            <FilePlus2 size={15} aria-hidden="true" />
             {s.library.add}
           </button>
         )}
@@ -115,7 +116,7 @@ export function Library({
           </thead>
           <tbody>
             {list.map((d) => (
-              <tr key={d.id} data-doc={d.id} aria-current={selected === d.id || undefined}>
+              <tr key={d.id} data-doc={d.id}>
                 <th scope="row">
                   <button type="button" className="kn-rowlink" onClick={() => nav.inspect({ kind: "doc", id: d.id })}>
                     {d.title}
@@ -135,7 +136,7 @@ export function Library({
           </tbody>
         </table>
       )}
-    </section>
+    </SidePanel>
   );
 }
 

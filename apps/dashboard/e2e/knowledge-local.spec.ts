@@ -110,8 +110,12 @@ async function open(page: Page, query = "") {
   await connect(page);
   await page.goto(`/knowledge?knowledge=local${query}`);
   await expect(page.getByRole("heading", { level: 1, name: "Knowledge" })).toBeVisible();
+  // The heading is the app's, there before the workspace has loaded: wait for the workspace.
+  await expect(page.getByRole("tablist", { name: "Knowledge systems" })).toBeVisible();
 }
 const panel = (page: Page) => page.locator(".kn-panel");
+/** The graph's one search box: a node by name, or the passages for the words typed. */
+const searchBox = (page: Page) => page.getByRole("combobox", { name: "Search nodes and passages" });
 // Form and action errors (the app keeps its own hidden live region as well).
 const md = (text: string) => Buffer.from(text, "utf-8");
 declare const Buffer: { from(text: string, encoding: string): Uint8Array };
@@ -137,6 +141,9 @@ async function upload(page: Page, name: string, text: string, opts: { title?: st
 
 test("real mode shows the local service: empty, persistent, and plain about what it cannot do", async ({ page }) => {
   await open(page);
+  // The graph says it is empty; the library, opened beside it, says why.
+  await expect(page.getByText("The graph is empty: no document has been indexed yet.")).toBeVisible();
+  await page.getByRole("button", { name: "Library" }).click();
   await expect(page.getByText("Local knowledge service", { exact: true })).toBeVisible();
   await expect(page.getByText("The library is empty. Add a manual, procedure or reference to index it.")).toBeVisible();
   const caps = page.locator(".kn-caps");
@@ -147,17 +154,23 @@ test("real mode shows the local service: empty, persistent, and plain about what
 });
 
 test("uploads are checked before they are sent", async ({ page }) => {
-  await open(page);
+  await open(page, "&kv=library");
   await upload(page, "tool.exe", "MZ");
   await expect(page.locator(".kn-error")).toContainText(".exe files are not supported here");
   await page.locator(".kn-form").locator('input[type="file"]').setInputFiles({ name: "empty.md", mimeType: "text/markdown", buffer: md("") as never });
   await page.getByRole("button", { name: "Add to library" }).click();
   await expect(page.locator(".kn-error")).toContainText("The file is empty.");
   await page.getByRole("button", { name: "Cancel" }).click();
+  // Escape puts the form away, not the library.
+  await page.getByRole("button", { name: "Add document" }).click();
+  await expect(page.locator(".kn-form")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".kn-form")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Document library" })).toBeVisible();
 });
 
 test("a document is queued, processed in stages and indexed, then found by search with its graph path", async ({ page }) => {
-  await open(page);
+  await open(page, "&kv=library");
   await upload(page, "chiller-2-notes.md", NOTES, { equipment: "chiller_plant_2" });
   await expect(panel(page).getByRole("heading", { name: "Chiller 2 field notes" })).toBeVisible();
   await expect(panel(page).locator(".kn-status")).toHaveText(/Queued|Processing|Indexed/);
@@ -167,10 +180,14 @@ test("a document is queued, processed in stages and indexed, then found by searc
   await expect(stages.filter({ hasText: "Failed" })).toHaveCount(0);
   await expect(panel(page)).toContainText("Chiller 2");
   await expect(page.locator(".kn-docs tbody tr")).toHaveCount(1);
+  // The new document is its own group in the graph, focused beside it.
+  const id = /doc=(doc_\w+)/.exec(page.url())![1];
+  await expect(page.locator(`.kn-3d__label[data-node-id="${id}"]`)).toBeAttached();
+  await expect(page.getByRole("application", { name: /Knowledge graph/ })).toHaveAttribute("data-group", id);
 
-  await page.getByRole("radio", { name: "Search" }).click();
-  await page.getByRole("searchbox", { name: "Question or keywords" }).fill("What causes low COP on Chiller 2?");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  // The search box: a question names no node, so its one choice is the passages.
+  await searchBox(page).fill("What causes low COP on Chiller 2?");
+  await searchBox(page).press("Enter");
   const top = page.locator(".kn-hit").first();
   await expect(top).toContainText("Chiller 2 field notes");
   await expect(top.locator(".kn-method")).toContainText(["Keyword #", "Graph #"]);
@@ -179,7 +196,7 @@ test("a document is queued, processed in stages and indexed, then found by searc
 });
 
 test("a duplicate is refused, with the way to the document already there", async ({ page }) => {
-  await open(page);
+  await open(page, "&kv=library");
   await upload(page, "copy-of-notes.md", NOTES);
   await expect(page.locator(".kn-error")).toContainText("already in the library");
   await page.getByRole("button", { name: "Open the document" }).click();
@@ -187,7 +204,7 @@ test("a duplicate is refused, with the way to the document already there", async
 });
 
 test("a document with no text fails at extraction, visibly", async ({ page }) => {
-  await open(page);
+  await open(page, "&kv=library");
   await upload(page, "drawings.md", "<div><img src='sheet-1.png'></div>", { title: "Drawing register" });
   await expect(panel(page).locator(".kn-status")).toHaveText("Failed", { timeout: 15_000 });
   await expect(panel(page).locator(".kn-stage", { hasText: "Text extraction" })).toContainText("Failed");
@@ -196,10 +213,10 @@ test("a document with no text fails at extraction, visibly", async ({ page }) =>
 });
 
 test("the graph's relationships show the uploaded text that supports them", async ({ page }) => {
-  await open(page, "&kv=graph");
+  await open(page);
   await expect(page.getByRole("application", { name: /Knowledge graph, \d+ nodes/ })).toBeVisible();
-  await page.getByRole("searchbox", { name: "Find a node" }).fill("Condenser tube fou");
-  await page.locator(".kn-find__list").getByRole("button", { name: /Condenser tube fouling/ }).click();
+  await searchBox(page).fill("Condenser tube fou");
+  await page.getByRole("listbox", { name: "Matches" }).getByRole("option").filter({ hasText: "Condenser tube fouling" }).click();
   await panel(page).getByRole("button", { name: /is associated with/ }).first().click();
   await expect(panel(page).locator(".kn-snippet").first()).toContainText("Condenser tube fouling raises the condenser approach and causes low COP on Chiller 2.");
   await expect(panel(page)).toContainText("Chiller 2 field notes");
@@ -264,7 +281,7 @@ test("memory: what may be stored, recording, linking, correcting with history, a
 });
 
 test("a removed document takes its passages, keyword entries and relationships with it", async ({ page }) => {
-  await open(page);
+  await open(page, "&kv=library");
   await page.locator(".kn-docs").getByRole("button", { name: "Chiller 2 field notes" }).click();
   await panel(page).getByRole("button", { name: "Remove…" }).click();
   await expect(page.getByRole("alertdialog")).toContainText("Remove “Chiller 2 field notes”?");
@@ -276,7 +293,7 @@ test("a removed document takes its passages, keyword entries and relationships w
 });
 
 test("documents and memory survive a reload and a restart of the service", async ({ page }) => {
-  await open(page);
+  await open(page, "&kv=library");
   await upload(page, "chiller-2-notes.md", NOTES);
   await expect(panel(page).locator(".kn-status")).toHaveText("Indexed", { timeout: 15_000 });
   await page.reload();
@@ -292,8 +309,9 @@ test("documents and memory survive a reload and a restart of the service", async
 
 test("with the service stopped, real mode says so and never shows demo data", async ({ page }) => {
   await stopService();
-  await open(page);
+  await open(page, "&kv=library");
   await expect(page.getByRole("alert").filter({ hasText: "The library could not be loaded." })).toContainText("could not be reached");
+  await expect(page.getByRole("alert").filter({ hasText: "The knowledge graph could not be loaded." })).toBeVisible();
   await expect(page.getByText("Demo chiller maintenance guide")).toHaveCount(0);
   await page.goto("/knowledge?knowledge=local&kn=memory");
   await expect(page.getByRole("alert").filter({ hasText: "Memory could not be loaded." })).toBeVisible();

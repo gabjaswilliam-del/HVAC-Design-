@@ -7,6 +7,7 @@ import base64
 import importlib.util
 import io
 import json
+import socket
 import sys
 import tempfile
 import threading
@@ -158,6 +159,32 @@ class RealServer(unittest.TestCase):
             self.assertEqual(self.request(port, "POST", "/api/knowledge/v1/search", {"query": "fouling"})[1]["results"][0]["documentId"], doc["id"])
             self.assertEqual(self.request(port, "GET", f"/api/memory/v1/memories/{mem['memory']['id']}")[1]["memory"]["title"], "Fouling on Chiller 2")
             self.stop(*running)
+
+    def test_connections_made_all_at_once_wait_their_turn(self):
+        # A page asks for several things at once (the RAG Graph: the graph, a node's
+        # neighbours, a document, the library, the status), and a proxy forwards them at
+        # once. They must wait for the server, not be refused, which Windows does past the
+        # listen queue. All of them connect here before the server takes any.
+        with tempfile.TemporaryDirectory() as tmp:
+            knowledge, memory = local_server.build(Path(tmp))
+            app = local_server.create_app(knowledge, memory)
+            server = local_server.make_server("127.0.0.1", 0, app, server_class=local_server._Server, handler_class=local_server._Quiet)
+            serving = None
+            try:
+                socks = [socket.create_connection(("127.0.0.1", server.server_port), timeout=5) for _ in range(24)]
+                serving = threading.Thread(target=server.serve_forever, daemon=True)
+                serving.start()
+                for s in socks:
+                    s.sendall(f"GET /api/knowledge/v1/status HTTP/1.0\r\nHost: 127.0.0.1:{server.server_port}\r\n\r\n".encode())
+                for s in socks:
+                    with s:
+                        self.assertTrue(s.recv(64).startswith(b"HTTP/1.0 200 "))
+            finally:
+                if serving:
+                    server.shutdown()
+                server.server_close()
+                knowledge.store.close()
+                memory.store.close()
 
 
 if __name__ == "__main__":

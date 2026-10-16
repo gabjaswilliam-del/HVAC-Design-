@@ -17,6 +17,7 @@ const EASE_IO = "power2.inOut"; // --ease-io, cubic-bezier(.65, 0, .35, 1)
 const BASE = 0.22; // --motion-base
 const PANEL = 0.32; // --motion-panel
 const TRAVEL = 0.5; // a camera crossing a 3D view: long enough to keep one's bearings
+const TRAVEL_FAR = 0.65; // the same, to or from a whole group or the overview (a bigger change of scale)
 const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 let moving = 0;
@@ -77,15 +78,27 @@ export const motion = {
     return () => tween.kill();
   },
   /** A camera travelling through a 3D view to what was chosen (it turns and closes in at
-   *  once, so it eases in and out rather than arriving at speed). With reduced motion it is
-   *  there at once. Returns a stop function. */
-  travel<T extends Record<string, number>>(from: T, to: T, update: (v: T) => void): () => void {
+   *  once, so it eases in and out rather than arriving at speed); `far` for a whole group or
+   *  the overview. With reduced motion it is there at once. Returns a stop function. */
+  travel<T extends Record<string, number>>(from: T, to: T, update: (v: T) => void, far = false): () => void {
     if (reduced()) {
       update(to);
       return () => {};
     }
     const v = { ...from };
-    const tween = gsap.to(v, tracked({ ...to, duration: TRAVEL, ease: EASE_IO, onUpdate: () => update(v) }));
+    const tween = gsap.to(v, tracked({ ...to, duration: far ? TRAVEL_FAR : TRAVEL, ease: EASE_IO, onUpdate: () => update(v) }));
+    return () => tween.kill();
+  },
+  /** Many marks changing emphasis in place at once (the 3D graph fading what a choice does
+   *  not concern): `update` gets the progress from 0 to 1. With reduced motion it is 1 at
+   *  once. Returns a stop function. */
+  blend(update: (t: number) => void): () => void {
+    if (reduced()) {
+      update(1);
+      return () => {};
+    }
+    const v = { t: 0 };
+    const tween = gsap.to(v, tracked({ t: 1, duration: PANEL, ease: EASE, onUpdate: () => update(v.t) }));
     return () => tween.kill();
   },
   /** A control someone was pointed to: it swells twice inside its ring, then rests. The

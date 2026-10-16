@@ -177,6 +177,9 @@ def build(data_dir: Path) -> tuple[KnowledgeService, MemoryService]:
 
 class _Server(ThreadingMixIn, WSGIServer):
     daemon_threads = True
+    # A page's requests arrive at once (through the dev proxy too); past socketserver's
+    # default queue of 5, Windows refuses connections instead of letting them wait.
+    request_queue_size = 64
 
 
 class _Quiet(WSGIRequestHandler):

@@ -41,6 +41,10 @@ colors:
   graph-plant: "#20aa8b"
   graph-problems: "#9f8418"
   graph-guidance: "#5e56de"
+  graph-space-top: "#181b21"
+  graph-space-deep: "#0b0d10"
+  graph-star: "#d6e0ef"
+  graph-star-warm: "#f2e6d4"
 typography:
   page:
     fontFamily: "Barlow Semi Condensed, system-ui, Segoe UI, sans-serif"
@@ -205,6 +209,18 @@ memorable thing is the bezel and its laminate tags; the rest stays quiet.
   types cannot each keep a colour that stays distinct that way, so colour names the family
   and the shape glyph and the name tell its types apart. They are data categories, like
   chart series, and appear only in the knowledge graph, its legend and its type glyphs.
+- **Knowledge graph space** (M7.2): the 3D viewport is a quiet deep space, lit from above
+  (`#181B21` falling to `#0B0D10` at the edges) with a faint cool depth (`rgb(70 96 126 /
+  .07)`) where the systems float, and the faintest violet and teal hazes (5% and 4.5%) in
+  two far corners. Its lightest point (measured `#191E24`, the same with or without the
+  hazes) keeps every family colour at 3:1 or more (violet, the closest, at 3.08).
+  - **Stars**, still and faint: cool white (`#D6E0EF`, a few warm `#F2E6D4`), radius 0.5 to
+    1.35 px against 4 px or more for any node, 20% to 75% opaque, the brightest with a soft
+    halo. About 100 in a desktop view, 35 on a phone. Two tiles of different sizes, so the
+    pattern never visibly repeats, and the same sky on every visit (a seeded generator).
+  - Nothing moves or twinkles. The stars take no events, stay put when the graph is
+    dragged (a backdrop, not data) and are left out in forced-colours and more-contrast
+    modes.
 
 ## Typography
 
@@ -241,6 +257,15 @@ letting names collide or truncate. Sentence case everywhere; no all-caps labels.
   the drawing controls (bottom right, moved left of a floating panel) and the disclosure
   (bottom left). Measured fits: 99.6% at 1920x1080, 69.0% at 1440x900 docked, 80.8%
   collapsed, 67.1% at 1366x768, 70.4% at 1280x800, 61.1% at 1024x768.
+- **RAG Graph display** (M7.3): the Knowledge page's RAG Graph fills the display like the
+  plant: one slim header row, then the graph to the display's edges (padding 12 px 16 px
+  16 px; 8 px 12 px 12 px on a phone) with no page scroll (it scrolls only on a display
+  under 440 px tall). Measured: the graph takes 87% of the display at 1440x900 docked
+  (before M7.3, 56% was in view and the rest below the fold), 85% at 1024x768 and 75% on a
+  390 px phone, where it fills the display between the top bar and the deck. What is
+  browsed or inspected opens in one column beside it (32% of the display, 300 to 400 px),
+  or under it (at most 55% of the height) when the display is under 720 px wide; the
+  graph resizes into the room left.
 - **Pages** pad 22 px 26 px and scroll inside the display, and open at their top; the
   Engineering hub is one column of flat sections separated by hairlines (max 980 px),
   records a two-column grid of cells (one column at 1180 px and below). Simulation history
@@ -441,22 +466,58 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   COP": its figures (now, average, range, change since midnight), a chart with a "Now"
   rule, Indicator details, and the other indicators as links. Labelled Demo data and
   "Telemetry, scenario"; never a simulation.
-- **Knowledge** (`/knowledge`, the h1 is Knowledge): two systems on one page, **Graph RAG |
+- **Knowledge** (`/knowledge`, the h1 is Knowledge): two systems on one page, **RAG Graph |
   Graph Memory**, as raised-and-outlined tabs (arrow keys, Home, End; the address keeps the
   tab), with the store's provenance tag at the right: Demo library or Demo records, read
-  only, or Local knowledge or memory service. Graph Memory has no dock entry of its own.
-- **Graph RAG**: Library, Search and Graph (a segmented radio group) beside one inspection
-  panel (a document, a passage, a node or a relationship). All of it is in the address, so
-  a citation opens the exact passage. The Library states the service's capabilities as facts
-  (storage, formats and limit, extraction, vector search, answers) and lists documents with
-  their status as an icon and a word: Indexed in ok; Partly indexed and Failed in caution
-  with the reason, never the alarm red. A document's panel lists its eight ingestion stages
-  (the indexing diagnostics) and its outline, whose sections open in the source reader.
-  Add document, Reindex and Remove… (whose confirmation says what goes with it) exist only
-  with the local service; the demo says why it has none. Search shows stored passages only:
-  source, section and page, the question's words marked, how each was found (Keyword #n,
-  Graph #n with its path in words, Vector #n when configured) and "No answer is written: no
-  language model is configured". Ranks and the fusion score are not probabilities.
+  only, or Local knowledge or memory service. The RAG Graph is the default and its header
+  adds the count ("128 nodes, 252 relationships", a polite status); Graph Memory keeps its
+  one-line lead. Graph Memory has no dock entry of its own.
+- **RAG Graph** (M7.3): the knowledge graph fills the page; there are no Library, Search
+  and Graph views to choose between. Over the graph, raised like the canvas's tools:
+  - **Top left:** one search box, then **Library** and **Filters**, and **Clear
+    expansions** once a node has been expanded. The search box is an ARIA combobox: as one
+    types it lists the nodes in view whose names match (glyph, name, type; up to six), then,
+    set apart, "Search passages for '…'" (the indexed text). Arrows move, Enter takes the
+    highlighted choice (the first by default), Escape closes the list. A node flies the
+    camera to it and opens it; when no node matches the list says so and offers only the
+    passages. Empty, the box offers the three example questions, none taken until the
+    arrows reach one. Filters opens the type filters by family (the legend), the colour sentence and
+    the relationship filters; a dot on the button, and its name ("Filters (3 hidden)"), say
+    when some are hidden.
+  - **Top right:** the canvas's tools: **3D | 2D**, zoom in and out, Fit, Reset view (3D)
+    and **Help**, which holds how to move round the graph, its keys, the search and the
+    library. The same text is the canvas's accessible description; nothing is printed
+    under the graph.
+  - **Bottom left** (3D): the trail.
+  - Popovers (the filters, help, the search's choices) close with Escape, a press elsewhere
+    or focus moving on. The camera frames what is shown between the controls along the top
+    and bottom, keyboard focus is brought out from under them, and names avoid the controls
+    and open popovers. In forced colours the controls keep an edge and their pressed, open
+    and highlighted states an outline.
+  - On a narrower graph (800 px and below) the buttons keep only their icons, with their
+    names for assistive technology and as tooltips, and the search box takes the room left;
+    on a phone-sized graph (560 px and below) the canvas's tools move to the bottom, with the
+    trail above them.
+- **The RAG Graph's column**: one column beside the graph holds what is browsed or
+  inspected: the document library (`?kv=library`), or the passages a search found
+  (`?kv=search&q=…`), and over either the inspection of what was chosen (a document, a
+  passage, a node or a relationship), with "‹ Back to the library" or "‹ Back to the
+  results" above it; going back (or Escape) returns focus to what opened the inspection,
+  and the list keeps its place. Everything is in the address, so a citation opens the exact
+  passage.
+  The library states the service's capabilities as facts (storage, formats and limit,
+  extraction, vector search, answers) and lists documents with their status as an icon and a
+  word: Indexed in ok; Partly indexed and Failed in caution with the reason, never the alarm
+  red. Choosing a document focuses its group in the graph. A document's panel lists its
+  eight ingestion stages (the indexing diagnostics) and its outline, whose sections open in
+  the source reader. Add document, Reindex and Remove… (whose confirmation says what goes
+  with it) exist only with the local service; the demo says why it has none. The passages
+  are stored passages only: source, section and page, the question's words marked, how each
+  was found (Keyword #n, Graph #n with its path in words, Vector #n when configured) and "No
+  answer is written: no language model is configured"; each has **Show in graph** (its
+  section), and says so when its section is not in the graph view. Ranks and the fusion
+  score are not probabilities. With no question yet, the column explains the search and
+  offers three example questions.
 - **Graph explorers** (2D): SVG on a recessed sheet, shapes per type (graphite in the
   memory graph, the family colours in the knowledge graph), laminate for the chosen node or
   relationship, and what it does not relate to dimmed. Names and shapes keep their screen
@@ -467,26 +528,62 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   records carry a notice eyelet; names show for the anchors, the chosen record, and
   everything when zoomed in.
 - **Knowledge graph** (M7.1): 3D by default, with **3D | 2D** (a segmented radio group in
-  the address, `gv`) beside the count. The type filters are grouped by family and are the
-  legend: each type's glyph in its family colour, with "Colour shows the family; the shape
-  and the name tell the types apart" under the canvas. It shows the 150 best-connected
-  nodes at most and grows by expanding a node (300 at most) without moving what is on
-  screen.
-  - **3D** (react-force-graph-3d, a lazy chunk): spheres sized by connections (documents
-    largest) on a recessed display lit from above. Positions are fixed and deterministic,
-    clustered by document: the documents sit on a wide ring facing the camera, their
-    sections and the entities they describe gather round them, and an entity several
-    documents describe sits between them. The chosen node turns laminate, its relationships
-    light up in laminate with arrows for direction, what it relates to keeps its colour and
-    the rest fades. Names are HTML labels in the micro size on a dark tag (laminate for the
-    chosen node), never printed over each other: the chosen node and what it relates to
-    first, then documents and the best-connected nodes, then whatever the camera is close
-    enough to read. Drag orbits; right-drag, Shift-drag or two fingers pan; the wheel or a
-    pinch zooms; a click on a node or its name flies there; a click on empty space clears.
-    +, −, Fit and Reset view sit in the corner. One tab stop: arrow keys move to the
-    nearest node on screen (a laminate ring, announced politely), Enter inspects, Shift
-    with an arrow turns the view, + and − zoom, 0 fits, R resets, Escape clears. It draws
-    only while someone looks round and pauses 1.5 s after.
+  the address, `gv`) among the canvas's tools (M7.3). The type filters are grouped by
+  family and are the legend: each type's glyph in its family colour, with "Colour shows the
+  family; the shape and the name tell the types apart" under them, in Filters (M7.3). It
+  shows the 150 best-connected
+  nodes at most, with the documents those leave out added (each is the centre of its group
+  in 3D), and grows by expanding a node (300 at most) without moving what is on screen.
+  - **3D** (react-force-graph-3d, a lazy chunk), as planetary systems (M7.2):
+    - **Structure.** Each document is a planet, the largest sphere (radius 30). What it
+      describes circles it on three orbits: its sections closest, evenly spaced in outline
+      order; important entities (four or more connections, or described in other documents
+      too) next; supporting entities outside. Orbits are tilted differently, so a system
+      keeps its shape when the view turns, and are spaced so no two spheres touch.
+    - **Placement.** Systems sit in rows (three across, two on a phone) with 130 units
+      between outer orbits. Positions are fixed and deterministic; nothing is simulated.
+    - **Growing.** Expanding a node moves nothing already shown. New nodes take free places
+      on their system's orbits; then a new outer orbit, all round where the neighbouring
+      systems leave room and only on the open side where they do not (half the gap to
+      every other system stays empty); only then a ring in front of or behind the system.
+      A place a node leaves is used again.
+    - **Shared knowledge.** Each node is drawn once, in the system of the document that
+      describes it most. One described elsewhere too leans towards those documents'
+      systems and carries a muted "+n" by its name; its links to them arc through the
+      space between systems.
+    - **Sizes.** Planets 30; entities 8 to 14 with their connections; sections 6 to 8. A
+      34° lens keeps planets round at the edges of a wide view.
+    - **Four ways of looking.** Overview: links within a system faint, between systems
+      fainter. A group (a document chosen, by its sphere or its name): the camera frames
+      the system, its members and links clear, what they link to elsewhere half-shown, the
+      other systems faded. A node: the camera comes to it and what it relates to (its own
+      system's neighbourhood when far neighbours would push it too far back; their names
+      then wait at the edge), relationships lit with arrows, its own system half-shown.
+      A relationship: both ends framed and named, the link lit.
+    - **The trail.** At the lower left, **Overview › group › node** says where one is
+      and leads back; Overview also resets the camera.
+    - **Names.** HTML labels on a dark tag: documents the largest (body size, always
+      shown), important entities in the caption size, the rest smaller. Each tries below,
+      above, right and left of its node and never prints over another name, a planet, the
+      chosen node or the controls. They come in as the camera closes in; names fade in and
+      out.
+    - **Controls, like a map.**
+      - Dragging moves the graph, and the point under the cursor stays under it. This
+        works from a name too.
+      - Right-drag or Shift-drag turns the view; the wheel zooms towards the pointer.
+      - On touch, one finger moves the graph and two turn and pinch it.
+      - A click on a node or its name chooses it, and a click on empty space clears. A
+        drag never chooses.
+      - An open hand over empty space (closed while dragging); a pointer over a node or a
+        visible link.
+      - Once the reader moves the view, it stays where they put it: neighbours of a choice
+        arriving later do not take the camera back.
+      - +, −, Fit and Reset view sit at the top right with 3D | 2D and Help (along the
+        bottom on a phone-sized graph).
+      - One tab stop: arrow keys move to the nearest node on screen (a laminate ring,
+        announced politely), Enter inspects, Shift with an arrow turns the view, + and −
+        zoom, 0 fits, R resets, Escape clears.
+    - It draws only while someone looks round and pauses 1.5 s after.
   - **2D** is the explorer above, and is where the graph opens in high-contrast mode
     (it follows the system colours), without WebGL, or after a lost graphics context, each
     with a sentence saying why.
@@ -503,10 +600,11 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   panel's heading is there at once and takes focus when the panel was opened from the
   page, and focus goes back to what opened it when it closes); the 2D camera glides to a
   chosen node; the 3D camera travels to it (500 ms, easing in and out, because it turns and
-  closes in at once) and a drag ends in a short glide; a document whose status changed
-  draws the eye once; the timeline's entries rise in. With reduced motion none of it moves:
-  the 3D camera jumps and a drag stops where it is released. Keys never animate the
-  camera.
+  closes in at once; 650 ms to a whole group or the overview, a bigger change of scale)
+  while the emphasis cross-fades in 320 ms, and a drag ends in a short glide; a document
+  whose status changed draws the eye once; the timeline's entries rise in. With reduced
+  motion none of it moves: the 3D camera jumps, emphasis changes at once and a drag stops
+  where it is released. Keys never animate the camera.
 - **Loading**: a skeleton is a polite status that says what is loading.
 
 ## Do's and Don'ts
@@ -521,11 +619,16 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   Planned. Don't fake an upload, a transcription, a result or a service.
 - Do keep the corners of the plant empty except for the three controls. Don't add
   floating cards over the drawing.
+- Do keep the RAG Graph's controls along its top and bottom edges and its secondary
+  content (filters, the legend, help) in popovers that close. Don't print instructions or
+  repeat its name over or under the graph; the canvas's description and Help carry them.
 - Do animate transform and opacity only, with `cubic-bezier(.16,1,.3,1)` at 140, 220 or
   320 ms, and honour reduced motion (positions jump, states remain). CSS does hover, focus
   and press; GSAP (`src/lib/motion.ts`) only choreographs meaning: a state arriving
   (parts settle in turn), new items, a state that changed in place, a pointed control.
-  The one exception is the 3D graph's camera (WebGL, not CSS): 500 ms, easing in and out.
+  The one exception is the 3D graph (WebGL, not CSS): its camera takes 500 ms to a node and
+  650 ms to a group or the overview, easing in and out, and its emphasis cross-fades in
+  320 ms.
   Don't animate for decoration or in loops.
 - Do keep focus visible: a 2 px laminate ring, drawn in ink inside laminate tags.
 - Don't restyle the equipment artwork or the pipe-media colours; they are approved scene

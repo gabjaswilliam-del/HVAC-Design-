@@ -1,5 +1,5 @@
 /**
- * The graph explorer's canvas, shared by Graph RAG (its 2D view) and Graph Memory: placed
+ * The graph explorer's canvas, shared by the RAG Graph (its 2D view) and Graph Memory: placed
  * nodes and edges in SVG, drawn in graphite (the knowledge graph's in its families'
  * colours) with laminate only for the selection. Nothing moves on its own: positions come
  * from the layout, and the only motion is the camera gliding to a chosen node.
@@ -66,6 +66,32 @@ export function ShapeGlyph({ shape, size = 12, color }: { shape: Shape; size?: n
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const shorten = (s: string, n = 30) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
+/** Controls the graph's canvas carries beside its own (zoom, fit): the view and help. */
+export interface ExtraTools {
+  before?: ReactNode;
+  after?: ReactNode;
+}
+
+/**
+ * How far the controls floating over a graph reach into it from its top and bottom edges
+ * (those marked `data-band` inside its `data-hud` box), so that fitting the view keeps the
+ * graph clear of them. Zero where nothing floats over it.
+ */
+export function hudBands(el: Element | null) {
+  const root = el?.closest("[data-hud]");
+  const box = el?.getBoundingClientRect();
+  let top = 0;
+  let bottom = 0;
+  if (!root || !box?.height) return { top, bottom };
+  for (const band of root.querySelectorAll("[data-band]")) {
+    const r = band.getBoundingClientRect();
+    if (!r.width || !r.height) continue;
+    if (r.top - box.top < box.height * 0.4) top = Math.max(top, r.bottom - box.top);
+    else if (box.bottom - r.bottom < box.height * 0.4) bottom = Math.max(bottom, box.bottom - r.top);
+  }
+  return { top: Math.min(top, box.height * 0.4), bottom: Math.min(bottom, box.height * 0.4) };
+}
+
 export function GraphCanvas({
   nodes,
   edges,
@@ -80,6 +106,7 @@ export function GraphCanvas({
   underlay,
   labelAll,
   colors,
+  tools,
 }: {
   nodes: PlacedNode[];
   edges: PlacedEdge[];
@@ -100,6 +127,7 @@ export function GraphCanvas({
   /** Name every node at any zoom (default: when there are few). Otherwise names show for
    *  important nodes, the chosen one and its neighbours, and everything once zoomed in. */
   labelAll?: boolean;
+  tools?: ExtraTools;
 }) {
   const g = useKnowledgeStrings().graph;
   const hintId = useId();
@@ -145,8 +173,11 @@ export function GraphCanvas({
     const xs = nodes.map((n) => n.x);
     const ys = nodes.map((n) => n.y);
     const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-    const k = clamp(Math.min((size.w - 80) / Math.max(x1 - x0, 1), (size.h - 80) / Math.max(y1 - y0, 1)), 0.2, 1.6);
-    moveTo({ k, x: size.w / 2 - ((x0 + x1) / 2) * k, y: size.h / 2 - ((y0 + y1) / 2) * k }, animate);
+    // Between the controls floating along the top and bottom, if any.
+    const band = hudBands(svg.current);
+    const room = size.h - band.top - band.bottom;
+    const k = clamp(Math.min((size.w - 80) / Math.max(x1 - x0, 1), (room - 80) / Math.max(y1 - y0, 1)), 0.2, 1.6);
+    moveTo({ k, x: size.w / 2 - ((x0 + x1) / 2) * k, y: band.top + room / 2 - ((y0 + y1) / 2) * k }, animate);
   };
   const zoomBy = (factor: number, px = size.w / 2, py = size.h / 2) => {
     const { x, y, k } = cam.current;
@@ -171,12 +202,24 @@ export function GraphCanvas({
     fitView(!first);
   }, [layoutKey, size.w, size.h]);
 
+  // The canvas resized (a side panel opened or closed): what was in the middle stays there.
+  const lastSize = useRef(size);
+  useEffect(() => {
+    const before = lastSize.current;
+    lastSize.current = size;
+    if (!before.w || !size.w) return;
+    const { x, y, k } = cam.current;
+    cam.current = { x: x + (size.w - before.w) / 2, y: y + (size.h - before.h) / 2, k };
+    apply();
+  }, [size.w, size.h]);
+
   // Bring a requested node into view: centred, at a readable zoom.
   useEffect(() => {
     const n = focus ? byId.get(focus.id) : undefined;
     if (!n || !size.w) return;
     const k = Math.max(cam.current.k, 1.1);
-    moveTo({ k, x: size.w / 2 - n.x * k, y: size.h / 2 - n.y * k }, true);
+    const band = hudBands(svg.current);
+    moveTo({ k, x: size.w / 2 - n.x * k, y: (band.top + size.h - band.bottom) / 2 - n.y * k }, true);
     setFocusId(n.id);
   }, [focus?.id, focus?.n, size.w]);
 
@@ -227,7 +270,9 @@ export function GraphCanvas({
     const { x, y, k } = cam.current;
     const sx = n.x * k + x;
     const sy = n.y * k + y;
-    if (sx < 30 || sy < 30 || sx > size.w - 30 || sy > size.h - 30) moveTo({ k, x: size.w / 2 - n.x * k, y: size.h / 2 - n.y * k }, true);
+    // Out of sight, or under the controls along the top or bottom: into the middle between them.
+    const band = hudBands(svg.current);
+    if (sx < 30 || sy < band.top + 30 || sx > size.w - 30 || sy > size.h - band.bottom - 30) moveTo({ k, x: size.w / 2 - n.x * k, y: (band.top + size.h - band.bottom) / 2 - n.y * k }, true);
     requestAnimationFrame(() => nodeEls.current.get(id)?.focus({ preventScroll: true }));
   };
   const onKeyDown = (e: KeyboardEvent) => {
@@ -364,7 +409,8 @@ export function GraphCanvas({
           })}
         </g>
       </svg>
-      <div className="kn-canvas__tools">
+      <div className="kn-canvas__tools" data-band>
+        {tools?.before}
         <button type="button" className="icon-button" aria-label={g.zoomIn} title={g.zoomIn} onClick={() => zoomBy(1.25)}>
           <Plus size={15} aria-hidden="true" />
         </button>
@@ -374,6 +420,7 @@ export function GraphCanvas({
         <button type="button" className="button button--small button--quiet" onClick={() => fitView(true)}>
           {g.fit}
         </button>
+        {tools?.after}
       </div>
       <p id={hintId} className="kn-canvas__hint">
         {hint}

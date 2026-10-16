@@ -14,14 +14,20 @@ owner's review. Each surface now has one job:
 The Assistant reads all of this through a typed, offline (no language model) pipeline. It
 opens the views its answers are, follows up from the conversation, and points to operator
 controls it cannot press.
-**M6 is uncommitted and awaits the owner's visual and product review.** Section 9a
-records what is built.
+**The owner committed M6, M7 and M7.1 as `cd94b78`** ("Complete HVAC Agent development M1
+through M7.1", 2026-10-10), with the other engineer's work, `CLAUDE.md` and
+`PROJECT_CONTEXT.md`. Section 9a records M6.
 
-**M7, the Knowledge workspace (Graph RAG and Graph Memory), was built on 2026-10-08/09
-at the owner's request and is uncommitted too.** It adds a real local service (Python
-standard library, SQLite) and keeps a read-only demo. **M7.1 (2026-10-09) draws the
-knowledge graph in 3D**, with react-force-graph-3d (installed by the owner), keeping the 2D
-view. Section 9b records both. Nothing is staged, committed or pushed.
+**M7 is the Knowledge workspace (Graph RAG and Graph Memory, 2026-10-08/09).** It adds a
+real local service (Python standard library, SQLite) and keeps a read-only demo. **M7.1
+(2026-10-09) draws the knowledge graph in 3D**, with react-force-graph-3d (installed by the
+owner), keeping the 2D view.
+
+**M7.2 (2026-10-16), uncommitted, redraws the 3D graph as planetary systems**, one per
+document, with group focus. **M7.3 (2026-10-16/17), uncommitted, makes the RAG Graph (the
+renamed Graph RAG) a full-page workspace**: Knowledge opens on the graph, with the search
+and the library inside it. Section 9b records M7 to M7.3. Nothing of M7.2 or M7.3 is staged,
+committed or pushed.
 
 This is a current-state handoff, not a history. Git and the current files are
 authoritative: verify every statement here against them before relying on it, and say
@@ -29,14 +35,14 @@ so when they disagree.
 
 ## 1. Repository and safety state
 
-| Item | State on 2026-10-07 |
+| Item | State on 2026-10-17 |
 |---|---|
-| Repository | `C:\Users\Crusher1\Documents\HVAC\hvac-agent` (origin `github.com/yxiao986/hvac-agent`) |
-| Branch | `feat/dashboard-version-a`, local only, no upstream configured (never pushed, no PR) |
-| HEAD | The local checkpoint commit after `709e642`: feat(dashboard): Treatment A (Graphite) redesign and Assistant refinement, 2026-10-06 |
-| Commits on the branch | `origin/main` `85093f8` plus six local commits: `4376230` M0–M1, `b7c525f` M2–M3, `90abc0a` M3.1, `bb234a4` M4, `709e642` M5, then the Treatment A and Assistant checkpoint |
+| Repository | `C:\Users\Crusher1\Documents\HVAC\hvac-agent`. Remotes: `origin` `github.com/yxiao986/hvac-agent`, and `personal` `github.com/gabjaswilliam-del/HVAC-Design-` (the owner's) |
+| Branch | `feat/dashboard-version-a`, tracking `personal/main` |
+| HEAD | `cd94b78` "Complete HVAC Agent development M1 through M7.1" (the owner, 2026-10-10), the same as `personal/main` at the last fetch |
+| Commits on the branch | `origin/main` `85093f8`, then `4376230` M0–M1, `b7c525f` M2–M3, `90abc0a` M3.1, `bb234a4` M4, `709e642` M5, `3088be6` Treatment A and the Assistant, and `cd94b78` (M6, M7, M7.1 and everything then in the checkout) |
 | Staged | Nothing |
-| Uncommitted | The M6 work (section 9a) and, outside it: `CLAUDE.md` (kept local), tooling artifacts and the other engineer's work |
+| Uncommitted | M7.2 and M7.3 (section 9b) |
 
 **The checkpoint commit** (2026-10-06, local, not pushed) holds the work after M5:
 
@@ -53,8 +59,8 @@ so when they disagree.
 
 Stage, commit or push only on the owner's explicit request.
 
-**Another engineer's uncommitted work shares this checkout. Never edit, stage, revert or
-clean it:**
+**Another engineer's work is in this checkout, committed in `cd94b78` since 2026-10-10.
+It is still theirs: never edit or revert it.** As listed before that commit:
 
 - modified root and module docs: `AGENTS.md`, `PRODUCT.md`, `PRODUCT-zh.md`,
   `README.md`, `apps/api/README.md`, `deployment/dgx-spark/README.md`,
@@ -68,13 +74,12 @@ clean it:**
 
 **Tooling artifacts:**
 
-- `.claude/settings.json` (untracked, created 2026-10-05) registers Graphify
-  `hook-guard` PreToolUse hooks. This conflicts with the rule that Graphify has no hooks
-  or integration here; the owner has not confirmed whether it is intended.
-- `.claude/skills/ui-ux-pro-max/` is an untracked project skill.
-- `.playwright-mcp/` holds console logs, page snapshots and `m6-*.png` screenshots from
-  Claude's browser checks (two logs predate M6). It is safe to delete with the owner's
-  agreement.
+- `.claude/settings.json` (committed in `cd94b78`) registers Graphify `hook-guard`
+  PreToolUse hooks. This conflicts with the rule that Graphify has no hooks or
+  integration here; the owner has not confirmed whether it is intended.
+- `.claude/skills/ui-ux-pro-max/` is a project skill, also committed.
+- `.playwright-mcp/` (now git-ignored) holds console logs, page snapshots and screenshots
+  from Claude's browser checks.
 - `apps/dashboard/dist/` and `test-results/` are git-ignored.
 
 **Standing rules:**
@@ -92,7 +97,7 @@ clean it:**
 | Source | Purpose | Status |
 |---|---|---|
 | `CLAUDE.md` (root, untracked) | Durable instructions for Claude Code: where to start, safety rules, Graphify rules | Current. Created by Claude at the owner's request; the start-here section was added 2026-10-06 |
-| `apps/dashboard/M6_HANDOFF.md` | This file: current state, requirements and next steps | Current as of 2026-10-09 (M7 and M7.1 added) |
+| `apps/dashboard/M6_HANDOFF.md` | This file: current state, requirements and next steps | Current as of 2026-10-17 (M7 to M7.3) |
 | `apps/dashboard/DESIGN.md` | The approved Treatment A design system (visual language, layout, components) | Current; matches the code |
 | `apps/dashboard/VERSION_A.md` | Milestone log, owner decisions (F10), acceptance evidence | Current. Chronological: later sections supersede earlier ones (M5's "drawer" became the Treatment A workspace; the M6 consolidated revision supersedes the first M6 section's screens and Assistant) |
 | `apps/dashboard/PRODUCT.md` | Users, tone and design principles for UI work | Current (2026-10-04) |
@@ -390,7 +395,7 @@ switch to real equipment.
 - Any Assistant control or action involving simulation needs a separate confirmation
   design and the owner's explicit approval.
 
-## 9a. M6 as built (uncommitted, 2026-10-07)
+## 9a. M6 as built (2026-10-07; committed in `cd94b78`)
 
 Full record in `VERSION_A.md` (the M6 section and the consolidated revision after it).
 
@@ -454,10 +459,11 @@ Pilot page replacing an addressed run with the previous one; unannounced loading
 placeholders; an unannounced failed run; the summary taking over from Findings; focus
 leaving the conversation; checkbox-like state icons; misaligned history headers.
 
-## 9b. M7 as built (uncommitted, 2026-10-08/09)
+## 9b. M7 as built (2026-10-08/09; committed in `cd94b78`)
 
-**What exists.** `/knowledge` has two tabs, **Graph RAG | Graph Memory**. Graph Memory has
-no destination of its own, and AI Pilot does not touch either system.
+**What exists.** `/knowledge` has two tabs, **RAG Graph | Graph Memory** (named Graph RAG
+until M7.3). Graph Memory has no destination of its own, and AI Pilot does not touch either
+system.
 
 **Backend.** Python 3.11+, standard library only; there are no new dependencies anywhere.
 
@@ -519,12 +525,12 @@ The assistant's `search_knowledge` tool is deliberately still unavailable. A `kn
 NavTarget (`passage`, `node`, `mem`) would map onto the addresses that exist already.
 Retrieved text and memory are untrusted data: never instructions, never control (F10).
 
-**M7.1, the knowledge graph in 3D (uncommitted, 2026-10-09).**
+**M7.1, the knowledge graph in 3D (2026-10-09; committed in `cd94b78`).**
 
 | Path | Role |
 |---|---|
 | `src/features/knowledge/graph/GraphCanvas3D.tsx` | The 3D view, a lazy chunk: fixed positions, highlight and fade, HTML names with decluttering, the camera, keyboard, drawing on demand, the WebGL fallback signal |
-| `src/features/knowledge/graph/layout.ts` | Adds `documentWeights`, `clusterLayout3d`, `declutter` and `nearestInDirection` (tested in `layout.test.ts`) |
+| `src/features/knowledge/graph/layout.ts` | Adds `documentWeights`, `clusterLayout3d` (replaced in M7.2), `declutter` and `nearestInDirection` (tested in `layout.test.ts`) |
 | `src/features/knowledge/graph/noWebgpu.ts` | The stand-in for `three/webgpu` (aliased in `vite.config.ts`, excluded from pre-bundling) |
 | `src/features/knowledge/rag/KnowledgeGraphView.tsx` | Families and colours, the grouped legend, **3D \| 2D** in the address (`gv`), WebGL and high-contrast detection, the error boundary |
 | `src/features/knowledge/shared.tsx` | `SidePanel` returns focus to what opened it |
@@ -539,6 +545,76 @@ Retrieved text and memory are untrusted data: never instructions, never control 
   - the WebGL canvas is not readable by screen readers: the announcements, the panels and
     the 2D view carry its content;
   - only SwiftShader has drawn it (no hardware GPU or the DGX Spark yet).
+
+**M7.2, the 3D graph as planetary systems (uncommitted, 2026-10-16).** `VERSION_A.md`
+records the causes, the measurements and the results.
+
+| Path | Role |
+|---|---|
+| `src/features/knowledge/graph/layout.ts` | `planetaryLayout` (replaces `clusterLayout3d`): one system per document; orbits that record the node at each place; shared nodes leaning towards their other documents; systems in rows; growth into free places, then outer orbits where the neighbours leave room, then rings in depth. Also `nodeRadius`, `PLANET` and `SYSTEM_GAP`; `declutter` now tries alternative places and avoids obstacles |
+| `src/features/knowledge/graph/layout.test.ts` | The planetary layout on the demo, and on synthetic libraries: growth to the 300-node cap, nodes coming and going, a boxed-in system |
+| `src/features/knowledge/graph/GraphCanvas3D.tsx` | Four ways of looking (overview, group, node, relationship) with graded fades that cross-fade; group framing; the trail; names in three sizes that avoid planets and the controls; arcs between systems; a 34° lens; re-framing when the side panel resizes the canvas; map-like camera controls (left-drag pans, also from a name; right-drag turns; the wheel zooms towards the pointer; touch); no snap-back once the reader moves the view; the still star sky |
+| `src/features/knowledge/rag/KnowledgeGraphView.tsx` | Calls `planetaryLayout`: two systems to a row on a phone (`NARROW`), three otherwise. Adds the documents a cut-short overview leaves out (`withDocuments`) |
+| `src/features/knowledge/rag/KnowledgeGraphView.test.ts` | New: `withDocuments` against the demo client |
+| `src/features/knowledge/knowledge.css` | The viewport's gradient and hazes, the sky layer, name sizes and fades, the "+n" mark, the trail |
+| `src/lib/motion.ts` | `travel(…, far)`: 650 ms to a group or the overview; `blend`: the 320 ms cross-fade |
+| `src/lib/i18n/knowledge.ts` | The trail's strings, the "+n" mark's description, the new hint, the cut-short note's documents |
+| `e2e/knowledge.spec.ts` | The journey by the trail, a document's sphere, group spacing; the map-like controls; a moved view staying put as a choice's neighbours arrive; `open()` waits for the workspace; the software WebGL renderer starts once per worker |
+| `e2e/knowledge-local.spec.ts` | `open()` waits for the workspace |
+
+- Limits:
+  - the 3D chunk is 807 kB (214 kB gzip);
+  - the stars are a fixed backdrop: they do not move with the camera;
+  - touch was checked with synthetic touches only, not on a real device;
+  - systems are laid out in rows, so a very large library makes a wide picture;
+  - a node in several documents is drawn once, in one system (its other documents
+    are shown by "+n", its panel and the links that arc to them);
+  - a system boxed in by its neighbours that grows very large stacks rings in depth,
+    which can partly cover each other from the front;
+  - choosing between 3D and 2D creates a WebGL context as the graph first renders;
+    without GPU acceleration the first one takes about 2 s;
+  - frames during a change of emphasis are smooth on software WebGL except at the
+    moment the side panel opens;
+  - the full end-to-end suite has an unexplained intermittent Escape failure under load
+    (`VERSION_A.md`, M7.2).
+
+**M7.3, the RAG Graph as a full-page workspace (uncommitted, 2026-10-16/17).**
+`VERSION_A.md` records the measurements, the review and the results. Knowledge opens on the
+graph. The Library, Search and Graph views are gone, and their content lives in the graph's
+workspace.
+
+| Path | Role |
+|---|---|
+| `src/features/knowledge/KnowledgePage.tsx` | The tabs **RAG Graph \| Graph Memory**. The RAG Graph's header holds the count; Graph Memory keeps its lead |
+| `src/features/knowledge/rag/RagWorkspace.tsx` | The graph, plus one column holding the library (`kv=library`) or the passages (`kv=search&q=`), with an inspection over either and the way back. `RagNav` is `inspect`, `search`, `library`, `expand`. The graph is re-read when indexing ends or a document goes; the list keeps its place |
+| `src/features/knowledge/rag/KnowledgeGraphView.tsx` | The controls over the graph: the search combobox (`GraphSearch`: node names, then passages, or the example questions when empty), Library, Filters with the legend, Clear expansions and the notes. 3D \| 2D (`ViewSwitch`) and Help sit beside the canvas's tools. Layouts are keyed by the filters; the count and the nodes in view are passed up |
+| `src/features/knowledge/rag/SearchView.tsx` | `SearchResults`: the passages in the column, with Show in graph and a note when a result's section is not in view |
+| `src/features/knowledge/rag/Library.tsx` | The library as a drawer in the column. Escape puts an open upload form away first |
+| `src/features/knowledge/rag/DocumentPanel.tsx`, `PassagePanel.tsx`, `GraphPanels.tsx` | `nav.inspect` without a view |
+| `src/features/knowledge/shared.tsx` | `SidePanel` also serves as a `drawer`. A closed inspection returns focus to the inspection that replaced it, else to what opened it, else to the list |
+| `src/features/knowledge/graph/GraphCanvas.tsx` | `hudBands` (the controls along the top and bottom, for framing and keyboard focus), the `tools` slot, and the 2D view keeping its middle when resized |
+| `src/features/knowledge/graph/GraphCanvas3D.tsx` | Frames, and brings keyboard focus, between the bands. Names avoid the controls and open popovers. The `tools` slot |
+| `src/features/knowledge/knowledge.css` | The full-display page, the column, the floating controls and popovers, container queries on the graph's own width (800 and 560 px), and forced colours for the controls |
+| `src/lib/i18n/knowledge.ts` | RAG Graph; the strings for search, filters, help and back |
+| `apps/api/local_server.py` | The listen queue raised from 5 to 64. Windows refused a page's simultaneous requests past 5 |
+| `tests/test_local_api.py` | New: connections made all at once wait their turn |
+| `e2e/knowledge.spec.ts`, `e2e/knowledge-local.spec.ts` | The new interface, with no assertion dropped. New tests: the graph filling the display at 1440 and 390 px; the library beside the graph; the search box; Help; the phone; keyboard 3D \| 2D; Back and the list's place; examples; Escape on the upload form |
+| `e2e/shell.spec.ts` | The accessibility checks wait for motion to end before reading contrast |
+
+- Limits:
+  - On a phone with the column open, the graph keeps 200 px, and its controls take about
+    130 of those.
+  - During a group focus that opens the panel, frames on software WebGL reach a 95th
+    percentile of 83 to 100 ms (M7.2: 67), as the larger canvas is reallocated.
+  - The width reserved for the canvas's tools is a CSS constant (290 px in 3D, 216 in 2D),
+    sized for the English strings.
+  - The search box lists nodes in view, as the old find box did. Others are reached through
+    a passage's Show in graph or by expanding a node.
+  - The 3D | 2D choice lives in the address, which the router renders in a transition.
+    Pressing a second arrow key before the new view is shown acts on the old switch, as it
+    did before M7.3.
+  - Not validated: a real touch device, a real screen reader, other browsers, a hardware
+    GPU.
 
 ## 10. Simulation backend status
 
@@ -574,7 +650,8 @@ Retrieved text and memory are untrusted data: never instructions, never control 
 | Run summary | **Deterministic**, written by the mock pilot from the run's records; labelled "From the recorded run"; no language model |
 | Assistant pacing | **Artificial**, labelled "Replay paced for demonstration" |
 | Simulation, AI Pilot | **Mock services** in the browser (demo mode), labelled Mock simulation service and Mock pilot service: fixture arithmetic, not PHYVAC; rule-based screening and scripted reasoning, not a model. Simulation only; nothing reaches equipment |
-| CAD Studio, Knowledge, Setup, System | **Planned** (M7) |
+| Knowledge (M7) | The demo library and records are **synthetic and read only** (labelled Demo library, Demo records); `?knowledge=local` is the **real local service**, labelled Local knowledge or memory service. No language model: no answers, no model extraction |
+| CAD Studio, Setup, System | **Planned** |
 | API, PHYVAC, model, equipment | **Not connected** |
 | Real | The dashboard code, its tests and builds |
 
@@ -604,6 +681,9 @@ Useful URL parameters:
 - `?knowledge=local`: the Knowledge workspace uses the local knowledge and memory service
   (below) through the dev server's proxy, never the demo;
   `?fail=knowledge:unavailable|empty`, `?fail=memory:unavailable|empty` (demo).
+- The RAG Graph's own address (M7.3): `?kv=library` (the library beside the graph),
+  `?kv=search&q=…` (the passages), `?doc=`, `?passage=`, `?node=`, `?edge=` (the
+  inspection), `?gv=2d|3d`; `?kn=memory` is Graph Memory.
 
 The local knowledge and memory service, from the repository root:
 
@@ -624,9 +704,9 @@ architecture questions; it is not memory, and Git is authoritative.
 **Refreshed 2026-10-06 17:14** (owner-approved, code-only, out of repo; Git status
 unchanged): 863 nodes, 2,483 edges. It predates the M6 revisions: it still has
 `PilotPanel`, the AI Pilot page and History's record view, and lacks `PilotConsole`, the
-replay (`SimulationView`), `motion.ts` and `smoothScroll.ts`. It also predates M7 and
-M7.1: no Knowledge workspace, none of the Python knowledge or memory services and no 3D
-graph. It does not model CSS.
+replay (`SimulationView`), `motion.ts` and `smoothScroll.ts`. It also predates M7 to
+M7.3: no Knowledge workspace, none of the Python knowledge or memory services, no 3D graph
+and none of the RAG Graph's workspace. It does not model CSS.
 
 Refresh again only with the owner's approval, using `CLAUDE.md`'s out-of-repo command. Record `git status` before and after. Never run
 `graphify update`, `watch`, `hook install`, `claude install` or any extraction without
@@ -673,6 +753,24 @@ Refresh again only with the owner's approval, using `CLAUDE.md`'s out-of-repo co
     and endpoints; section 9b has the facts. Update them, or leave it to their owner?
 18. M7.1 review: approve the 3D knowledge graph and its family colours (which also colour
     the 2D view), or ask for changes. Should 3D stay the default?
+19. M7.2 review: approve the planetary systems, group focus and the trail, or ask for
+    changes. Should a node several documents describe stay in one system (with "+n"), or
+    should those nodes form a shared region between the systems?
+20. Escape layers: should `useEscapeLayer` (`src/components/escape.ts`) register as a
+    layout effect? That would close the gap between a side panel taking focus and its
+    listening for Escape. It is one line, but it could not be shown to fix the intermittent
+    Escape failure, and the hook is shared, so it was not kept.
+21. M7.3 review: approve the full-page RAG Graph (Knowledge opening on the graph; search,
+    library, filters and help over it; one column for what is browsed or inspected), or ask
+    for changes.
+22. The local server's listen queue (`apps/api/local_server.py`, 5 to 64) is the one
+    backend change in M7.3. It fixes requests refused when a page asks for several things
+    at once (Windows). Keep it?
+23. Phones with a panel open: the graph keeps a 200 px band and the panel takes the rest
+    (at most 55%). Keep this balance, give the graph more room, or show the panel over the
+    graph as a sheet?
+24. The search box finds node names among the nodes in view (as the old find box did).
+    Should it also find names anywhere in the index? That needs a new query to the service.
 
 ## 15. Recovery order for a fresh session
 
@@ -694,7 +792,7 @@ Refresh again only with the owner's approval, using `CLAUDE.md`'s out-of-repo co
 8. Reconcile the documents against the code; list every contradiction.
 9. Report the recovered understanding, contradictions and risks to the owner.
 10. Stop.
-11. Wait for the owner's confirmation before changing M6, M7 or M7.1, or starting
-    another milestone.
+11. Wait for the owner's confirmation before changing M6 to M7.3, or starting another
+    milestone.
 
 Never assume a document is correct when Git or the code contradicts it.

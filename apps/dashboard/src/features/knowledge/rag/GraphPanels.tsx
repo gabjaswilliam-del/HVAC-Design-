@@ -101,12 +101,12 @@ export function NodePanel({ client, id, nav, onClose }: { client: KnowledgeClien
             const other = others.get(out ? e.target : e.source);
             return (
               <li key={e.id}>
-                <button type="button" className="kn-rel" onClick={() => nav.inspect({ kind: "edge", id: e.id }, "graph")}>
+                <button type="button" className="kn-rel" onClick={() => nav.inspect({ kind: "edge", id: e.id })}>
                   {out ? t.relations[e.type as EdgeType] : t.inverse[e.type as EdgeType]}
                   <span className="kn-meta">{s.evidenceCount(e.evidence)}</span>
                 </button>
                 {other && (
-                  <button type="button" className="kn-rowlink" onClick={() => nav.inspect({ kind: "node", id: other.id }, "graph")}>
+                  <button type="button" className="kn-rowlink" onClick={() => nav.inspect({ kind: "node", id: other.id })}>
                     <ShapeGlyph shape={KNOWLEDGE_SHAPES[other.type as NodeType]} />
                     {other.label}
                   </button>
@@ -167,7 +167,7 @@ export function EdgePanel({ client, id, nav, onClose }: { client: KnowledgeClien
     <SidePanel title={t.relationNames[edge.type]} subject={id} onClose={onClose} labelledBy="kn-edge-title">
       <p className="kn-edgeends">
         {source && (
-          <button type="button" className="kn-rowlink" onClick={() => nav.inspect({ kind: "node", id: source.id }, "graph")}>
+          <button type="button" className="kn-rowlink" onClick={() => nav.inspect({ kind: "node", id: source.id })}>
             <ShapeGlyph shape={KNOWLEDGE_SHAPES[source.type]} />
             {source.label}
           </button>
@@ -176,7 +176,7 @@ export function EdgePanel({ client, id, nav, onClose }: { client: KnowledgeClien
           {t.relations[edge.type]} <ArrowRight size={13} aria-hidden="true" />
         </span>
         {target && (
-          <button type="button" className="kn-rowlink" onClick={() => nav.inspect({ kind: "node", id: target.id }, "graph")}>
+          <button type="button" className="kn-rowlink" onClick={() => nav.inspect({ kind: "node", id: target.id })}>
             <ShapeGlyph shape={KNOWLEDGE_SHAPES[target.type]} />
             {target.label}
           </button>

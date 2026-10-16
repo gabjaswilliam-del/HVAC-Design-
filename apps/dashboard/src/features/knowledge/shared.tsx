@@ -56,7 +56,8 @@ export function SourceTag({ system }: { system: "knowledge" | "memory" }) {
 /**
  * The inspection panel beside a list or graph: a heading that takes focus when it opens
  * for a new subject, Escape and the close button to leave, and its parts settling in when
- * the subject changes (GSAP, reduced motion respected).
+ * the subject changes (GSAP, reduced motion respected). As a `drawer` it holds a list the
+ * graph is browsed from (the library, search results).
  */
 export function SidePanel({
   title,
@@ -64,6 +65,7 @@ export function SidePanel({
   onClose,
   children,
   labelledBy,
+  variant = "panel",
 }: {
   title: ReactNode;
   /** Changes when the panel shows something else (motion and focus follow it). */
@@ -71,6 +73,7 @@ export function SidePanel({
   onClose: () => void;
   children: ReactNode;
   labelledBy: string;
+  variant?: "panel" | "drawer";
 }) {
   const s = useKnowledgeStrings();
   const ref = useRef<HTMLElement>(null);
@@ -96,14 +99,18 @@ export function SidePanel({
       const back = opener.current;
       requestAnimationFrame(() => {
         if (document.activeElement && document.activeElement !== document.body) return;
-        const next = document.querySelector<HTMLElement>(".kn-panel__head h3");
-        (next ?? (back?.isConnected ? back : null))?.focus({ preventScroll: true });
+        // The inspection that replaced it, or what opened it, or the list it was over.
+        const next =
+          document.querySelector<HTMLElement>(".kn-panel__head h3") ??
+          (back?.isConnected ? back : null) ??
+          document.querySelector<HTMLElement>(".kn-column__list:not([hidden]) .kn-drawer__head h3");
+        next?.focus({ preventScroll: true });
       });
     };
   }, []);
   return (
-    <aside ref={ref} className="kn-panel" aria-labelledby={labelledBy}>
-      <div className="kn-panel__head">
+    <aside ref={ref} className={`kn-${variant}`} aria-labelledby={labelledBy}>
+      <div className={`kn-${variant}__head`}>
         <h3 ref={heading} id={labelledBy} tabIndex={-1}>
           {title}
         </h3>

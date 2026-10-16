@@ -169,7 +169,7 @@ export function DocumentPanel({
 
       <div className="kn-panel__actions">
         {d.indexedAt && (
-          <button type="button" className="button button--small" onClick={() => nav.inspect({ kind: "node", id }, "graph")}>
+          <button type="button" className="button button--small" onClick={() => nav.inspect({ kind: "node", id })}>
             {s.doc.showInGraph}
           </button>
         )}

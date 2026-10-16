@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { settled } from "./pilot-console";
 
 // Every screen, and how the navigation reaches it (F3): four sections in the dock,
 // the System menu at its foot, and the workspace for the assistant and pilot pages.
@@ -253,6 +254,9 @@ for (const path of ["/", "/?view=list", "/engineering", "/equipment/chiller_plan
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await page.waitForTimeout(300);
+    // Contrast is read as drawn: a page still fading in (the Knowledge page mounts its 3D
+    // view first) is not yet its colours.
+    await settled(page);
     const results = await new AxeBuilder({ page }).analyze();
     const serious = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
     expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(" | ")}`)).toEqual([]);

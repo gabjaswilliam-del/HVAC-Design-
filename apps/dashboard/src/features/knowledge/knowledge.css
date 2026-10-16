@@ -1,7 +1,9 @@
-/* Knowledge: Graph RAG and Graph Memory (Treatment A). Flat sections on the page, one
-   inspection panel beside them, graphs on a recessed sheet. Graphite throughout; laminate
-   only for the selection, focus and the primary action; colour only for state, always
-   with a word. Layout follows the display's own width (container queries). */
+/* Knowledge: the RAG Graph and Graph Memory (Treatment A). The RAG Graph fills the display
+   with its controls floating over it and one column beside it for what is browsed or
+   inspected; Graph Memory is flat sections with an inspection panel beside them. Graphs on
+   a recessed sheet. Graphite throughout; laminate only for the selection, focus and the
+   primary action; colour only for state, always with a word. Layout follows the display's
+   own width (container queries). */
 
 .knowledge {
   container-type: inline-size;
@@ -104,12 +106,402 @@
   }
 }
 
-/* Sections and text --------------------------------------------------------------- */
-.kn-section {
-  display: grid;
-  gap: var(--space-3);
-  min-width: 0;
+/* RAG Graph: the graph fills the display ------------------------------------------------- */
+/* One slim header, then the graph to the display's edges with no page scroll. What is
+   browsed or inspected opens in one column beside it (below it on a narrow display), and
+   the graph resizes to the room left. */
+.page.knowledge--rag {
+  height: 100%;
+  min-height: 440px;
+  max-width: none;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
 }
+.main[data-float] .knowledge--rag {
+  padding-right: calc(var(--float-w) + var(--space-4));
+}
+.knowledge__head .kn-count {
+  margin-right: auto;
+  font-variant-numeric: tabular-nums;
+}
+.knowledge--rag .knowledge__panel {
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+}
+@media (max-width: 760px) {
+  /* A phone's display sits between the top bar and the deck: the graph fills it. */
+  .main:has(.knowledge--rag) .main__view {
+    position: absolute;
+    inset: 0;
+    overflow: auto;
+  }
+  .page.knowledge--rag {
+    padding: var(--space-2) var(--space-3) var(--space-3);
+  }
+}
+.kn-rag {
+  display: flex;
+  gap: var(--space-3);
+  min-height: 0;
+}
+/* The graph's box: the controls over it size themselves to it (cqw, cqh). */
+.kn-rag__stage {
+  container: kn-stage / size;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+/* Positioned, so what is placed in it (a hidden caption) scrolls and clips with it. */
+.kn-column {
+  container-type: inline-size;
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  flex: 0 0 clamp(300px, 32%, 400px);
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.kn-column__list[hidden] {
+  display: none;
+}
+.kn-back {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--type-caption);
+}
+@container (max-width: 720px) {
+  .kn-rag {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .kn-rag__stage {
+    min-height: 200px;
+  }
+  .kn-column {
+    flex: 0 1 auto;
+    max-height: 55%;
+  }
+}
+
+.kn-graphview {
+  --kn-tools-w: 290px; /* the canvas's tools at the top right (3D; 2D has no Reset view) */
+  position: relative;
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  height: 100%;
+  border-radius: var(--radius-container);
+  background: var(--sheet);
+}
+.kn-graphview:has(.kn-canvas) {
+  --kn-tools-w: 216px;
+}
+/* Over the canvas, when there is one (a failed reread leaves the last graph shown). */
+.kn-graphview__state {
+  grid-area: 1 / 1;
+  z-index: 2;
+  place-self: center;
+  max-width: min(560px, calc(100% - 2 * var(--space-4)));
+}
+.kn-graphview .kn-3d-frame,
+.kn-graphview .kn-canvas {
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+}
+.kn-graphview .kn-3d-stage {
+  min-height: 0;
+}
+.kn-graphview .kn-3d,
+.kn-graphview .kn-3d-loading,
+.kn-graphview .kn-canvas__svg {
+  height: 100%;
+}
+/* How to move round the graph is in Help, and stays the canvas's description. */
+.kn-graphview .kn-canvas__hint {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Floating over the graph: search, the library and the filters at the top left; the view,
+   zoom, fit, reset and help at the top right; where one is (3D) at the bottom left. Raised
+   like the canvas's tools, the graph showing between them. On a narrower graph the buttons
+   keep only their icons, and on a phone-sized one the view's tools move to the bottom. */
+.kn-hud {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: calc(100% - var(--kn-tools-w) - 3 * var(--space-2));
+  pointer-events: none;
+}
+.kn-hud > * {
+  pointer-events: auto;
+}
+.kn-hud:has(.kn-popover, .kn-search__pop) {
+  z-index: 4;
+}
+.kn-graphview .kn-canvas__tools {
+  z-index: 3;
+}
+.kn-hud__button,
+.kn-search,
+.kn-graphview .kn-canvas__tools,
+.kn-graphview .kn-3d__trail {
+  border-radius: calc(var(--radius-control) + 2px);
+  background: var(--raised);
+  box-shadow:
+    var(--edge),
+    inset 0 0 0 1px var(--hairline-strong),
+    0 2px 10px rgb(0 0 0 / 0.32);
+}
+.kn-dims {
+  display: flex;
+  margin-right: 4px;
+}
+.kn-hud__menu {
+  display: flex;
+}
+.kn-hud__button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  color: var(--text-2);
+  font: 600 var(--type-body) var(--font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease),
+    color var(--motion-fast) var(--ease);
+}
+.kn-hud__button:hover {
+  background: var(--hover);
+  color: var(--text-1);
+}
+.kn-hud__button[aria-pressed="true"],
+.kn-hud__button[aria-expanded="true"] {
+  background: var(--press);
+  box-shadow:
+    var(--edge),
+    inset 0 0 0 1px var(--control-border),
+    0 2px 10px rgb(0 0 0 / 0.32);
+  color: var(--text-1);
+}
+/* Some types are hidden (the button's name says how many). */
+.kn-hud__button[data-active]::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--notice);
+}
+/* A set width (not a flex basis), so the controls' row is measured with it and stays one row. */
+.kn-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  width: 300px;
+  min-width: 140px;
+  height: 36px;
+  padding: 0 4px 0 11px;
+  color: var(--text-3);
+}
+.kn-search > svg {
+  flex: none;
+}
+.kn-search:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.kn-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px 0 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: var(--type-body);
+  text-overflow: ellipsis;
+}
+.kn-search input:focus-visible {
+  outline: none;
+}
+.kn-search input::placeholder {
+  color: var(--text-3);
+}
+.kn-search__pop,
+.kn-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 2;
+  display: grid;
+  align-content: start;
+  max-height: calc(100cqh - 112px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--radius-container);
+  background: var(--raised);
+  box-shadow:
+    var(--shadow-float),
+    inset 0 0 0 1px var(--hairline-strong);
+  color: var(--text-2);
+  font-size: var(--type-body);
+}
+.kn-search__pop {
+  gap: 2px;
+  width: min(400px, calc(100cqw - 2 * var(--space-2)));
+  padding: 4px;
+}
+.kn-popover {
+  gap: var(--space-2);
+  width: max-content;
+  max-width: min(600px, calc(100cqw - 2 * var(--space-2)));
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+.kn-popover--end {
+  left: auto;
+  right: 0;
+  max-width: min(400px, calc(100cqw - 2 * var(--space-2)));
+}
+.kn-popover h3 {
+  color: var(--text-1);
+  font-size: var(--type-section);
+  font-weight: 600;
+}
+.kn-popover p {
+  margin: 0;
+}
+.kn-search__list {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kn-search__option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 4px 10px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+.kn-search__option[aria-selected="true"] {
+  background: var(--hover);
+  color: var(--text-1);
+}
+.kn-search__option > svg {
+  flex: none;
+}
+/* Searching the passages is a different thing from finding a node: set apart. */
+.kn-search__option--passages:not(:first-child) {
+  margin-top: 5px;
+}
+.kn-search__option--passages:not(:first-child)::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  right: 8px;
+  left: 8px;
+  border-top: 1px solid var(--hairline);
+}
+.kn-search__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kn-search__option .kn-meta {
+  flex: none;
+}
+/* An example question is read whole. */
+.kn-search__name--example {
+  font-weight: 500;
+  white-space: normal;
+}
+.kn-search__none {
+  margin: 4px 10px 2px;
+}
+.kn-hud__notes {
+  display: grid;
+  gap: 4px;
+  flex-basis: 100%;
+  max-width: 64ch;
+  padding: 6px 10px;
+  border-radius: var(--radius-control);
+  background: rgb(20 23 27 / 0.86);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+@container kn-stage (max-width: 800px) {
+  .kn-hud__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .kn-hud__button {
+    padding: 0;
+  }
+  /* What is left of the row beside the tools, after the library and filters buttons. */
+  .kn-search {
+    width: clamp(140px, calc(100cqw - var(--kn-tools-w) - 3 * var(--space-2) - 2 * 42px), 300px);
+  }
+}
+@container kn-stage (max-width: 560px) {
+  .kn-hud {
+    right: var(--space-2);
+    max-width: none;
+  }
+  .kn-search {
+    flex: 1 1 auto;
+    width: auto;
+  }
+  .kn-graphview .kn-canvas__tools {
+    top: auto;
+    bottom: var(--space-2);
+  }
+  .kn-graphview .kn-3d__trail {
+    bottom: calc(var(--space-2) + 42px);
+  }
+  .kn-popover--end {
+    top: auto;
+    bottom: calc(100% + 6px);
+  }
+}
+
+/* Sections and text --------------------------------------------------------------- */
 .kn-section__head {
   display: flex;
   flex-wrap: wrap;
@@ -282,14 +674,6 @@ mark {
   box-shadow: var(--edge), inset 0 0 0 1px var(--control-border);
   color: var(--text-1);
 }
-.kn-edgefilter summary {
-  color: var(--text-2);
-  font-size: var(--type-caption);
-  cursor: pointer;
-}
-.kn-edgefilter[open] summary {
-  margin-bottom: var(--space-2);
-}
 
 /* Fields and forms ------------------------------------------------------------------ */
 .kn-field {
@@ -302,9 +686,7 @@ mark {
   font-size: var(--type-caption);
 }
 .kn-field input,
-.kn-field textarea,
-.kn-find input,
-.kn-search__input {
+.kn-field textarea {
   min-height: 32px;
   min-width: 0;
   padding: 0 var(--space-2);
@@ -377,9 +759,6 @@ mark {
   justify-items: start;
   gap: 2px;
 }
-.kn-docs tr[aria-current="true"] > * {
-  background: var(--hover);
-}
 .kn-docs td {
   overflow-wrap: anywhere;
 }
@@ -422,8 +801,9 @@ mark {
   }
 }
 
-/* Inspection panel --------------------------------------------------------------------- */
-.kn-panel {
+/* Inspection panel, and the drawer a list is browsed in (library, passages) ---------------- */
+.kn-panel,
+.kn-drawer {
   display: grid;
   align-content: start;
   gap: var(--space-3);
@@ -433,21 +813,25 @@ mark {
   box-shadow: var(--edge), inset 0 0 0 1px var(--hairline-strong);
   min-width: 0;
 }
-.kn-panel__head {
+.kn-panel__head,
+.kn-drawer__head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-2);
 }
-.kn-panel__head h3 {
+.kn-panel__head h3,
+.kn-drawer__head h3 {
   font-size: var(--type-section);
   font-weight: 600;
   overflow-wrap: anywhere;
 }
-.kn-panel__head h3:focus {
+.kn-panel__head h3:focus,
+.kn-drawer__head h3:focus {
   outline: none;
 }
-.kn-panel__head h3:focus-visible {
+.kn-panel__head h3:focus-visible,
+.kn-drawer__head h3:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
@@ -627,17 +1011,7 @@ button.kn-rel:hover {
   overflow-wrap: anywhere;
 }
 
-/* Search -------------------------------------------------------------------------------- */
-.kn-search {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-.kn-search__input {
-  flex: 1 1 260px;
-  min-height: 36px;
-  font-size: var(--type-prose);
-}
+/* Passage search results ------------------------------------------------------------------ */
 .kn-methods {
   display: grid;
   gap: 2px;
@@ -716,26 +1090,6 @@ button.kn-rel:hover {
 }
 
 /* Graph explorer --------------------------------------------------------------------------- */
-.kn-find {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--text-3);
-}
-.kn-find input {
-  flex: 0 1 300px;
-}
-.kn-find__list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px var(--space-3);
-  flex-basis: 100%;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
 .kn-canvas {
   position: relative;
   display: grid;
@@ -762,6 +1116,7 @@ button.kn-rel:hover {
   top: var(--space-2);
   right: var(--space-2);
   display: flex;
+  align-items: center;
   gap: 2px;
   padding: 2px;
   border-radius: calc(var(--radius-control) + 2px);
@@ -778,13 +1133,6 @@ button.kn-rel:hover {
 }
 
 /* The knowledge graph: families as the legend, the 2D or 3D view ------------------------- */
-.kn-dims {
-  align-self: center;
-  margin-left: auto;
-}
-.kn-graphview .kn-section__action {
-  margin-left: 0;
-}
 .kn-families {
   display: flex;
   flex-wrap: wrap;
@@ -800,21 +1148,6 @@ button.kn-rel:hover {
   color: var(--text-3);
   font-size: var(--type-caption);
 }
-.kn-graphtools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: var(--space-2) var(--space-4);
-}
-.kn-graphtools .kn-find {
-  flex: 1 1 300px;
-}
-.kn-graphtools .kn-edgefilter {
-  padding-top: 7px;
-}
-.kn-graphtools .kn-edgefilter[open] {
-  flex-basis: 100%;
-}
 /* Coloured shapes in the 2D view take a dark outline, so neighbours stay separate. */
 .kn-graphview .kn-node__shape {
   fill: var(--kn-node, var(--raised));
@@ -829,9 +1162,11 @@ button.kn-rel:hover {
   stroke: var(--laminate-ink);
 }
 .kn-3d-frame {
-  position: relative;
   display: grid;
   gap: var(--space-1);
+}
+.kn-3d-stage {
+  position: relative;
 }
 .kn-3d,
 .kn-3d-loading {
@@ -841,8 +1176,16 @@ button.kn-rel:hover {
 .kn-3d {
   position: relative;
   overflow: hidden;
-  /* A recessed display, lit from above like the plant's. */
-  background: radial-gradient(120% 90% at 50% 0%, #1f2327, #1a1d21 55%, #16191c);
+  container: kn-3d / inline-size;
+  /* A quiet deep space: lit from above, a faint cool depth where the systems float, deeper
+     at the edges, with the faintest violet and teal hazes in two far corners (stars over it:
+     GraphCanvas3D). Its lightest point (measured #191e24, the same without the hazes) keeps
+     every family colour at 3:1 or more. */
+  background:
+    radial-gradient(ellipse 44% 36% at 86% 14%, rgb(98 86 168 / 0.05), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 10% 90%, rgb(44 112 124 / 0.045), transparent 70%),
+    radial-gradient(ellipse 62% 52% at 50% 46%, rgb(70 96 126 / 0.07), transparent 72%),
+    radial-gradient(ellipse 140% 115% at 50% 0%, #181b21 0%, #13161b 55%, #0b0d10 100%);
   box-shadow:
     inset 0 0 0 1px var(--hairline),
     inset 0 2px 8px rgb(0 0 0 / 0.35);
@@ -858,6 +1201,18 @@ button.kn-rel:hover {
 }
 .kn-3d canvas {
   display: block;
+}
+/* Still, faint stars behind the systems (drawn in GraphCanvas3D): a backdrop that takes no
+   events. Left out where contrast is asked for. */
+.kn-3d__sky {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+@media (forced-colors: active), (prefers-contrast: more) {
+  .kn-3d__sky {
+    display: none;
+  }
 }
 .kn-3d-loading {
   display: grid;
@@ -876,39 +1231,137 @@ button.kn-rel:hover {
   left: 0;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 1px 6px 1px 5px;
+  gap: 5px;
+  padding: 2px 7px 2px 6px;
   border-radius: var(--radius-chip);
-  background: rgb(22 25 28 / 0.84);
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07);
+  background: rgb(20 23 27 / 0.86);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
   color: var(--text-2);
-  font: 500 var(--type-micro) / 1.35 var(--font-sans);
+  font: 500 0.75rem / 1.35 var(--font-sans);
   white-space: nowrap;
+  opacity: 0;
   visibility: hidden;
   cursor: pointer;
+  /* A finger dragged from a name moves the graph, as on the canvas, rather than the page. */
+  touch-action: none;
+  /* Names fade as they come and go; their place is set every frame, so it is not animated. */
+  transition:
+    opacity var(--motion-fast) var(--ease),
+    visibility 0s linear var(--motion-fast),
+    color var(--motion-base) var(--ease);
 }
 .kn-3d__label[data-show] {
+  opacity: 1;
   visibility: visible;
   pointer-events: auto;
+  transition:
+    opacity var(--motion-fast) var(--ease),
+    visibility 0s,
+    color var(--motion-base) var(--ease);
 }
 .kn-3d__label .kn-glyph {
   fill: var(--kn-c, currentColor);
 }
 .kn-3d__label:hover,
-.kn-3d__label--doc {
+.kn-3d__label--doc,
+.kn-3d__label--major {
   color: var(--text-1);
 }
+.kn-3d__label--major {
+  font-size: var(--type-caption);
+}
+/* A document names its group: the largest name, always shown when it fits. */
 .kn-3d__label--doc {
+  padding: 3px 9px 3px 7px;
+  font-size: var(--type-body);
   font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
 }
 .kn-3d__label--dim {
   color: var(--text-3);
+}
+/* A phone-sized canvas: names one step smaller. */
+@container kn-3d (max-width: 480px) {
+  .kn-3d__label {
+    font-size: var(--type-micro);
+  }
+  .kn-3d__label--doc {
+    padding: 2px 7px 2px 6px;
+    font-size: var(--type-caption);
+  }
 }
 .kn-3d__label--on {
   background: var(--laminate);
   box-shadow: none;
   color: var(--laminate-ink);
   font-weight: 600;
+}
+/* Described in other documents too: how many, beside the name. */
+.kn-3d__shared {
+  color: var(--text-3);
+  font-size: var(--type-micro);
+  font-variant-numeric: tabular-nums;
+}
+.kn-3d__label--on .kn-3d__shared {
+  color: var(--laminate-ink-2);
+}
+/* Where one is: Overview › group › node, over the canvas's lower left. */
+.kn-3d__trail {
+  position: absolute;
+  bottom: var(--space-2);
+  left: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: calc(100% - 2 * var(--space-2));
+  padding: 2px;
+  border-radius: calc(var(--radius-control) + 2px);
+  background: var(--raised);
+  box-shadow:
+    var(--edge),
+    inset 0 0 0 1px var(--hairline-strong);
+  color: var(--text-3);
+}
+.kn-3d__crumb {
+  min-width: 0;
+  min-height: 28px;
+  padding: 0 var(--space-2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-2);
+  font: 500 var(--type-caption) var(--font-sans);
+  line-height: 28px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+button.kn-3d__crumb {
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease),
+    color var(--motion-fast) var(--ease);
+}
+button.kn-3d__crumb:hover {
+  background: var(--hover);
+  color: var(--text-1);
+}
+.kn-3d__crumb--here {
+  color: var(--text-1);
+  font-weight: 600;
+}
+/* On a narrow canvas the group's name gives way first; Overview never does. */
+.kn-3d__crumb:first-child {
+  flex: none;
+}
+.kn-3d__crumb:not(:first-child):not(.kn-3d__crumb--here) {
+  flex-shrink: 100;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kn-3d__label,
+  .kn-3d__label[data-show] {
+    transition: none;
+  }
 }
 .kn-3d__ring {
   position: absolute;
@@ -1180,5 +1633,24 @@ button.kn-rel:hover {
   }
   .kn-entry[aria-current="true"] {
     outline: 2px solid Highlight;
+  }
+  /* The controls over the graph keep an edge, and their states an outline. */
+  .kn-hud__button,
+  .kn-search,
+  .kn-search__pop,
+  .kn-popover,
+  .kn-graphview .kn-canvas__tools,
+  .kn-graphview .kn-3d__trail {
+    border: 1px solid CanvasText;
+  }
+  .kn-hud__button[aria-pressed="true"],
+  .kn-hud__button[aria-expanded="true"],
+  .kn-search__option[aria-selected="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  .kn-hud__button[data-active]::after {
+    forced-color-adjust: none;
+    background: Highlight;
   }
 }

@@ -1,13 +1,12 @@
-// English interface text for the Knowledge workspace (Graph RAG and Graph Memory). It is
+// English interface text for the Knowledge workspace (RAG Graph and Graph Memory). It is
 // its own catalog so it loads with the workspace's chunk, not with every page. A Chinese
 // catalog will implement the same shape. Document and memory content is data, not text here.
 export const enKnowledge = {
   loading: "Loading the Knowledge workspace…",
   closePanel: "Close panel",
   cancel: "Cancel",
-  tabs: { label: "Knowledge systems", rag: "Graph RAG", memory: "Graph Memory" },
+  tabs: { label: "Knowledge systems", rag: "RAG Graph", memory: "Graph Memory" },
   lead: {
-    rag: "Technical documents, indexed into passages and a knowledge graph. Search returns the stored passages with their source, and every relationship shows the text that supports it.",
     memory:
       "What happened at the plant and what was decided, in time: observations, findings, decisions, corrections and outcomes, each with its provenance. Kept separately from the documents.",
   },
@@ -87,7 +86,7 @@ export const enKnowledge = {
     more: (shown: number, total: number) => `Showing ${shown} of ${total}.`,
   },
   rag: {
-    views: { label: "Graph RAG view", library: "Library", search: "Search", graph: "Graph" },
+    back: { library: "Back to the library", search: "Back to the results" },
     retry: "Try again",
     page: (n: number) => `page ${n}`,
     kinds: { manual: "Manual", standard: "Standard", procedure: "Procedure", equipment: "Equipment documentation", reference: "Reference" },
@@ -112,6 +111,8 @@ export const enKnowledge = {
     stageStatus: { pending: "Waiting", running: "Running", done: "Done", skipped: "Skipped", failed: "Failed" },
     library: {
       title: "Document library",
+      open: "Library",
+      openTitle: "Browse the indexed documents",
       count: (docs: number, passages: number, relations: number) => `${docs} documents · ${passages} passages · ${relations} relationships`,
       add: "Add document",
       demoNote:
@@ -200,17 +201,14 @@ export const enKnowledge = {
       provenance: (name: string, time: string) => `From ${name}, indexed ${time} by the rule-based pipeline.`,
     },
     search: {
-      title: "Search the library",
-      label: "Question or keywords",
-      placeholder: "Ask about equipment, faults or procedures",
-      submit: "Search",
+      title: (q: string) => (q ? `Passages for “${q}”` : "Search the passages"),
       examples: "Try:",
       exampleQueries: [
         "What are the common causes of low chiller COP?",
         "Which documents discuss cooling tower performance?",
         "What maintenance procedures relate to Chiller 2?",
       ],
-      intro: "Search returns the indexed passages themselves, with their source and how each was found. No answer is generated.",
+      intro: "Type a question in the search box and choose “Search passages”: it returns the indexed passages themselves, with their source and how each was found. No answer is generated.",
       searching: "Searching…",
       methodsTitle: "Retrieval:",
       keyword: (n: number) => `keyword (BM25), ${n} candidates`,
@@ -232,22 +230,36 @@ export const enKnowledge = {
         vector: (rank: number) => `Vector #${rank}`,
       },
       read: "Read passage",
+      showInGraph: "Show in graph",
+      notInGraph: "Its section is not in the graph view; showing it adds it.",
     },
   },
   graph: {
-    title: "Knowledge graph",
+    title: "RAG Graph",
     count: (nodes: number, edges: number) => `${nodes} nodes, ${edges} relationships`,
     reset: "Clear expansions",
     typesLabel: "Show node types",
     edgesAll: "All relationship types",
     edgesSome: (n: number, total: number) => `${n} of ${total} relationship types`,
     edgesLabel: "Show relationship types",
-    find: "Find a node",
-    findPlaceholder: "Find a node by name",
-    matches: (n: number) => `${n} matching nodes`,
-    noMatch: "No node in view has that name.",
-    truncated: (shown: number, total: number) =>
-      `Showing the ${shown} best-connected of ${total} nodes. Filter by type, or find and expand a node, to see others.`,
+    search: {
+      label: "Search nodes and passages",
+      placeholder: "Search nodes and passages",
+      options: "Matches",
+      examples: "Example questions",
+      passages: (q: string) => `Search passages for “${q}”`,
+      passagesHint: "Searches the indexed text",
+    },
+    noMatch: "No node in view has that name: search the passages instead.",
+    filters: { open: "Filters", hidden: (n: number) => `Filters (${n} hidden)`, title: "Filters and legend", label: "Graph filters and legend" },
+    help: {
+      open: "Help",
+      title: "Using the RAG Graph",
+      search: "Search finds a node by name and flies to it; “Search passages” searches the indexed text and lists the passages with their source. No answer is written: no language model is configured.",
+      library: "Library lists the indexed documents; choosing one opens its details and focuses its group.",
+    },
+    truncated: (shown: number, total: number, documents = 0) =>
+      `Showing the ${shown} best-connected of ${total} nodes${documents ? `, and the ${documents} other documents so that every group has its centre` : ""}. Filter by type, or find and expand a node, to see others.`,
     capped: (n: number) => `The view holds at most ${n} nodes; clear expansions to explore elsewhere.`,
     failed: (message: string) => `The knowledge graph could not be loaded. ${message}`,
     loading: "Loading the knowledge graph…",
@@ -277,9 +289,17 @@ export const enKnowledge = {
     },
     legendNote: "Colour shows the family; the shape and the name tell the types apart. Filter a type to hide it.",
     canvas3dLabel: (nodes: number, edges: number) => `Knowledge graph, ${nodes} nodes and ${edges} relationships, in 3D`,
-    hint3d: "Drag to turn the view; right-drag, Shift-drag or two fingers pan; scroll or pinch to zoom. Click a node or its name to fly to it; click empty space to clear.",
+    hint3d:
+      "Each document is a large sphere with what it describes circling it. Click a document to see its group, or any node or name to fly to it; Overview returns to all groups. Drag to move the graph; right-drag or Shift-drag to turn it; scroll to zoom towards the pointer. On a touch screen, one finger moves it and two turn or pinch it.",
     keys3d: "Keys: arrows move between nodes, Enter inspects, Shift with an arrow turns the view, + and − zoom, 0 fits, R resets the view, Escape clears.",
     focused: (description: string) => `${description}. Enter inspects it.`,
+    trail: {
+      label: "Graph focus",
+      overview: "Overview",
+      overviewTitle: "Back to every group, with nothing chosen",
+      group: (document: string) => `The group of ${document}`,
+    },
+    shared: (n: number) => `Also described in ${n} other ${n === 1 ? "document" : "documents"}`,
     node: {
       missingTitle: "Node unavailable",
       loadingTitle: "Node",

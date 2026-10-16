@@ -1,80 +1,56 @@
 /**
- * Search over the indexed passages. Each result is a stored passage with its source,
- * section and page, how it was found (keyword rank, the graph path from an entity the
- * question names, vector rank when configured) and the entities it mentions. Ranks and
- * the fusion score order results; they are not probabilities. No answer is written: no
- * language model is configured, and the screen says so.
+ * Passage search, beside the graph (the graph's one search box starts it). Each result is
+ * a stored passage with its source, section and page, how it was found (keyword rank, the
+ * graph path from an entity the question names, vector rank when configured), the entities
+ * it mentions, and whether its section is in the graph view. Ranks and the fusion score
+ * order results; they are not probabilities. No answer is written: no language model is
+ * configured, and the list says so.
  */
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Search } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { useKnowledgeStrings } from "../../../lib/i18n/knowledge";
 import { motion } from "../../../lib/motion";
 import { useResource } from "../../../lib/api/useResource";
 import type { KnowledgeClient } from "../../../lib/api/knowledge";
 import type { SearchHit, SearchResult } from "../../../lib/contracts/knowledge";
 import { Notice } from "../../../components/Notice";
-import { Highlighted } from "../shared";
+import { Highlighted, SidePanel } from "../shared";
 import type { RagNav } from "./RagWorkspace";
 
-export function SearchView({ client, query, nav }: { client: KnowledgeClient; query: string; nav: RagNav }) {
+export function SearchResults({ client, query, nav, inGraph, onClose }: { client: KnowledgeClient; query: string; nav: RagNav; inGraph: ReadonlySet<string>; onClose: () => void }) {
   const t = useKnowledgeStrings();
   const s = t.rag.search;
-  const [draft, setDraft] = useState(query);
-  useEffect(() => setDraft(query), [query]);
   const result = useResource(query ? `search:${query}` : null, "search", (signal) => client.searchKnowledge({ query, limit: 8 }, { signal }));
   const list = useRef<HTMLOListElement>(null);
   useEffect(() => {
     if (result.data) motion.added(list.current ? Array.from(list.current.children).slice(0, 8) : []);
   }, [result.data]);
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (draft.trim()) nav.search(draft.trim());
-  };
   return (
-    <section className="kn-section" aria-labelledby="kn-search-title">
-      <div className="kn-section__head">
-        <h2 id="kn-search-title">{s.title}</h2>
-      </div>
-      <form className="kn-search" role="search" onSubmit={submit}>
-        <label className="visually-hidden" htmlFor="kn-search-input">
-          {s.label}
-        </label>
-        <input
-          id="kn-search-input"
-          className="kn-search__input"
-          type="search"
-          value={draft}
-          maxLength={500}
-          placeholder={s.placeholder}
-          onChange={(e) => setDraft(e.target.value)}
-          autoComplete="off"
-        />
-        <button type="submit" className="button button--primary">
-          <Search size={15} aria-hidden="true" />
-          {s.submit}
-        </button>
-      </form>
-      <div className="kn-examples">
-        <span className="kn-meta">{s.examples}</span>
-        {s.exampleQueries.map((q) => (
-          <button key={q} type="button" className="chip kn-chip-button" onClick={() => nav.search(q)}>
-            {q}
-          </button>
-        ))}
-      </div>
-      {!query && <p className="kn-empty">{s.intro}</p>}
+    <SidePanel variant="drawer" title={s.title(query)} subject={`search:${query}`} onClose={onClose} labelledBy="kn-search-title">
+      {!query && (
+        <>
+          <p className="kn-empty">{s.intro}</p>
+          <div className="kn-examples">
+            <span className="kn-meta">{s.examples}</span>
+            {s.exampleQueries.map((q) => (
+              <button key={q} type="button" className="chip kn-chip-button" onClick={() => nav.search(q)}>
+                {q}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       {query && result.loading && !result.data && (
         <p className="kn-loading" role="status">
           {s.searching}
         </p>
       )}
       {result.error && <Notice tone={result.error.code === "INVALID_REQUEST" ? "info" : "critical"}>{result.error.message}</Notice>}
-      {result.data && <Results result={result.data} list={list} nav={nav} />}
-    </section>
+      {result.data && <Results result={result.data} list={list} nav={nav} inGraph={inGraph} />}
+    </SidePanel>
   );
 }
 
-function Results({ result, list, nav }: { result: SearchResult; list: React.RefObject<HTMLOListElement | null>; nav: RagNav }) {
+function Results({ result, list, nav, inGraph }: { result: SearchResult; list: React.RefObject<HTMLOListElement | null>; nav: RagNav; inGraph: ReadonlySet<string> }) {
   const t = useKnowledgeStrings();
   const s = t.rag.search;
   const m = result.methods;
@@ -106,7 +82,7 @@ function Results({ result, list, nav }: { result: SearchResult; list: React.RefO
           </div>
           <ol ref={list} className="kn-results" aria-label={s.resultsLabel(result.results.length)}>
             {result.results.map((r) => (
-              <Hit key={r.chunkId} hit={r} names={result.names} nav={nav} />
+              <Hit key={r.chunkId} hit={r} names={result.names} nav={nav} shown={inGraph.has(r.sectionId)} />
             ))}
           </ol>
           <p className="kn-meta">{s.fusionNote(result.fusion.k)}</p>
@@ -116,7 +92,7 @@ function Results({ result, list, nav }: { result: SearchResult; list: React.RefO
   );
 }
 
-function Hit({ hit, names, nav }: { hit: SearchHit; names: SearchResult["names"]; nav: RagNav }) {
+function Hit({ hit, names, nav, shown }: { hit: SearchHit; names: SearchResult["names"]; nav: RagNav; shown: boolean }) {
   const t = useKnowledgeStrings();
   const s = t.rag.search;
   const name = (id: string | null) => (id ? (names[id]?.name ?? id) : "");
@@ -158,13 +134,17 @@ function Hit({ hit, names, nav }: { hit: SearchHit; names: SearchResult["names"]
         <button type="button" className="button button--small" onClick={() => nav.inspect({ kind: "passage", id: hit.chunkId })}>
           {s.read}
         </button>
+        <button type="button" className="button button--small button--quiet" onClick={() => nav.inspect({ kind: "node", id: hit.sectionId })}>
+          {s.showInGraph}
+        </button>
         {hit.entities.slice(0, 5).map((e) => (
-          <button key={e.id} type="button" className="chip kn-chip-button" onClick={() => nav.inspect({ kind: "node", id: e.id }, "graph")}>
+          <button key={e.id} type="button" className="chip kn-chip-button" onClick={() => nav.inspect({ kind: "node", id: e.id })}>
             <span className="kn-chip-type">{t.types[e.type as keyof typeof t.types] ?? e.type}</span>
             {e.name}
           </button>
         ))}
       </div>
+      {!shown && <p className="kn-meta">{s.notInGraph}</p>}
     </li>
   );
 }

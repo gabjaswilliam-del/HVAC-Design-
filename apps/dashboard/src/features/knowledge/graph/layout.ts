@@ -11,13 +11,14 @@
  *   step per distinct time, so events close in time do not collide; day markers show where
  *   each day begins), one lane per equipment item, simulation runs above, superseded
  *   versions under their successor.
- * - `clusterLayout3d` for the knowledge graph in 3D: the same forces in three dimensions,
- *   plus a pull towards each node's documents (`documentWeights`), so every document's
- *   sections and the entities it describes gather round it and an entity several documents
- *   describe sits between them.
- * - `declutter`: which screen labels fit without covering one that matters more.
+ * - `planetaryLayout` for the knowledge graph in 3D: one planetary system per document
+ *   (`documentWeights` says which), the document at the centre and what it describes on
+ *   orbits round it, systems apart in rows. Placed, not simulated.
+ * - `declutter`: where screen names fit without covering one that matters more.
  *
- * ponytail: O(n²) per step, fine for the 300-node cap; Barnes-Hut beyond that.
+ * ponytail: `forceLayout` is O(n²) per step, fine for the 300-node cap; Barnes-Hut beyond
+ * that. `planetaryLayout` is linear apart from choosing orbit places (O(n x places²) at
+ * worst, under 30 ms for 300 nodes).
  */
 
 export interface Point {
@@ -246,168 +247,429 @@ export function homeDocument(weights: ReadonlyMap<string, number> | undefined) {
   return best;
 }
 
+/** A document's sphere: the planet at the centre of its system. */
+export const PLANET = 30;
+
 /**
- * Deterministic 3D positions clustered by document. The documents' anchors sit on a ring
- * facing the default camera, wider than tall for landscape displays and alternately a
- * little nearer and farther, so no cluster hides another before the reader turns the view;
- * each node is pulled towards the weighted average of its documents' anchors. Kept nodes
- * stay put, as in `forceLayout`.
+ * A node's size in the 3D view (its sphere's radius, in scene units). Documents are the
+ * planets; sections, the documents' structure, stay small; entities grow with their
+ * connections. The layout spaces its orbits by these sizes, so no two spheres touch.
  */
-export function clusterLayout3d(
-  nodes: readonly ClusterNode[],
+export function nodeRadius(type: string, degree: number) {
+  if (type === "document") return PLANET;
+  if (type === "section") return 6 + Math.min(degree, 12) * 0.2;
+  return 7.5 + Math.min(degree, 12) * 0.55;
+}
+
+export interface LayoutNode extends ClusterNode {
+  degree: number;
+}
+
+/** One orbit of a system, and the node at each of its places (growing the graph fills the
+ *  free ones; a node that leaves the view frees its place). */
+export interface SystemOrbit {
+  kind: "sections" | "major" | "minor" | "outer";
+  radius: number;
+  /** Distance between neighbouring places along the orbit. */
+  spacing: number;
+  /** Skip the arc below the planet, where its name goes. */
+  channel: boolean;
+  /** Tilt round the horizontal and the vertical axis, in radians. */
+  tilt: readonly [number, number];
+  /** Offset in depth: rings stacked in front of or behind a system that has no room left
+   *  beside its neighbours. */
+  depth: number;
+  /** The places, as angles (an outer orbit keeps only those with room), and the node at each. */
+  slots: number[];
+  held: (string | null)[];
+}
+
+export interface PlanetSystem {
+  /** The document at the centre (it may not be in view yet), or "" for nodes that no
+   *  document in view describes. */
+  doc: string;
+  center: Point3;
+  /** How far its orbits reach across the view, plus room for the largest node. */
+  radius: number;
+  members: string[];
+  orbits: SystemOrbit[];
+}
+
+export interface PlanetaryLayout {
+  positions: Map<string, Point3>;
+  systems: PlanetSystem[];
+  /** Each node's system: the document that describes it most (ties: the first by ID). */
+  home: Map<string, string>;
+  /** How many other documents in view also describe a node (0 for most). */
+  shared: Map<string, number>;
+}
+
+/** Empty space between two systems' outer orbits. */
+export const SYSTEM_GAP = 130;
+/** Degrees kept free straight below a planet on its inner orbits, where its name goes. */
+const CHANNEL = 20;
+/** How strongly a shared node turns towards the other documents that describe it. */
+const BRIDGE = 1.5;
+const TAU = Math.PI * 2;
+const USABLE = 1 - (2 * CHANNEL) / 360;
+const rad = (deg: number) => (deg * Math.PI) / 180;
+const angDist = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+const round1 = (v: number) => Math.round(v * 10) / 10;
+
+/** An angle on an orbit (u in [0, 1)), clockwise from the top, skipping the channel. */
+function orbitAngle(u: number, channel: boolean) {
+  if (!channel) return Math.PI / 2 - u * TAU;
+  let a = 90 - u * (360 - 2 * CHANNEL);
+  if (a <= -90 + CHANNEL) a -= 2 * CHANNEL;
+  return rad(a);
+}
+
+/** An orbit with `count` places evenly round it (at least as many as fit at `spacing`). */
+function orbitOf(kind: SystemOrbit["kind"], count: number, radius: number, spacing: number, channel: boolean, tilt: readonly [number, number], depth = 0): SystemOrbit {
+  const n = Math.max(count, Math.floor((TAU * radius * (channel ? USABLE : 1)) / spacing));
+  const slots = Array.from({ length: n }, (_, i) => orbitAngle((i + 0.5) / n, channel));
+  return { kind, radius, spacing, channel, tilt, depth, slots, held: slots.map(() => null) };
+}
+
+function orbitPoint(c: Point3, o: SystemOrbit, angle: number, id: string): Point3 {
+  // A little depth off the orbit's plane, so a system reads as a body, not a disc.
+  const lift = (hash01(`${id}z`) - 0.5) * 18;
+  let x = o.radius * Math.cos(angle);
+  let y = o.radius * Math.sin(angle);
+  let z = lift;
+  const [ax, ay] = o.tilt;
+  [y, z] = [y * Math.cos(ax) - z * Math.sin(ax), y * Math.sin(ax) + z * Math.cos(ax)];
+  [x, z] = [x * Math.cos(ay) + z * Math.sin(ay), -x * Math.sin(ay) + z * Math.cos(ay)];
+  return { x: round1(c.x + x), y: round1(c.y + y), z: round1(c.z + z + o.depth) };
+}
+
+/** The free place nearest an angle (ties: the first). */
+function nearestFree(o: SystemOrbit, a: number) {
+  let best = -1;
+  let bestD = Infinity;
+  o.slots.forEach((s, i) => {
+    const d = o.held[i] === null ? angDist(s, a) : Infinity;
+    if (d < bestD) (bestD = d), (best = i);
+  });
+  return best;
+}
+
+/** The free place farthest from every taken one, so nodes with nothing to lean towards
+ *  fill the gaps evenly instead of bunching. */
+function widestFree(o: SystemOrbit) {
+  let best = -1;
+  let bestD = -1;
+  o.slots.forEach((s, i) => {
+    if (o.held[i] !== null) return;
+    let d = Math.PI;
+    o.slots.forEach((t, j) => {
+      if (o.held[j] !== null) d = Math.min(d, angDist(s, t));
+    });
+    if (d > bestD + 1e-9) (bestD = d), (best = i);
+  });
+  return best;
+}
+
+/**
+ * The knowledge graph in 3D as planetary systems, one per document, deterministic and
+ * still (no simulation).
+ *
+ * - Each node belongs to one system: the document that describes it most
+ *   (`documentWeights`), so nothing is drawn twice.
+ * - The document is the planet at the centre; its place is kept even while the document
+ *   itself is not in view. Its sections circle closest, evenly, in outline order; the
+ *   important entities (four or more connections, or described in other documents too) on
+ *   the middle orbit; the rest on the outer orbit. Orbits are tilted differently, so a
+ *   system keeps its shape when the view turns, and are wide enough that neighbours on
+ *   them never touch.
+ * - An entity takes the free place on its orbit nearest the sections and entities it
+ *   relates to; one other documents also describe leans towards those documents' systems,
+ *   so the links between systems stay short and on the side where they lead. One with
+ *   nothing to lean towards fills the widest gap.
+ * - Systems, largest first, fill rows (three on a landscape screen, `columns` on a phone)
+ *   with `SYSTEM_GAP` between their outer orbits, alternately a little nearer and farther.
+ *
+ * With `previous` (the same graph, grown by expanding a node), every node already shown
+ * keeps its place, and a place a node leaves is free again. New ones take free places on
+ * their system's orbits, their own kind's first; then a new outer orbit, all round where
+ * the neighbouring systems leave room and only on the open side where they do not (half
+ * the gap to every other system stays empty, and each place is nearer its own planet than
+ * any other); then a ring stacked in front of or behind the system, clear of what is
+ * already there. A document new to the view starts a system to the right.
+ */
+export function planetaryLayout(
+  nodes: readonly LayoutNode[],
   edges: readonly { source: string; target: string; type: string }[],
-  previous: ReadonlyMap<string, Point3> = new Map(),
-): Map<string, Point3> {
-  const n = nodes.length;
-  const out = new Map<string, Point3>();
-  if (!n) return out;
-  const ids = nodes.map((x) => x.id);
-  const index = new Map(ids.map((id, i) => [id, i]));
-  const links = edges.map((e) => [index.get(e.source), index.get(e.target)] as const).filter((l): l is readonly [number, number] => l[0] !== undefined && l[1] !== undefined && l[0] !== l[1]);
+  previous: PlanetaryLayout | null = null,
+  columns?: number,
+): PlanetaryLayout {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
   const weights = documentWeights(nodes, edges);
-  const docs = [...new Set([...weights.values()].flatMap((m) => [...m.keys()]))].sort();
-  // A link inside a document's cluster pulls fully; one between clusters only lightly, or
-  // its pull (which grows with length) would drag each cluster into the middle.
-  const home = ids.map((id) => homeDocument(weights.get(id)));
-  const strength = links.map(([a, b]) => (home[a] === home[b] ? 1 : 0.25));
-  const k = 34; // the ideal edge length
-  const ring = docs.length > 1 ? Math.max(140, (k * Math.sqrt(n) * 2.1) / Math.sqrt(docs.length) + 16 * docs.length) : 0;
-  const anchor = new Map(
-    docs.map((doc, i) => {
-      const a = (i / docs.length) * Math.PI * 2 - Math.PI / 2;
-      return [doc, { x: Math.cos(a) * ring * 1.35, y: Math.sin(a) * ring * 0.72, z: (i % 2 ? 1 : -1) * ring * 0.22 }];
-    }),
-  );
-  const tx = new Float64Array(n);
-  const ty = new Float64Array(n);
-  const tz = new Float64Array(n);
-  // Documents and their sections hold to their anchor; entities follow what describes them.
-  const pull = Float64Array.from(nodes, (node) => (node.documentId ? 2 : 0.9));
-  nodes.forEach((node, i) => {
-    const w = weights.get(node.id);
-    if (!w) return;
-    let total = 0;
-    for (const [doc, v] of w) {
-      const p = anchor.get(doc)!;
-      tx[i] += p.x * v;
-      ty[i] += p.y * v;
-      tz[i] += p.z * v;
-      total += v;
-    }
-    tx[i] /= total;
-    ty[i] /= total;
-    tz[i] /= total;
-  });
-  const xs = new Float64Array(n);
-  const ys = new Float64Array(n);
-  const zs = new Float64Array(n);
-  const kept = new Uint8Array(n);
-  ids.forEach((id, i) => {
-    const p = previous.get(id);
-    if (p) {
-      xs[i] = p.x;
-      ys[i] = p.y;
-      zs[i] = p.z;
-      kept[i] = 1;
-      return;
-    }
-    // A point on a sphere round the node's target, from its ID.
-    const u = hash01(id) * 2 - 1;
-    const t = hash01(`${id}t`) * Math.PI * 2;
-    const r = k * (0.8 + hash01(`${id}r`) * 1.6);
-    const s = Math.sqrt(1 - u * u);
-    xs[i] = tx[i] + Math.cos(t) * s * r;
-    ys[i] = ty[i] + Math.sin(t) * s * r;
-    zs[i] = tz[i] + u * r;
-  });
-  const warm = previous.size > 0;
-  const steps = warm ? 120 : 260;
-  let temp = warm ? k * 0.8 : k * 3;
-  const cool = temp / steps;
-  const dx = new Float64Array(n);
-  const dy = new Float64Array(n);
-  const dz = new Float64Array(n);
-  for (let step = 0; step < steps; step++) {
-    dx.fill(0);
-    dy.fill(0);
-    dz.fill(0);
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        let ex = xs[i] - xs[j];
-        let ey = ys[i] - ys[j];
-        let ez = zs[i] - zs[j];
-        let d2 = ex * ex + ey * ey + ez * ez;
-        if (d2 < 0.01) {
-          ex = 0.1 * (hash01(ids[i] + ids[j]) - 0.5);
-          ey = 0.1;
-          ez = 0.05;
-          d2 = 0.02;
-        }
-        // Repulsion fades with distance, so far clusters do not push each other apart.
-        const f = (k * k) / d2 / (1 + d2 / (k * k * 36));
-        dx[i] += ex * f;
-        dy[i] += ey * f;
-        dz[i] += ez * f;
-        dx[j] -= ex * f;
-        dy[j] -= ey * f;
-        dz[j] -= ez * f;
-      }
-    }
-    for (let l = 0; l < links.length; l++) {
-      const [a, b] = links[l];
-      const ex = xs[a] - xs[b];
-      const ey = ys[a] - ys[b];
-      const ez = zs[a] - zs[b];
-      const f = (Math.sqrt(ex * ex + ey * ey + ez * ez) / k) * strength[l];
-      dx[a] -= ex * f;
-      dy[a] -= ey * f;
-      dz[a] -= ez * f;
-      dx[b] += ex * f;
-      dy[b] += ey * f;
-      dz[b] += ez * f;
-    }
-    for (let i = 0; i < n; i++) {
-      if (kept[i]) continue; // pinned: the reader's bearings stay put
-      dx[i] += (tx[i] - xs[i]) * pull[i];
-      dy[i] += (ty[i] - ys[i]) * pull[i];
-      dz[i] += (tz[i] - zs[i]) * pull[i];
-      const d = Math.sqrt(dx[i] * dx[i] + dy[i] * dy[i] + dz[i] * dz[i]) || 1;
-      const move = Math.min(d, temp);
-      xs[i] += (dx[i] / d) * move;
-      ys[i] += (dy[i] / d) * move;
-      zs[i] += (dz[i] / d) * move;
-    }
-    temp = Math.max(temp - cool, k * 0.02);
+  const home = new Map<string, string>();
+  const shared = new Map<string, number>();
+  for (const n of nodes) {
+    const w = weights.get(n.id);
+    home.set(n.id, previous?.home.get(n.id) ?? homeDocument(w) ?? "");
+    shared.set(n.id, n.documentId ? 0 : Math.max((w?.size ?? 0) - 1, 0));
   }
-  const round = (v: number) => Math.round(v * 10) / 10;
-  ids.forEach((id, i) => out.set(id, { x: round(xs[i]), y: round(ys[i]), z: round(zs[i]) }));
-  return out;
+  const neighbours = new Map<string, string[]>();
+  for (const e of edges) {
+    if (e.source === e.target || !byId.has(e.source) || !byId.has(e.target)) continue;
+    (neighbours.get(e.source) ?? neighbours.set(e.source, []).get(e.source)!).push(e.target);
+    (neighbours.get(e.target) ?? neighbours.set(e.target, []).get(e.target)!).push(e.source);
+  }
+  const groups = new Map<string, string[]>();
+  for (const n of [...nodes].sort((a, b) => a.id.localeCompare(b.id))) {
+    const h = home.get(n.id)!;
+    (groups.get(h) ?? groups.set(h, []).get(h)!).push(n.id);
+  }
+  const degree = (id: string) => byId.get(id)!.degree;
+  const byImportance = (a: string, b: string) => degree(b) - degree(a) || a.localeCompare(b);
+  const type = (id: string) => byId.get(id)!.type;
+  const kindOf = (id: string): SystemOrbit["kind"] => (type(id) === "section" ? "sections" : degree(id) >= 4 || shared.get(id)! > 0 ? "major" : "minor");
+  const flat = (a: Point3, b: Point3) => Math.hypot(a.x - b.x, a.y - b.y);
+
+  /** The angle a node leans towards on its system: the places of what it relates to there
+   *  and, for a node other documents also describe, the direction of their systems. */
+  const lean = (id: string, center: Point3, angleOf: (other: string) => number | undefined, centers: ReadonlyMap<string, Point3>, own: string) => {
+    let sx = 0;
+    let sy = 0;
+    for (const o of neighbours.get(id) ?? []) {
+      const a = angleOf(o);
+      if (a !== undefined) (sx += Math.cos(a)), (sy += Math.sin(a));
+    }
+    if (shared.get(id)) {
+      let bx = 0;
+      let by = 0;
+      for (const [doc, w] of weights.get(id) ?? []) {
+        const oc = doc !== own ? centers.get(doc) : undefined;
+        if (!oc) continue;
+        const d = flat(oc, center) || 1;
+        bx += ((oc.x - center.x) / d) * w;
+        by += ((oc.y - center.y) / d) * w;
+      }
+      const l = Math.hypot(bx, by);
+      if (l) (sx += (bx / l) * BRIDGE), (sy += (by / l) * BRIDGE);
+    }
+    return sx || sy ? Math.atan2(sy, sx) : null;
+  };
+
+  /** A system's orbits for these nodes, before it is placed (they set its size). */
+  const plan = (doc: string, ids: string[], index: number) => {
+    const anchored = doc !== "";
+    const s = index % 2 ? 1 : -1;
+    const orbits: { orbit: SystemOrbit; ids: string[]; fixed: boolean }[] = [];
+    let r = anchored ? PLANET : 0;
+    const ring = (kind: SystemOrbit["kind"], list: string[], gap: number, spacing: number, channel: boolean, fixed: boolean, tilt: readonly [number, number]) => {
+      if (!list.length) return;
+      const radius = Math.max(r + gap, (list.length * spacing) / (TAU * (channel ? USABLE : 1)));
+      orbits.push({ orbit: orbitOf(kind, list.length, radius, spacing, channel, tilt), ids: list, fixed });
+      r = radius;
+    };
+    const members = ids.filter((id) => id !== doc);
+    ring("sections", members.filter((id) => kindOf(id) === "sections"), 36, 34, anchored, true, [rad(20 * s), rad(8)]);
+    ring("major", members.filter((id) => kindOf(id) === "major"), 46, 42, anchored, false, [rad(-14 * s), rad(-10)]);
+    ring("minor", members.filter((id) => kindOf(id) === "minor"), 40, 30, false, false, [rad(9 * s), rad(14)]);
+    return { doc, ids, orbits, radius: r + 22 };
+  };
+
+  /** Places a planned system at its centre. */
+  const settle = (p: ReturnType<typeof plan>, c: Point3, centers: ReadonlyMap<string, Point3>, positions: Map<string, Point3>): PlanetSystem => {
+    if (p.ids.includes(p.doc)) positions.set(p.doc, { ...c });
+    const angle = new Map<string, number>();
+    for (const { orbit: o, ids, fixed } of p.orbits) {
+      if (fixed) {
+        // Evenly round the planet, in outline order.
+        ids.forEach((id, k) => {
+          const i = Math.floor((k * o.slots.length) / ids.length);
+          o.held[i] = id;
+          angle.set(id, o.slots[i]);
+        });
+      } else {
+        const later: string[] = [];
+        const chosen = new Map<string, number>();
+        for (const id of ids.toSorted(byImportance)) {
+          const a = lean(id, c, (o) => angle.get(o), centers, p.doc);
+          if (a === null) later.push(id);
+          else {
+            const i = nearestFree(o, a);
+            o.held[i] = id;
+            chosen.set(id, o.slots[i]);
+          }
+        }
+        for (const id of later) {
+          const i = widestFree(o);
+          o.held[i] = id;
+          chosen.set(id, o.slots[i]);
+        }
+        for (const [id, a] of chosen) angle.set(id, a);
+      }
+      for (const id of ids) positions.set(id, orbitPoint(c, o, angle.get(id)!, id));
+    }
+    return { doc: p.doc, center: c, radius: round1(p.radius), members: p.ids, orbits: p.orbits.map((x) => x.orbit) };
+  };
+
+  if (previous) {
+    // Growing: what is shown stays put.
+    const positions = new Map<string, Point3>();
+    const fresh = new Map<string, string[]>();
+    for (const n of nodes) {
+      const p = previous.positions.get(n.id);
+      if (p) positions.set(n.id, p);
+      else (fresh.get(home.get(n.id)!) ?? fresh.set(home.get(n.id)!, []).get(home.get(n.id)!)!).push(n.id);
+    }
+    if (positions.size) {
+      // Places held by nodes no longer shown are free again.
+      const systems = new Map(previous.systems.map((s) => [s.doc, { ...s, orbits: s.orbits.map((o) => ({ ...o, held: o.held.map((id) => (id !== null && positions.has(id) ? id : null)) })) }]));
+      const centers = new Map([...systems].map(([doc, s]) => [doc, s.center]));
+      const free = (o: SystemOrbit) => o.held.includes(null);
+      const planar = (sys: PlanetSystem) => Math.max(PLANET, ...sys.orbits.filter((o) => !o.depth).map((o) => o.radius));
+      /** A new orbit outside the others, keeping the places that leave half the gap to every
+       *  other system empty and are nearer this planet than any other: all round when the
+       *  neighbours leave room, only the open side when they do not; null when none does. */
+      const outward = (sys: PlanetSystem) => {
+        const o = orbitOf("outer", 0, planar(sys) + 40, 30, false, [0, 0]);
+        const others = [...systems.values()].filter((t) => t !== sys);
+        o.slots = o.slots.filter((a) => {
+          const x = sys.center.x + o.radius * Math.cos(a);
+          const y = sys.center.y + o.radius * Math.sin(a);
+          return others.every((t) => Math.hypot(x - t.center.x, y - t.center.y) >= Math.max(t.radius + SYSTEM_GAP / 2, o.radius) + 22);
+        });
+        if (!o.slots.length) return null;
+        o.held = o.slots.map(() => null);
+        sys.orbits.push(o);
+        sys.radius = round1(Math.max(sys.radius, o.radius + 22));
+        return o;
+      };
+      /** With no room beside the neighbours, a ring in front of the system, then one behind,
+       *  each clear of the deepest node already on that side, and as wide as the widest orbit
+       *  that goes all the way round (one cut short by the neighbours would reach them). */
+      const stacked = (sys: PlanetSystem) => {
+        const side = sys.orbits.filter((o) => o.depth).length % 2 ? -1 : 1;
+        const deepest = Math.max(0, ...sys.members.flatMap((id) => (positions.has(id) ? [side * (positions.get(id)!.z - sys.center.z)] : [])));
+        const round = sys.orbits.filter((o) => !o.depth && o.slots.length >= Math.floor((TAU * o.radius * (o.channel ? USABLE : 1)) / o.spacing));
+        const o = orbitOf("outer", 0, Math.max(PLANET, ...round.map((x) => x.radius)), 30, false, [0, 0], side * round1(deepest + 50));
+        sys.orbits.push(o);
+        return o;
+      };
+      for (const [doc, ids] of [...fresh].sort(([a], [b]) => a.localeCompare(b))) {
+        const sys = systems.get(doc);
+        if (!sys) {
+          // A document new to the view: its own system, to the right of everything.
+          const p = plan(doc, ids, systems.size);
+          const right = Math.max(...[...systems.values()].map((s) => s.center.x + s.radius));
+          const c = { x: round1(right + SYSTEM_GAP + p.radius), y: 0, z: 0 };
+          centers.set(doc, c);
+          systems.set(doc, settle(p, c, centers, positions));
+          continue;
+        }
+        const c = sys.center;
+        if (ids.includes(doc)) positions.set(doc, { ...c });
+        sys.members = [...sys.members, ...ids];
+        // Where it relates to in its own system (and, shared, towards the other documents).
+        const angleOf = (other: string) => {
+          const q = home.get(other) === doc ? positions.get(other) : undefined;
+          return q && Math.atan2(q.y - c.y, q.x - c.x);
+        };
+        for (const id of ids.filter((x) => x !== doc).toSorted(byImportance)) {
+          const kind = kindOf(id);
+          // Its own orbit; another of its role (entities stay off the document's outline while
+          // there is room outside); a new orbit outside; any place; a ring in depth.
+          const o =
+            sys.orbits.find((x) => x.kind === kind && free(x)) ??
+            sys.orbits.find((x) => !x.depth && (x.kind === "sections") === (kind === "sections") && free(x)) ??
+            outward(sys) ??
+            sys.orbits.find(free) ??
+            stacked(sys);
+          const a = lean(id, c, angleOf, centers, doc);
+          const i = a === null ? widestFree(o) : nearestFree(o, a);
+          o.held[i] = id;
+          positions.set(id, orbitPoint(c, o, o.slots[i], id));
+        }
+      }
+      const members = new Map<string, string[]>();
+      for (const id of [...groups.values()].flat().sort()) (members.get(home.get(id)!) ?? members.set(home.get(id)!, []).get(home.get(id)!)!).push(id);
+      return {
+        positions,
+        systems: [...systems.values()].filter((s) => members.has(s.doc)).map((s) => ({ ...s, members: members.get(s.doc)! })),
+        home,
+        shared,
+      };
+    }
+  }
+
+  // A fresh layout. Orbits first (they set each system's size), largest system first.
+  const docs = [...groups.keys()].sort((a, b) => (a === "" ? 1 : 0) - (b === "" ? 1 : 0) || groups.get(b)!.length - groups.get(a)!.length || a.localeCompare(b));
+  const plans = docs.map((doc, i) => plan(doc, groups.get(doc)!, i));
+  // Systems in rows, the whole centred on the origin.
+  const k = plans.length;
+  const cols = columns ?? Math.ceil(k / Math.max(1, Math.round(Math.sqrt(k / 1.6))));
+  const centers = new Map<string, Point3>();
+  let top = 0;
+  for (let start = 0, row = 0; start < k; start += cols, row++) {
+    const line = plans.slice(start, start + cols);
+    const height = 2 * Math.max(...line.map((p) => p.radius));
+    let x = -(line.reduce((w, p) => w + 2 * p.radius, 0) + SYSTEM_GAP * (line.length - 1)) / 2;
+    line.forEach((p, j) => {
+      x += p.radius;
+      centers.set(p.doc, { x: round1(x), y: top - height / 2, z: ((row * cols + j) % 2 ? 1 : -1) * 26 });
+      x += p.radius + SYSTEM_GAP;
+    });
+    top -= height + SYSTEM_GAP;
+  }
+  const lift = (-top - SYSTEM_GAP) / 2;
+  for (const c of centers.values()) c.y = round1(c.y + lift);
+  const positions = new Map<string, Point3>();
+  const systems = plans.map((p) => settle(p, centers.get(p.doc)!, centers, positions));
+  return { positions, systems, home, shared };
 }
 
 export interface LabelBox {
   id: string;
-  /** The box's top-left corner and size, in screen pixels. */
+  /** The preferred top-left corner and the size, in screen pixels. */
   x: number;
   y: number;
   w: number;
   h: number;
   /** Higher first: the chosen node, then what it relates to, then landmarks. */
   priority: number;
+  /** Other top-left corners to try, in order, when the preferred place is taken. */
+  alt?: readonly (readonly [number, number])[];
+}
+
+export interface ScreenRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** The node it belongs to (its own name may overlap it). */
+  id?: string;
 }
 
 /**
- * The labels that fit: most important first, each kept only if it is inside the view and
- * clear of every label already kept, so names never print over each other.
+ * Where the names go: most important first, each at the first of its places that is
+ * inside the view, clear of every name already placed and of the obstacles (large
+ * spheres), so names never print over each other or over a planet. Names that fit
+ * nowhere are left out.
  */
-export function declutter(boxes: readonly LabelBox[], width: number, height: number, gap = 3): Set<string> {
-  const kept: LabelBox[] = [];
+export function declutter(boxes: readonly LabelBox[], width: number, height: number, gap = 3, obstacles: readonly ScreenRect[] = []): Map<string, [number, number]> {
+  const kept: (ScreenRect & { id: string })[] = [];
+  const out = new Map<string, [number, number]>();
+  const clear = (x: number, y: number, w: number, h: number, id: string) =>
+    x >= 0 &&
+    y >= 0 &&
+    x + w <= width &&
+    y + h <= height &&
+    !kept.some((o) => x < o.x + o.w + gap && o.x < x + w + gap && y < o.y + o.h + gap && o.y < y + h + gap) &&
+    !obstacles.some((o) => o.id !== id && x < o.x + o.w && o.x < x + w && y < o.y + o.h && o.y < y + h);
   const order = boxes.map((b, i) => [b, i] as const).sort(([a, i], [b, j]) => b.priority - a.priority || i - j);
   for (const [b] of order) {
-    if (b.x < 0 || b.y < 0 || b.x + b.w > width || b.y + b.h > height) continue;
-    if (kept.some((o) => b.x < o.x + o.w + gap && o.x < b.x + b.w + gap && b.y < o.y + o.h + gap && o.y < b.y + b.h + gap)) continue;
-    kept.push(b);
+    const place = [[b.x, b.y] as const, ...(b.alt ?? [])].find(([x, y]) => clear(x, y, b.w, b.h, b.id));
+    if (!place) continue;
+    kept.push({ id: b.id, x: place[0], y: place[1], w: b.w, h: b.h });
+    out.set(b.id, [place[0], place[1]]);
   }
-  return new Set(kept.map((b) => b.id));
+  return out;
 }
 
 /** The nearest point in an arrow key's direction on screen (keyboard travel). */

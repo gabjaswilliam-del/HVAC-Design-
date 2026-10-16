@@ -1,10 +1,12 @@
 /**
- * Knowledge: two separate systems on one page. Graph RAG holds technical documents,
- * their passages and the relationships their text supports; Graph Memory holds what
- * happened at the plant and what was decided, over time. Separate services, contracts
- * and stores; neither reads the other. Typed address: `/knowledge?kn=rag|memory`.
+ * Knowledge: two separate systems on one page. The RAG Graph (the default) holds technical
+ * documents, their passages and the relationships their text supports, as a graph filling
+ * the page; Graph Memory holds what happened at the plant and what was decided, over time.
+ * Separate services, contracts and stores; neither reads the other. One slim header: the
+ * two systems, the RAG Graph's count, and where its data comes from. Typed address:
+ * `/knowledge?kn=rag|memory`.
  */
-import { use, useLayoutEffect, useRef, type KeyboardEvent } from "react";
+import { use, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { BookOpenText, History } from "lucide-react";
 import { useSearchParams } from "react-router";
 import { useKnowledgeStrings } from "../../lib/i18n/knowledge";
@@ -28,6 +30,7 @@ export function KnowledgePage() {
   const [params, setParams] = useSearchParams();
   const tab: Tab = params.get("kn") === "memory" ? "memory" : "rag";
   const panel = useRef<HTMLDivElement>(null);
+  const [count, setCount] = useState<string | null>(null);
 
   const show = (t: Tab) => {
     if (t === tab) return;
@@ -59,7 +62,7 @@ export function KnowledgePage() {
   }, [tab]);
 
   return (
-    <div className="page knowledge">
+    <div className={`page knowledge knowledge--${tab}`}>
       <div className="knowledge__head">
         <div className="kn-tabs" role="tablist" aria-label={s.tabs.label} onKeyDown={onKey}>
           {TABS.map(({ key, icon: Icon }) => (
@@ -79,11 +82,16 @@ export function KnowledgePage() {
             </button>
           ))}
         </div>
+        {tab === "rag" && count && (
+          <span className="kn-count" role="status">
+            {count}
+          </span>
+        )}
         <SourceTag system={tab === "rag" ? "knowledge" : "memory"} />
       </div>
-      <p className="page__sub knowledge__lead">{s.lead[tab]}</p>
+      {tab === "memory" && <p className="page__sub knowledge__lead">{s.lead.memory}</p>}
       <div ref={panel} id="kn-panel" role="tabpanel" aria-labelledby={`kn-tab-${tab}`} className="knowledge__panel">
-        {tab === "rag" ? <RagWorkspace key="rag" client={clients.knowledge} /> : <MemoryWorkspace key="memory" client={clients.memory} />}
+        {tab === "rag" ? <RagWorkspace key="rag" client={clients.knowledge} onCount={setCount} /> : <MemoryWorkspace key="memory" client={clients.memory} />}
       </div>
     </div>
   );

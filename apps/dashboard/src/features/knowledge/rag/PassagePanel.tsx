@@ -53,7 +53,7 @@ export function PassagePanel({ client, id, nav, onClose }: { client: KnowledgeCl
           <ul className="kn-chips">
             {d.entities.map((e) => (
               <li key={e.id}>
-                <button type="button" className="chip kn-chip-button" onClick={() => nav.inspect({ kind: "node", id: e.id }, "graph")}>
+                <button type="button" className="chip kn-chip-button" onClick={() => nav.inspect({ kind: "node", id: e.id })}>
                   <span className="kn-chip-type">{t.types[e.type as keyof typeof t.types] ?? e.type}</span>
                   {e.name}
                 </button>

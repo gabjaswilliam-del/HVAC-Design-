@@ -17,9 +17,10 @@ exercise.
 | M5 | AI assistant page and drawer (scripted demonstration) | Done; **owner review gate closed 2026-10-05 (F10)** |
 | R1–R2 | Redesign phases 1–2: design system, navigation, header, permanent workspace, Overview | Done; superseded by Treatment A; included in the 2026-10-06 checkpoint commit |
 | TA | Treatment A, Graphite (machined bezel): v2 Phase 2 refinement, decisions F1–F9 | Done; **local checkpoint commit 2026-10-06** (with the Assistant refinement), not pushed |
-| M6 | Simulation, AI pilot (their mock services move here from M2) | Built on labelled mock services, 2026-10-06; consolidated revision, the AI Pilot console revision and the live operator and recorded replay correction, 2026-10-07; uncommitted, awaiting the owner's review. The Assistant reads simulations and points to operator controls; it has no control or action tools (F10) |
-| M7 | Knowledge workspace: Graph RAG and Graph Memory, with a local knowledge and memory service (Python standard library, SQLite) | Built 2026-10-08/09 at the owner's request; uncommitted, awaiting the owner's review |
-| M7.1 | The knowledge graph in 3D (react-force-graph-3d), with the 2D view kept | Built 2026-10-09 at the owner's request; uncommitted, awaiting the owner's review |
+| M6 | Simulation, AI pilot (their mock services move here from M2) | Built on labelled mock services, 2026-10-06; consolidated revision, the AI Pilot console revision and the live operator and recorded replay correction, 2026-10-07; committed by the owner in `cd94b78` (2026-10-10). The Assistant reads simulations and points to operator controls; it has no control or action tools (F10) |
+| M7 | Knowledge workspace: Graph RAG and Graph Memory, with a local knowledge and memory service (Python standard library, SQLite) | Built 2026-10-08/09 at the owner's request; committed by the owner in `cd94b78` (2026-10-10) |
+| M7.1 | The knowledge graph in 3D (react-force-graph-3d), with the 2D view kept | Built 2026-10-09 at the owner's request; committed by the owner in `cd94b78` (2026-10-10) |
+| M7.2 | The 3D knowledge graph as planetary systems: one per document, spacious, with group focus | Built 2026-10-16 at the owner's request; uncommitted, awaiting the owner's review |
 | — | CAD Studio, Installation, System (formerly listed under M7) | Planned |
 | M8 | Hardening, full test suite, DGX validation, documentation | Planned |
 
@@ -939,3 +940,407 @@ Not validated:
 - touch on a real device;
 - a real screen reader with the 3D view;
 - the DGX Spark's browser.
+
+## M7.2: the knowledge graph as planetary systems (2026-10-16)
+
+The owner's M7.2 specification: the M7.1 graph was too dense, its circles too small and
+related nodes crowded together. They asked for spacious, planet-like systems, one per
+knowledge group, with group focus, quieter relationships, readable names, a subtle
+gradient and smooth selection. Uncommitted, awaiting the owner's review. No dependency was
+added; the backend, its contracts and the demo snapshots are unchanged.
+
+**Why M7.1 was cluttered** (measured on the demo graph):
+- 31 of the 93 entities are described by two to four documents. M7.1 pulled each to the
+  average of its documents' places, so shared entities piled into the middle and the 63
+  links between documents converged there.
+- Its force layout let links (whose pull grows with length) drag clusters together. The
+  closest nodes of different documents were 39 units apart, and six of 122 nodes sat
+  nearer another document than their own.
+- Spheres were small for the scene: at the overview a document was 7 px in radius and the
+  median node 3.6 px.
+- Every link was drawn alike (175 of the 252 run from entities to sections), and a chosen
+  document showed only its two direct links, with no way to see its group.
+
+**What changed:**
+- **Layout** (`planetaryLayout` replaces `clusterLayout3d`):
+  - one system per document, the document at the centre (radius 30);
+  - sections on the inner orbit, evenly spaced in outline order; important entities next;
+    supporting entities outside;
+  - each orbit tilted differently and spaced so spheres never touch (tightest gap 11.7
+    units, against 6.4 in M7.1);
+  - systems in rows with 130 units between outer orbits (the closest nodes of different
+    systems are now 193 units apart, against 39);
+  - every node nearer its own document than any other (122 of 122, against 116);
+  - each entity on the free place nearest what it relates to; one with nothing to lean
+    towards fills the widest gap.
+
+  It is placed, not simulated: about 9 ms for the demo graph on its first call and 0.4 ms
+  after (M7.1's simulation: about 34 ms), and under 30 ms for 300 nodes. Expanding a node
+  moves nothing already shown (see the review below).
+- **Shared knowledge.** Each node is drawn once, in the system of the document that
+  describes it most, leaning towards its other documents. A "+n" by its name says how
+  many more describe it, and links between systems arc between them.
+- **Sizes and lens.** At the overview a document is now 19 px in radius and the median
+  node 5.3 px (M7.1: 7.4 and 3.6); a 34° lens keeps spheres round.
+- **Relationships.**
+  - Overview: links within a system at 22% opacity, between systems at 4.5%.
+  - A group: its links clear; its links to other systems half-shown, in laminate.
+  - A node: its relationships lit with arrows; its own system at 36%; the rest at 12%.
+- **Group focus and the trail.** Choosing a document (its sphere or its name) frames its
+  whole system. **Overview › group › node** at the lower left says where one is and leads
+  back; Overview also resets the camera.
+- **Names.** Documents in the body size and always shown; important entities in the
+  caption size. Each name tries four places, never covers another name, a planet, the
+  chosen node or the controls, and fades in and out. Phones get shorter document names.
+- **Motion.** The camera's 500 ms ease in and out is kept for nodes. A group or the
+  overview takes 650 ms, because the change of scale is larger. Emphasis now cross-fades
+  in 320 ms instead of switching. Reduced motion jumps and switches.
+- **Space.** The viewport is a quiet gradient (see `DESIGN.md`) whose lightest point keeps
+  every family colour at 3:1 or more.
+- **Documents in a cut-short overview.** The overview shows the 150 best-connected nodes,
+  and documents, linked only to their top sections, rarely rank among them (the demo's
+  rank 76th to 104th of 128). When the overview is cut short, the documents it left out are
+  fetched and added (the index's own nodes, nothing invented), so every system keeps its
+  centre, and the note under the filters says so. If that request fails, the overview
+  stands as it was.
+
+**Review and fixes (2026-10-16).** The implementation was reviewed again after an
+interrupted session. By severity:
+- **Major: growing the graph crowded it.** On a synthetic 12-document library, expanding
+  from the 150-node overview to 300 nodes gave 48 pairs of overlapping spheres. Systems also
+  ran into each other: the gap between their outermost members fell from 174 to −147. New
+  nodes went on one outer ring sized without regard to the neighbours.
+- **Major: the recovered rewrite kept every place ever held.** The rewrite of that growth,
+  written before the interruption (331 lines), fixed the overlaps but never released a
+  place. Choosing nodes in turn swaps their extra neighbours in and out, so the systems kept
+  growing (25 to 35 orbits over eight rounds) and soon needed rings in depth. Its rings in
+  depth were as wide as the widest orbit, so they could reach a neighbouring system, and at
+  a fixed depth they could meet a tilted orbit.
+- **Fixed: growth by places.**
+  - Each orbit records the node at each place; a place a node leaves is free again.
+  - New nodes take free places of their kind first.
+  - Then a new outer orbit, keeping only the places that leave half the gap to every other
+    system and are nearer their own planet: all round where there is room, only the open
+    side where there is not.
+  - Only then a ring in front of or behind the system. It is as wide as the widest orbit
+    that goes all the way round, and clear of the deepest node on that side.
+- **Fixed: results.**
+  - Growing to 300: 0 overlaps, nothing moved, systems 174 units apart throughout.
+  - The worst case found, 110 entities arriving in a system laid out with only its
+    sections: 0 overlaps, and no sphere covers another on screen. The recovered version
+    had 59 overlapping pairs on screen, with 12 nodes more than half hidden.
+  - 150 arriving in a system boxed in on every side: rings in depth, 0 overlaps, every node
+    nearer its own planet, nothing moved.
+  - Choosing nodes in turn: the orbits stop growing.
+- **Major: documents dropped from a cut-short overview** (above).
+- **Minor:**
+  - Sections took the first places on their orbit instead of spreading round it; now they
+    are even.
+  - The chosen node's name is bolder but kept its earlier width when names were laid out;
+    it is now measured again.
+  - In the overview, after zooming in, names of off-screen planets were held at the edge of
+    the view. Now only the chosen node and what it relates to are.
+- **Informational.** Rings in depth, the last resort, can still partly cover each other from
+  the front when a boxed-in system grows very large (150 or more late nodes, past the
+  300-node cap in these tests). Turning the view separates them.
+
+**The Playwright failures.**
+- **The first M7.2 run's failure** (224 passed, 1 failed; the next run passed). The journey
+  test expected six document names after "Overview" and found five.
+  - Cause, confirmed: router navigations are transitions, so the camera request for the
+    trail's group choice rendered after the Overview click, and a resize then re-framed the
+    group.
+  - Fixed: Overview fits the camera once the overview has rendered; a request for a node no
+    longer chosen is ignored; re-framing keeps the direction asked for.
+  - Result: 0 failures in 16 runs of the failing route and 36 runs of the test under load
+    (before the fix, 4 failures in 12).
+- **Cause 1 (confirmed) of the failures found while verifying.** The tests' `open()`
+  returned when the app's own heading appeared, before the Knowledge workspace had loaded.
+  Under eight parallel workers, an accessibility check then found no workspace, and the
+  first 3D check started seconds late. `open()` now waits for the workspace's tabs, in both
+  knowledge specs.
+- **Cause 2 (confirmed).** Headless Chromium's first WebGL context starts its software
+  renderer, which takes 2.2 s; later contexts take 2–6 ms. The first test to draw in each
+  worker paid that start-up within its 5 s. The knowledge spec now starts the renderer once
+  per worker, before its tests. A stress run of the 3D tests (four repeats, eight workers)
+  went from 10 failures in 32 to 1 (the 3D chunk loading after a switch from 2D under that
+  concentrated load).
+- **Not resolved.** Under full-suite load only, an Escape pressed just after a panel opened
+  and took focus was sometimes not acted on:
+  - in the 3D keyboard test (two of seven full runs), the indicator details (two) and the
+    equipment inspector (one): three features with two Escape mechanisms;
+  - not reproduced in isolation: 0 of 64 scripted runs (CPU throttling, a busy main thread,
+    the test's exact keys), no Escape failure in three stress runs of the 3D tests, and
+    none in two 130-test runs of those three specs;
+  - one gap is real by construction: a knowledge side panel takes focus in a layout effect
+    but listens for Escape (`useEscapeLayer`) from a passive effect. Making that a layout
+    effect was tried and reverted, because it could not be shown to help and the hook is
+    shared code (decision 20).
+
+  No assertion was weakened and no test was skipped.
+
+| Check | Result (Windows 11, Node 24.19, Python 3.14.7, Playwright 1.63 Chromium with SwiftShader WebGL) |
+|---|---|
+| `npm run typecheck` | Pass |
+| `npm test` (Vitest) | 181 passed (17 files). New since M7.1: the planetary layout on the demo; growth to the 300-node cap (nothing moves, no two spheres touch, every node nearer its own system); places reused as nodes come and go; rings in depth only for a boxed-in system; sections evenly spread in outline order; names trying alternative places and avoiding planets; the documents a cut-short overview leaves out |
+| `npm run e2e` (Playwright) | Three full runs of the reviewed code: 225 passed; 224 passed and 1 failed (the indicator details' Escape, above); 224 passed and 1 failed (the 3D keyboard test's Escape). 6 opt-in captures skipped each time. New: overview to a document's group, a member, a relationship and back by the trail; clicking a document's sphere; the groups at least 150 px apart on screen. Four 3D tests repeated 8 times on 8 workers: 32 of 32 |
+| `npm run build`, `npm run build:demo` | Pass. Against M7.1 (`cd94b78`, built the same way): main JS 930.59 kB (287.68 kB gzip) and 936.00 kB (289.33 kB gzip), 0.16 kB more; Knowledge chunk 109.50 kB (31.90 kB gzip), 4.96 kB more; its CSS 20.85 kB, 1.87 kB more; 3D chunk 804.37 kB (213.25 kB gzip), 5.34 kB more; main CSS unchanged at 107.26 kB |
+| `python -m unittest discover -s tests` | 62 passed (no backend change) |
+
+Browser checks at 1440 and 390 px (scratchpad screenshots, before and after):
+- the overview, a document's group, a node and a relationship;
+- a turned and zoomed view, the return to the overview and a mid-transition frame;
+- 2D, reduced motion and no WebGL;
+- no console errors and no page overflow.
+
+During a group focus on SwiftShader, frames ran at a median 16.7 ms (95th percentile
+66.7 ms), with two long tasks of about 70 ms when the side panel opens.
+
+Not validated:
+- a hardware GPU or the DGX Spark;
+- other browsers;
+- touch on a real device;
+- a real screen reader with the 3D view;
+- a library large enough to cut the overview short (adding the documents is unit-tested
+  only).
+
+**Final refinement: stars and map-like dragging (2026-10-16).** After their visual review,
+the owner asked for a subtle space background and for dragging that moves the graph.
+
+**Why dragging did not move the graph.**
+- The camera controls (three's OrbitControls, created by react-force-graph-3d) kept three's
+  default buttons. The left button turned the view round its centre; only right-drag or
+  Shift-drag panned.
+- The wheel zoomed towards the centre, so zooming into a corner cluster pushed it towards
+  the edge.
+- 3d-force-graph marked empty space as clickable (empty space clears a choice), so it showed
+  a pointer, never the open hand.
+- Neighbours of a choice arriving after the reader had moved the view asked the camera back
+  to the node. That undid the whole drag: 184 px in the new test.
+
+**What changed** (configured; no library added):
+- **Buttons.** Left-drag pans in the plane of the screen, and the point under the cursor
+  stays under it (a 150 × 80 px drag moves the node under it 145 × 78). Right-drag or
+  Shift-drag turns the view. Middle-drag zooms.
+- **Wheel and touch.** The wheel zooms towards the pointer (`zoomToCursor`). On touch, one
+  finger pans and two turn and pinch.
+- **Names.** A drag that starts on a name is handed to the controls once it moves 4 px; a
+  click on a name still chooses it.
+- **No choosing by drag.** A drag never chooses (three-render-objects drops the click that
+  ends a drag).
+- **Cursor.** An open hand over empty space and over links faded below 20%; a pointer over
+  nodes and visible links.
+- **No snap-back.** A repeated camera request for the node already flown to is ignored once
+  the reader has moved the view; a new choice still flies.
+- **Phones.** Chromium leaves page coordinates unscrolled on a touch's first event and on a
+  handed-over press while the page is scrolled, so touch pans jumped by the scroll (+249 px
+  instead of −60). Those coordinates are now set from the client position.
+- **The sky.** Still stars as an SVG background, generated once and the same every visit:
+  - 190 dim stars on a 1187 × 997 px tile and 55 more on a 1543 × 1301 px tile (40% of them
+    brighter, with a halo), so the pattern does not visibly repeat;
+  - faint violet and teal hazes in two far corners;
+  - the lightest point is unchanged, measured at `#191E24` before and after, so every
+    family colour keeps 3:1 or more (violet at 3.08);
+  - no animation, no events, nothing to redraw after the first paint; hidden in
+    forced-colours and more-contrast modes;
+  - colours written as `rgba()` rather than opacity attributes, because the accessibility
+    checks wait for inline "opacity" (a GSAP fade).
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | Pass |
+| `npm test` (Vitest) | 181 passed (17 files) |
+| `npm run e2e` (Playwright) | Three full runs: 227 passed; 225 passed and 2 failed; 227 passed. 6 opt-in captures skipped each time. The two failures were the known intermittent ones: the 3D keyboard test's Escape, and the shell's wheel scroll with a freshly started server. The keyboard tests then passed 32 of 32 on 8 workers |
+| New browser tests | The graph moves like a map (pan, a drag from a name, Fit, right-drag, Reset view, the wheel towards the pointer; nothing chosen). A view moved after choosing stays put when the choice's neighbours arrive later (the demo service's answers held until the drag is done). 12 of 12 runs together on 8 workers. Both run with reduced motion, so nothing is still gliding when a position is read |
+| Mutation checks | With the old buttons, the pan check fails (289 px off). Without the stay-put rule, the stay-put check fails (184 px back) |
+| `npm run build`, `npm run build:demo` | Pass. 3D chunk 806.80 kB (214.26 kB gzip), 2.4 kB more; Knowledge CSS 21.12 kB; main JS unchanged |
+
+Browser checks (scratchpad scripts, 1440 and 390 px):
+- the mouse: pan, a drag from a name, right-drag, the wheel towards the pointer, panning
+  after a choice, Fit and Reset view;
+- touch, with synthetic events: one finger pans (81 × −61 for 80 × −60), also from a name,
+  and two fingers pinch;
+- reduced motion: a drag stops where it is released;
+- the stars at 1× and 2×, in a group view and on a phone;
+- no console errors and no page overflow.
+
+Not validated: a real touch device.
+
+Seen in the dev server's log and older than this work: an unhandled rejection from
+`scrollTo` in `ConversationView.tsx` (the Assistant). It fails no test and is left as it is.
+
+## M7.3: the RAG Graph as a full-page workspace (2026-10-16/17)
+
+The owner's M7.3 specification:
+- rename Graph RAG to RAG Graph;
+- open Knowledge on the graph itself instead of Library, Search and Graph views;
+- let the graph fill the workspace, with compact floating controls;
+- keep the library and the search, inside the graph's workspace;
+- cut the text;
+- keep Graph Memory as the other mode;
+- work at 1440 and 390 px;
+- preserve everything else.
+
+Uncommitted, awaiting the owner's review. No dependency was added. The knowledge service's
+API, contracts and data are unchanged; one setting of the local server changed (below).
+
+**Before** (1440x900, workspace docked):
+- The graph started 325 px down the display, under:
+  - the tabs and a lead paragraph;
+  - the three views, then the count with 3D | 2D;
+  - nine type filters in two rows;
+  - the find box and "All relationship types".
+- 475 of its 540 px were in view (56% of the display), and the display scrolled 219 px.
+- A paragraph of mouse and key instructions, and the colour sentence, sat under the canvas.
+- On a 390 px phone the graph started 504 px down, with 201 px in view.
+
+**What changed:**
+- **Navigation.**
+  - The tabs are **RAG Graph | Graph Memory**, and Knowledge opens on the graph.
+  - The RAG Graph's header holds the tab, the count ("128 nodes, 252 relationships", a polite
+    status) and the provenance tag. Graph Memory keeps its lead.
+  - Addresses keep working: `?doc=`, `?passage=`, `?node=` and `?edge=` (the inspection) and
+    `?kv=search&q=` (passages). New: `?kv=library` (the library). `?kv=graph` still opens
+    the graph.
+  - Internal names (`kn=rag`, the components, the service, the contracts) are unchanged.
+- **The graph fills the display** (3D, demo library). Its share of the display:
+  - 87% at 1440x900 (1000 x 718 px);
+  - 85% at 1024x768;
+  - 75% at 390x844 (366 x 413 px, between the phone's top bar and its deck).
+
+  Nothing scrolls, the page or the display, and nothing overflows sideways in any state:
+  the graph alone, the library, search results, a node, a document from the library, 2D,
+  Help, Filters and the search's choices, at 1440, 1024 and 390 px. Beside the floating
+  workspace panel (1280x800), nothing lies under the panel.
+- **Search, in the graph.** One combobox over the graph:
+  - first the nodes in view whose names match (up to six, in the old find box's order);
+  - then, set apart, "Search passages for '…'".
+
+  Choosing a node flies to it and inspects it, and Enter takes the highlighted choice. With
+  no match, the list says so and offers only the passages. The passages open in the column,
+  with what the Search view showed (how they were found, the documents, the hits, "No answer
+  is written"). Each hit adds **Show in graph**, and says so when its section is not in the
+  graph view. Example questions show while there is no question.
+- **The library, beside the graph.** The **Library** button (pressed while open) opens it in
+  the column:
+  - the count, the demo's note and the capabilities;
+  - Add document (local service) and the documents with their status.
+
+  Choosing a document opens its panel over the list, with "‹ Back to the library", and
+  focuses its group in the graph. Reindex, Remove… and the outline are unchanged.
+- **Text.** Removed from the page:
+  - the lead paragraph;
+  - the three views and their headings;
+  - the instructions under the canvas;
+  - the colour sentence.
+
+  The instructions are in Help and stay the canvas's accessible description. The colour
+  sentence is in Filters, with the type and relationship filters.
+- **Controls.** At the top left: search, Library and Filters, and Clear expansions after an
+  expansion. At the top right, the canvas's tools: 3D | 2D, zoom, Fit, Reset view (3D) and
+  Help. The trail stays at the bottom left. On a graph 800 px wide or less the buttons show
+  only their icons; their names stay for assistive technology and as tooltips. At 560 px or
+  less the tools move to the bottom, with the trail above them.
+- **Resizing.** When the column opens or the window changes, the graph takes the room left:
+  - the 3D view re-frames what it showed (M7.2);
+  - the 2D view now keeps what was in its middle.
+
+  Both views frame between the controls along the top and bottom. 3D names avoid the
+  controls and any open popover.
+
+**Review and fixes (2026-10-17).** After an interrupted session, the M7.3 changes had a
+second, independent review, and every finding was checked against the code. No critical
+issues. By severity:
+- **Major: indexing moved the camera.**
+  - While a local document is queued or processing, the library is read again every
+    second. The graph took that counter into its layout key.
+  - So every second the graph was read again and laid out again, and the camera went back
+    to the overview. Pan and zoom were unusable during an upload, and after Reindex the
+    view ended on the overview.
+  - This is older than M7.3, but it showed only if the Graph view was open during an
+    upload. M7.3 shows the graph all the time.
+  - Fixed: the graph is read again only when indexing ends or a document goes. The layouts
+    are keyed by what is shown (the filters), so a re-read graph grows or shrinks in place
+    and the camera stays.
+- **Major: the 3D | 2D switch lost keyboard focus.** It sits among the canvas's tools, so
+  switching replaced it along with the canvas. Focus fell to the page and the arrow keys
+  stopped working. Fixed: the new switch takes the focus.
+- **Minor:**
+  - "Back to the library" and "Back to the results" dropped focus to the page. They now
+    leave as Escape does: focus returns to what opened the inspection (a row, a result),
+    otherwise to the list. An inspection opened from the graph returns focus to the graph
+    again, as before M7.3.
+  - The list did not keep its place under an inspection. It does now; the column shows the
+    inspection from its top.
+  - Nodes added for an earlier choice could show again while the next choice loaded. The
+    expansions are now always keyed.
+  - After a failed re-read, the error and the last graph shared one grid cell, and the
+    canvas collapsed. The error now lies over the canvas.
+  - The example questions could be reached only by address. The empty search box now
+    offers them; Enter takes one only once the arrows reach it.
+  - Forced colours: the new controls lost their edges and their pressed, open and
+    highlighted states. They now keep an edge, and their states an outline.
+  - Escape, or close, with the upload form open closed the whole library. It now puts the
+    form away first.
+  - Keyboard focus could land on a node under the controls along the top or bottom. Both
+    views now bring it into the free space between them.
+- **Removed, unused after the redesign:**
+  - a class and a string;
+  - the library row's "current" mark, never visible now that an inspection covers the list;
+  - the `q` left in the address when the library opens;
+  - the `.kn-section` rule the three views used.
+
+**Two failures found while verifying:**
+- **The local service refused connections. This is a server bug that M7.3 exposed.**
+  - `knowledge-local.spec` failed about one run in ten: "The local knowledge service could
+    not be reached" after a reload.
+  - Cause, confirmed: the local server kept `socketserver`'s default listen queue of 5.
+    When more connections arrive at once than the queue holds, Windows refuses them (Linux
+    makes them wait).
+  - The RAG Graph opens with five requests at once: the graph, the chosen node's
+    neighbours, the document, the library and the status. M7.2's Library view opened three.
+  - Bursts from Node, sent the way the dev proxy and Playwright's routing send them:
+    - 12 at once: 65 of 240 refused;
+    - 24 at once: 230 of 480 refused;
+    - with a queue of 64: none.
+  - Fixed: `request_queue_size = 64` in `apps/api/local_server.py`, with a backend test
+    that connects 24 sockets before the server accepts any. The test failed with
+    "connection refused" before the fix.
+  - Since the fix: 10 of 10 runs of the local spec (100 tests).
+- **The shell's accessibility check on `/knowledge`** failed once in a full run: colour
+  contrast on the Graph Memory tab, the provenance tag and the search box.
+  - Cause: the check ran axe 300 ms after the app's heading appeared. At that moment the
+    Knowledge page was still fading in, because the RAG Graph mounts its 3D view first.
+    With eight pages loading at once, 22 of 24 samples were mid-fade, at opacity 0 to 0.92.
+  - Fixed: the check now waits for motion to end, as the knowledge and simulation specs
+    already do.
+  - Not reproduced on demand: a stress run passed 48 of 48 both with and without the wait.
+
+| Check | Result (Windows 11, Node 24.19, Python 3.14.7, Playwright 1.63 Chromium with SwiftShader WebGL) |
+|---|---|
+| `npm run typecheck` | Pass |
+| `npm test` (Vitest) | 181 passed (17 files) |
+| `python -m unittest discover -s tests` | 63 passed (new: connections made all at once wait their turn) |
+| `npm run e2e` (Playwright) | Five full runs, with 6 opt-in captures skipped each time. Before the review fixes: 232 passed; then 231 passed and 1 failed (the shell's accessibility check on `/knowledge`, above). With every fix: 232 passed, three times. The M7.2 intermittent failures (an Escape under load, the cold server's wheel scroll) did not occur in these runs |
+| Knowledge tests | 29 in the knowledge spec, 5 of them new: the page filling the display at 1440 and 390 px with nothing to scroll and no control overlapping another; the library beside the graph; the search box; Help; a phone. Updated: every test written for the views, with no assertion dropped. 10 in the local spec. Repeats: the changed tests (keyboard 3D \| 2D, Back and the list's place, the examples, a document's group) 12 of 12; the local spec 10 of 10 runs after the server fix; the shell's six accessibility checks 48 of 48 |
+| `npm run build`, `npm run build:demo` | Pass. Against M7.2: Knowledge chunk 116.78 kB (34.58 kB gzip), 7.28 kB more; its CSS 26.87 kB, 5.75 kB more; 3D chunk 807.09 kB, 0.29 kB more; main JS (930.60 and 936.01 kB) and CSS (107.26 kB) unchanged |
+
+Browser checks (scratchpad scripts) at 1440x900, 1024x768 and 390x844, and beside the
+floating workspace at 1280x800. States checked:
+- the graph, the library, results, a node, a document from the library;
+- 2D;
+- Help, Filters, typing in the search box, the empty search box's examples;
+- forced colours;
+- Graph Memory.
+
+No console errors, and no page overflow in any of them. During a group focus that opens the
+panel, frames ran at a median 16.7 ms and a 95th percentile of 83 to 100 ms (M7.2: 66.7 ms),
+with three long tasks of 65 to 82 ms (M7.2: two of about 70 ms), as the larger canvas is
+reallocated.
+
+Not validated:
+- a hardware GPU or the DGX Spark;
+- other browsers;
+- touch on a real device;
+- a real screen reader;
+- a library large enough to cut the overview short.
