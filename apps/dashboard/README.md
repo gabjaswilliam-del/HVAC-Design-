@@ -6,7 +6,8 @@ prototype; Milestones 0–5 (shell, artwork, fixture data layer, interactive
 monitoring with KPI details, cooling prediction and equipment pages, scripted AI
 assistant) exist on branch
 `feat/dashboard-version-a`. Nothing is connected to a
-backend.** Milestones and acceptance evidence: [VERSION_A.md](VERSION_A.md). See
+backend. A fixture-only CAD Studio UI exists as uncommitted `main` working-tree
+changes dated 2026-10-17; it has no CAD parser or backend.** Milestones and acceptance evidence: [VERSION_A.md](VERSION_A.md). See
 [Running the prototype](#running-the-version-a-prototype).
 Implement your assigned surface in the folder linked below. Build one coherent
 application, not separate dashboards per feature.
@@ -143,6 +144,17 @@ npm run build       # typecheck + production build; without demo mode it shows "
 npx playwright install chromium   # once, for browser tests
 npm run e2e         # browser tests (starts the demo server)
 ```
+
+### Local Chinese CAD development
+
+The tracked product interface remains English. For local CAD Studio development,
+open `http://localhost:5173/cad?lang=zh`; an ignored
+`src/lib/i18n/zh.local.ts` overlay supplies the Chinese CAD text and falls back to
+`src/lib/i18n/en.ts` for any untranslated key. Add every new product string to the
+tracked English `cad` catalog first, then add its optional Chinese translation to
+the local overlay. The overlay is excluded by `.gitignore`, so there is no language
+file to swap or restore before committing. Other dashboard features remain English
+unless their keys are deliberately added to the local overlay.
 
 `/asset-sheet.html` (dev server only) is the equipment artwork review page. Runtime
 dependencies: `react`, `react-dom`, `react-router`, `zod`, `lucide-react` and the

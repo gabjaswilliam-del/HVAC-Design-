@@ -1,6 +1,6 @@
 # HVAC Agent — living project context prompt
 
-**Last updated:** 2026-10-04 (Asia/Shanghai)
+**Last updated:** 2026-10-17 (Asia/Shanghai)
 
 **Purpose:** A self-contained information prompt for an LLM joining this project.
 
@@ -249,7 +249,7 @@ dashboard/prediction handoffs below. Draft endpoint names are not existing servi
 | Modular layout and product definition | Merged scaffold, ownership READMEs, product descriptions in English/Chinese, architecture and installation requirements | Keep synchronized with verified implementation and owner decisions |
 | Site contracts and metrics | Implemented in PR #2 | Resolve review issues and integration/acceptance needs; not merged |
 | Modified PHYVAC and simulation lifecycle | Implemented in PR #2 with tests | Remaining correctness findings, review/merge, measured fidelity work |
-| CAD Studio, generated assets, editable scene | UI folder brief and backend responsibility documented | Implementation and commissioning workflow |
+| CAD Studio, generated assets, editable scene | Fixture-only `/cad` UI implemented as uncommitted `main` working-tree changes on 2026-10-17: honest file-selection placeholder plus prepared sample; complete source and extraction canvases side by side with synchronized pan/zoom and an accessible draggable divider; smooth finding-to-object locate; whole-equipment review colors; on-canvas connection highlighting; contextual evidence inspector; actionable fixture port resolution; persistent findings; draft preview through the shared Overview viewport. Separate Topology and Review sections were removed by owner decision. No parser/backend/model/persistence/activation. | Real CAD formats/parser, durable jobs, backend validation, generated assets and commissioning integration |
 | Dashboard/API and telemetry ingestion | Per-screen/shared UI briefs, ownership folders and draft API/data contracts. Version A fixture prototype on local branch `feat/dashboard-version-a`: M0–M5 implemented (shell, approved artwork, fixture data layer, interactive monitoring with KPI details, cooling prediction and equipment pages, scripted AI assistant); not pushed, no PR, M5 awaiting owner review | Version A M6–M8 after owner review of M5; API framework, adapters, storage and integrated implementation |
 | Harness, local model serving, RAG and memory | Responsibility/plan only | Implementation, curated content, model selection/evaluation |
 | Cooling prediction and installation adaptation | Backend subfolder briefs, API route brief, full-page/monitoring UI brief | Models/data pipeline, no-history path, backtesting and uncertainty |
@@ -572,6 +572,47 @@ Do not claim durable memory or a file update that did not happen.
 
 ### Latest handoff
 
+- **2026-10-17 — CAD Studio fixture UI (uncommitted, awaiting owner review).** Added
+  CAD Studio as a primary left-dock destination and replaced the Engineering redirect
+  at `/cad`. The tracked English-only UI provides a real file picker/drop target that
+  honestly stops at `Parser not connected`, plus a clearly labelled synthetic sample
+  that replays predefined extraction. Its dominant Drawing/Compare view places complete
+  high-contrast source and extraction canvases side by side at matching scene coordinates.
+  An accessible center divider now adjusts their relative widths from 25% to 75%
+  by pointer or keyboard while keeping both canvases complete rather than clipping them.
+  Pointer-centred wheel zoom, drag-to-pan, keyboard navigation and Fit share one transform
+  across both canvases. Findings float over the canvas and the compact inspector appears only after
+  selection. Selecting a finding switches to Compare, smoothly locates its equipment
+  and emphasizes the affected connection. Equipment connections remain visible and
+  highlight directly on the canvas instead of being duplicated as an inspector list.
+  Aggregate evidence tints the entire equipment artwork; a compact text-and-color legend
+  explains confirmed, needs-review, conflict and unknown states. `Preview in Overview`
+  renders the current draft through the shared monitoring `PlantViewport`, with an
+  explicit not-validated/not-commissioned disclosure. Its inspector shows the device's
+  own evidence instead of the aggregate CAD connection-review status. CAD design-preview
+  mode hides telemetry controls, values and operational states because no telemetry is
+  connected, avoiding misleading all-`Unavailable` labels. Equipment confirmation does
+  not clear independent unknown-link or unconnected-port findings; the inspector labels
+  equipment evidence separately and reports unresolved port findings. The prepared
+  unconnected-port finding now opens a focused correction form: the operator selects a
+  compatible chiller outlet, creates a confirmed fixture link and removes that finding.
+  Inspector text
+  now wraps long IDs, endpoints and notes without horizontal overflow. By owner decision, separate
+  Topology and Review sections were removed; Findings remain visible.
+  Drag, coordinate, direction and undo/redo controls were removed because this fixture
+  has no durable revision, persistence or validation workflow. Real upload,
+  CAD parsing/upload, LLM/image models, persistence, backend validation and activation remain
+  unavailable; no activation control is shown in this fixture. A developer-only, ignored Chinese catalog can
+  be selected with `/cad?lang=zh`; missing local translations fall back to tracked
+  English, so no source swap is required before submission. This is not shipped product
+  localization. Windows workstation validation: typecheck, full Vitest (184 tests),
+  focused Vitest (3 tests) and demo build pass. Two focused Playwright assertions pass
+  against installed Chrome at 1440×900 and 390×844, including no serious/critical axe
+  findings after one local contrast fix. The local Chinese CAD flow also passes a
+  390×844 installed-Chrome smoke check with no horizontal overflow. A broader shell-spec run passed 20/22; its
+  duplicate Demo-label failure was fixed and its navigation case passed on rerun, while
+  an existing Engineering smooth-scroll assertion still did not advance under the
+  unpinned system Chrome. Full browser suite and DGX validation not run.
 - **2026-10-04 — Version A M5: scripted AI assistant (awaiting owner review).**
   Assistant drawer (own shell column, plant refits), `/agent` page with history and
   tool list, streamed turns with visible simulated tool calls and typed views, and

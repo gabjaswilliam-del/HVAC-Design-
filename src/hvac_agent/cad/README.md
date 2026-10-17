@@ -2,9 +2,14 @@
 
 UI implementation belongs in
 [apps/dashboard/src/features/cad-studio/](../../../apps/dashboard/src/features/cad-studio/README.md),
-with commissioning composition in the installation feature. That brief specifies
-upload, evidence review, topology edits, scene editing, generation and revision
-activation. This backend module owns analysis/generation; it does not host UI code.
+with commissioning composition in the installation feature. That brief places
+equipment connections directly on the review canvas and keeps only object/evidence
+details in the contextual inspector, rather than adding a separate topology section.
+Its fixture Compare view uses synchronized, side-by-side source and extraction canvases
+and previews the result through the shared Overview renderer; neither action validates
+or activates a revision.
+Revision validation and activation remain commissioning responsibilities.
+This backend module owns analysis/generation; it does not host UI code.
 
 Installation-time CAD analysis and scene generation. Turn a customer drawing into
 a 2D design scene and machine-readable equipment topology, with shared equipment

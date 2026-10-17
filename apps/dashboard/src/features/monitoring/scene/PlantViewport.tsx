@@ -35,6 +35,8 @@ type PlantViewportProps = Omit<ComponentProps<typeof PlantScene>, "showTags" | "
   /** The drawing sits in a scrolling page: the wheel scrolls the page, and Ctrl or Cmd
    *  with the wheel (or a pinch) zooms. The Overview's drawing zooms on any wheel. */
   inPage?: boolean;
+  /** CAD/design preview: keep topology labels but suppress unavailable runtime readings and states. */
+  designPreview?: boolean;
 };
 
 /**
@@ -44,7 +46,7 @@ type PlantViewportProps = Omit<ComponentProps<typeof PlantScene>, "showTags" | "
  * drag to pan, keyboard zoom and pan. Two corners carry the drawing controls and the
  * disclosure; readings switch to key readings below 80% zoom unless chosen otherwise.
  */
-export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, issues, note, inPage = false, ...sceneProps }: PlantViewportProps) {
+export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, issues, note, inPage = false, designPreview = false, ...sceneProps }: PlantViewportProps) {
   const s = useStrings();
   const t = s.monitoring.toolbar;
   const legendId = useId();
@@ -180,8 +182,10 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
 
   // Readings: Auto shows key readings below 80% zoom; the drawing publishes what it shows.
   const effective: Effective = readMode === "auto" ? (view.k < KEY_BELOW ? "key" : "all") : readMode;
-  const screenNames = effective === "key" || (effective === "off" && view.k < KEY_BELOW);
-  useEffect(() => operating.setReadEffective(effective), [effective]);
+  const screenNames = !designPreview && (effective === "key" || (effective === "off" && view.k < KEY_BELOW));
+  useEffect(() => {
+    if (!designPreview) operating.setReadEffective(effective);
+  }, [designPreview, effective]);
   const [hint, setHint] = useState({ text: "", on: false });
   const lastEffective = useRef<Effective | null>(null);
   useEffect(() => {
@@ -189,7 +193,7 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
     if (!box) return;
     const prev = lastEffective.current;
     lastEffective.current = effective;
-    if (readMode !== "auto" || prev === null || prev === effective || legend) return;
+    if (designPreview || readMode !== "auto" || prev === null || prev === effective || legend) return;
     setHint({ text: effective === "key" ? t.hintKey : t.hintAll, on: true });
     const off = setTimeout(() => setHint((h) => ({ ...h, on: false })), HINT_MS);
     const clear = setTimeout(() => setHint({ text: "", on: false }), HINT_MS + 260);
@@ -197,7 +201,7 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
       clearTimeout(off);
       clearTimeout(clear);
     };
-  }, [effective, box === null]);
+  }, [designPreview, effective, box === null]);
 
   useEscapeLayer(legend, () => setLegend(false));
 
@@ -257,7 +261,7 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
   const highlightIds = reach.length ? [...(sceneProps.highlightIds ?? []), ...reach] : sceneProps.highlightIds;
 
   return (
-    <div className="plant-view" data-zoom={view.k.toFixed(4)} data-read={effective}>
+    <div className="plant-view" data-zoom={view.k.toFixed(4)} data-read={designPreview ? "off" : effective}>
       <div ref={boxRef} className="plant-view__box">
         <svg
           ref={svgRef}
@@ -287,15 +291,16 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
                 {...sceneProps}
                 highlightIds={highlightIds}
                 alarmIds={issues.flatMap((i) => i.equipmentIds)}
-                showTags={effective === "all"}
-                showLabels={!screenNames}
+                showTags={!designPreview && effective === "all"}
+                showLabels={designPreview || !screenNames}
+                showStates={!designPreview}
               />
             </g>
           )}
         </svg>
         {box && (
           <div className="plant-view__overlay">
-            {screenNames && (
+            {!designPreview && screenNames && (
               <KeyLayer
                 topology={sceneProps.topology}
                 layout={sceneProps.layout}
@@ -317,7 +322,7 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
       </p>
 
       <div className="stage-controls" role="toolbar" aria-label={t.label}>
-        <div className="stage-controls__row">
+        {!designPreview && <div className="stage-controls__row">
           <span className="stage-controls__label" id={readingsId}>
             {t.readings}
           </span>
@@ -337,7 +342,7 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
             onChange={(m) => operating.setReadMode(m)}
             options={(["key", "all", "off"] as const).map((m) => ({ value: m, label: t.modes[m] }))}
           />
-        </div>
+        </div>}
         <div className="stage-controls__row">
           <span className="zoom">
             <button type="button" className="icon-button" onClick={() => zoomCentre(1 / STEP)} aria-label={t.zoomOut} title={t.zoomOut}>
@@ -354,7 +359,7 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
             <Scan size={15} aria-hidden="true" />
             {t.fitShort}
           </button>
-          <button
+          {!designPreview && <button
             type="button"
             className="tool-button tool-button--text"
             aria-expanded={legend}
@@ -366,13 +371,11 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
           >
             <MapIcon size={15} aria-hidden="true" />
             {s.monitoring.legend.heading}
-          </button>
+          </button>}
         </div>
       </div>
-      <p className={`readmode-hint${hint.on ? " is-on" : ""}`} aria-live="polite">
-        {hint.text}
-      </p>
-      <div id={legendId} className="legend" hidden={!legend}>
+      {!designPreview && <p className={`readmode-hint${hint.on ? " is-on" : ""}`} aria-live="polite">{hint.text}</p>}
+      <div id={legendId} className="legend" hidden={designPreview || !legend}>
         {legend && <SceneLegend />}
       </div>
     </div>

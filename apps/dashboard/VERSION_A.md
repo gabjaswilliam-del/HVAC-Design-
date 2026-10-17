@@ -21,7 +21,7 @@ exercise.
 | M7 | Knowledge workspace: Graph RAG and Graph Memory, with a local knowledge and memory service (Python standard library, SQLite) | Built 2026-10-08/09 at the owner's request; committed by the owner in `cd94b78` (2026-10-10) |
 | M7.1 | The knowledge graph in 3D (react-force-graph-3d), with the 2D view kept | Built 2026-10-09 at the owner's request; committed by the owner in `cd94b78` (2026-10-10) |
 | M7.2 | The 3D knowledge graph as planetary systems: one per document, spacious, with group focus | Built 2026-10-16 at the owner's request; uncommitted, awaiting the owner's review |
-| — | CAD Studio, Installation, System (formerly listed under M7) | Planned |
+| — | CAD Studio fixture UI; Installation and System | CAD Studio built 2026-10-17 as uncommitted fixture-only UI; separate Topology/Review sections removed by owner decision. Side-by-side Drawing/Compare canvases with synchronized pan/zoom and an accessible draggable divider, upload placeholder, smooth finding location, whole-equipment review colors, on-canvas connection highlighting, compact evidence inspector, actionable fixture port resolution, persistent Findings and a draft Overview preview are implemented; Installation and System planned |
 | M8 | Hardening, full test suite, DGX validation, documentation | Planned |
 
 ## M2: data foundation
@@ -206,8 +206,8 @@ the repository. Phases 3–5 have not started.
   (containers, controls, chips), control borders at 3:1 contrast, and hatching on
   every value that is not live. Scene tokens are unchanged, so the M1 artwork renders
   as before.
-- **Navigation**: a rail with Overview (`/`), Analytics (`/prediction`), Engineering
-  (`/equipment`, with Simulation and CAD Studio tabs) and Knowledge; System and
+- **Navigation**: a rail with Overview (`/`), Analytics (`/prediction`), Engineering,
+  CAD Studio (`/cad`) and Knowledge; System and
   Installation in a System menu; a bottom bar at 760px and below. URLs are unchanged.
 - **Header**: a title block with the site, data mode and scenario, replay or live time
   with freshness, and the configuration revision.

@@ -77,6 +77,12 @@ Nothing below is operational at a site. Status as of 2026-10-04.
   is connected.
 - A right-hand workspace with Details, Assistant and Pilot. The Pilot tab is a planned
   state only.
+- A fixture-only CAD Studio with an honest local file-selection placeholder and one
+  prepared sample. Synchronized side-by-side Drawing/Compare canvases keep the complete
+  source legible beside the extracted scene; wheel zoom, viewport panning, finding-to-object location,
+  whole-equipment review colors and on-canvas connection highlighting support review.
+  A labelled draft can be previewed in the shared Overview viewport. It does not parse,
+  upload, validate, persist or activate CAD files.
 
 **Planned, not built in the dashboard:**
 
@@ -86,7 +92,7 @@ Nothing below is operational at a site. Status as of 2026-10-04.
 - Running site simulations (modified PHYVAC) from the UI; the simulation foundation
   exists on a separate branch.
 - The AI pilot.
-- CAD Studio, installation and commissioning flows.
+- CAD parsing/backend integration, installation and commissioning flows.
 - A trained or site-adapted prediction model.
 - The System and Installation screens.
 

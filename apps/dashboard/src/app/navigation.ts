@@ -1,4 +1,4 @@
-import { BookOpen, ChartLine, ClipboardCheck, DraftingCompass, Factory, Server, type LucideIcon } from "lucide-react";
+import { BookOpen, ChartLine, ClipboardCheck, DraftingCompass, Factory, FilePenLine, Server, type LucideIcon } from "lucide-react";
 import type { Messages } from "../lib/i18n/en";
 import type { NavTarget } from "../lib/contracts/agent";
 
@@ -14,12 +14,13 @@ export interface NavSection {
   match: string[];
 }
 
-// Four everyday destinations in the dock; the assistant and pilot live in the
+// Everyday destinations in the dock; the assistant and pilot live in the
 // workspace, and setup and maintenance in the System menu.
 export const sections: NavSection[] = [
   { key: "overview", path: "/", icon: Factory, match: [""] },
   { key: "analytics", path: "/prediction", icon: ChartLine, match: ["prediction", "trend"] },
-  { key: "engineering", path: "/engineering", icon: DraftingCompass, match: ["engineering", "equipment", "simulation", "cad"] },
+  { key: "engineering", path: "/engineering", icon: DraftingCompass, match: ["engineering", "equipment", "simulation"] },
+  { key: "cad", path: "/cad", icon: FilePenLine, match: ["cad"] },
   { key: "knowledge", path: "/knowledge", icon: BookOpen, match: ["knowledge"] },
 ];
 
@@ -42,7 +43,7 @@ const PAGES: Record<string, PageKey> = {
   engineering: "engineering",
   equipment: "engineering",
   simulation: "simulation",
-  cad: "engineering",
+  cad: "cad",
   agent: "agent",
   knowledge: "knowledge",
   setup: "setup",

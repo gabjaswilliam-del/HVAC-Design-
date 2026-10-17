@@ -19,12 +19,19 @@ interface PlantSceneProps {
   layout: SceneLayout;
   readings: SceneReadings;
   selectedId?: string | null;
+  /** One topology link to emphasise without treating either endpoint as the selected device. */
+  selectedLinkId?: string | null;
+  /** Optional CAD-review state and visible label for each equipment ID. */
+  reviewStates?: Record<string, "confirmed" | "review" | "conflict" | "unknown">;
+  reviewLabels?: Record<string, string>;
   highlightIds?: string[];
   /** Equipment with an open issue: never dimmed when something else is selected. */
   alarmIds?: string[];
   showTags?: boolean;
   /** Equipment names, states and captions; off in Key mode (drawn in screen space). */
   showLabels?: boolean;
+  /** Operational/review state beside each equipment name. */
+  showStates?: boolean;
   onSelect?: (id: string) => void;
 }
 
@@ -39,10 +46,14 @@ export function PlantScene({
   layout,
   readings,
   selectedId = null,
+  selectedLinkId = null,
+  reviewStates,
+  reviewLabels,
   highlightIds = [],
   alarmIds = [],
   showTags = true,
   showLabels = true,
+  showStates = true,
   onSelect,
 }: PlantSceneProps) {
   const isMoving = (id: string) => {
@@ -115,7 +126,7 @@ export function PlantScene({
           medium={linkMedium(link)}
           flowing={flowingLinks.has(link.id)}
           evidence={link.evidence}
-          active={related.links.has(link.id)}
+          active={related.links.has(link.id) || selectedLinkId === link.id}
           linkId={link.id}
         />
       ))}
@@ -176,7 +187,10 @@ export function PlantScene({
             related={related.devices.has(device.id)}
             highlighted={highlightIds.includes(device.id)}
             alarm={alarmIds.includes(device.id) || s.state === "fault"}
+            reviewState={reviewStates?.[device.id]}
+            reviewLabel={reviewLabels?.[device.id]}
             showLabel={showLabels}
+            showState={showStates}
             speedHz={readings.values[`${device.id}:frequency_hz`]?.value ?? undefined}
             onSelect={onSelect}
           />

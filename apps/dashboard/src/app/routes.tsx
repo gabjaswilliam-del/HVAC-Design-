@@ -10,6 +10,7 @@ import { AgentPage } from "../features/agent";
 import { HistoryPage } from "../features/simulation";
 import { TrendPage } from "../features/trend";
 import { SimulationView } from "../features/pilot";
+import { CadStudioPage } from "../features/cad-studio";
 
 // The Knowledge workspace (Graph RAG, Graph Memory and their graph explorers) is its own chunk.
 const KnowledgePage = lazy(() => import("../features/knowledge"));
@@ -89,7 +90,7 @@ export const router = createBrowserRouter([
       { path: "simulation", element: <HistoryPage /> },
       { path: "simulation/:runId", element: <SimulationView /> },
       { path: "trend", element: <TrendPage /> },
-      { path: "cad", element: <EngineeringPage /> },
+      { path: "cad", element: <CadStudioPage /> },
       {
         path: "knowledge",
         element: (

@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { settled } from "./pilot-console";
 
-// Every screen, and how the navigation reaches it (F3): four sections in the dock,
+// Every screen, and how the navigation reaches it (F3): primary sections in the dock,
 // the System menu at its foot, and the workspace for the assistant and pilot pages.
 // The page name is the top bar's h1.
 type Step = (page: Page) => Promise<void>;
@@ -15,6 +15,7 @@ const systemMenu = (name: string): Step => async (page) => {
 const ROUTES: [string, string, Step][] = [
   ["/prediction", "Cooling prediction", dock("Analytics")],
   ["/engineering", "Engineering", dock("Engineering")],
+  ["/cad", "CAD Studio", dock("CAD Studio")],
   ["/simulation", "Simulation history", async (page) => {
     await dock("Engineering")(page);
     await page.locator("#hub-simulation").getByRole("link", { name: "Open Simulation history" }).click();
@@ -62,7 +63,7 @@ test("no scenario switch outside AI Pilot: the deck keeps the source, playback a
   await expect(page.locator(".attention")).toContainText("No open issues");
 });
 
-test("the dock marks the current section; /simulation and /trend are their own screens, /cad opens the hub at its row", async ({ page }) => {
+test("the dock marks the current section; /simulation, /trend and /cad open their own screens", async ({ page }) => {
   // M6: Simulation history is its own screen inside the Engineering section.
   await page.goto("/simulation");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Simulation history");
@@ -73,9 +74,9 @@ test("the dock marks the current section; /simulation and /trend are their own s
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Trend");
   await expect(nav(page).getByRole("link", { name: "Analytics", exact: true })).toHaveAttribute("aria-current", "page");
   await page.goto("/cad");
-  await expect(page.locator("#hub-cad")).toHaveClass(/is-target/);
-  await expect(page.locator("#hub-cad")).toBeFocused();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Engineering");
+  await expect(nav(page).getByRole("link", { name: "CAD Studio", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("CAD Studio");
+  await expect(page.getByRole("button", { name: /Water-cooled plant/i })).toBeVisible();
 });
 
 test("the dock is one tab stop; arrow keys move between its items", async ({ page }) => {

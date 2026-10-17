@@ -30,8 +30,13 @@ interface EquipmentNodeProps {
   highlighted?: boolean;
   /** Draw the name and state; off in Key mode, where they are drawn in screen space. */
   showLabel?: boolean;
+  /** Draw and announce the operational/review state beside the equipment name. */
+  showState?: boolean;
   /** In fault or named by an open issue: stays at full emphasis whatever is selected. */
   alarm?: boolean;
+  /** CAD review status; when present it replaces the operational state label and tints the whole sprite. */
+  reviewState?: "confirmed" | "review" | "conflict" | "unknown";
+  reviewLabel?: string;
 }
 
 const HALO_PAD = 7;
@@ -57,13 +62,16 @@ export function EquipmentNode({
   related = false,
   highlighted = false,
   showLabel = true,
+  showState = true,
   alarm = false,
+  reviewState,
+  reviewLabel,
 }: EquipmentNodeProps) {
   const s = useStrings();
   const { width, height } = spriteGeometry[kind];
   const still = state !== "running" || stale;
   const period = speedHz && speedHz > 0 ? (50 / speedHz) * 0.9 : undefined;
-  const stateWord = stale ? s.scene.states.stale : s.scene.states[state];
+  const stateWord = reviewLabel ?? (stale ? s.scene.states.stale : s.scene.states[state]);
   const badge = stale ? "stale" : state === "fault" || state === "unavailable" ? state : null;
 
   const classes = [
@@ -75,6 +83,7 @@ export function EquipmentNode({
     (selected || related) && "eq-node--related",
     highlighted && "eq-node--highlighted",
     alarm && "eq-node--alarm",
+    reviewState && `eq-node--review-${reviewState}`,
     onSelect && "eq-node--interactive",
   ]
     .filter(Boolean)
@@ -89,7 +98,7 @@ export function EquipmentNode({
       {...(onSelect && {
         role: "button",
         tabIndex: 0,
-        "aria-label": `${label}, ${stateWord}`,
+        "aria-label": showState ? `${label}, ${stateWord}` : label,
         "aria-pressed": selected,
         onClick: () => onSelect(id),
         onKeyDown: (e: KeyboardEvent) => {
@@ -160,9 +169,7 @@ export function EquipmentNode({
       {!showLabel ? null : labelAt === "right" ? (
         <text className="eq-node__label" x={width + 7} y={height - 20}>
           <tspan className="eq-node__name">{label}</tspan>
-          <tspan className={`eq-node__state eq-node__state--${stale ? "stale" : state}`} x={width + 7} dy={17}>
-            {stateWord}
-          </tspan>
+          {showState && <tspan className={`eq-node__state${reviewState ? ` eq-node__state--review-${reviewState}` : ` eq-node__state--${stale ? "stale" : state}`}`} x={width + 7} dy={17}>{stateWord}</tspan>}
         </text>
       ) : (
         <text
@@ -172,9 +179,7 @@ export function EquipmentNode({
           textAnchor="middle"
         >
           <tspan className="eq-node__name">{label}</tspan>
-          <tspan className={`eq-node__state eq-node__state--${stale ? "stale" : state}`} dx={6}>
-            {stateWord}
-          </tspan>
+          {showState && <tspan className={`eq-node__state${reviewState ? ` eq-node__state--review-${reviewState}` : ` eq-node__state--${stale ? "stale" : state}`}`} dx={6}>{stateWord}</tspan>}
         </text>
       )}
     </g>

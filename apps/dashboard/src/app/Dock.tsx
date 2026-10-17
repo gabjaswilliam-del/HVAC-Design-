@@ -12,7 +12,7 @@ const reduceMotion = () => typeof matchMedia !== "undefined" && matchMedia("(pre
 const phone = () => typeof matchMedia !== "undefined" && matchMedia("(max-width: 760px)").matches;
 
 /**
- * The dock: four everyday destinations, then Shortcuts and System at its foot. Items
+ * The dock: primary destinations, then Shortcuts and System at its foot. Items
  * magnify near the pointer (transform only), a laminate indicator slides to the
  * current section, and the dock is one tab stop with arrow keys. On a phone it is a
  * bottom tab bar.
