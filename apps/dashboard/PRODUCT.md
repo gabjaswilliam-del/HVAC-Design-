@@ -67,10 +67,11 @@ Nothing below is operational at a site. Status as of 2026-10-04.
 
 **Built in the prototype, with synthetic data only:**
 
-- Overview: animated plant, status band, issue line, equipment details, playback and
-  an equipment list.
-- Analytics: cooling demand forecast page using a labelled demo baseline, not a
-  trained model.
+- Overview: animated plant (running only while the simulation plays), status band,
+  issue line, equipment details, playback and the AI display, where the assistant shows
+  what it retrieved.
+- Analytics: Predict, then the actual cooling load logged against the prediction as
+  the simulation runs, using a labelled demo baseline, not a trained model.
 - Engineering: equipment roster with filters.
 - AI assistant: a scripted demonstration. It matches questions to prepared
   investigations and calls simulated tools over the synthetic data; no language model

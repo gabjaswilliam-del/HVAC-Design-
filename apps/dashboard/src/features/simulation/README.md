@@ -2,7 +2,8 @@
 
 **Assignment:** implement `/simulation` for the modified PHYVAC backend. Read the
 [dashboard handoff](../../../README.md), [module boundary](../../../../../src/hvac_agent/simulation/README.md)
-and current PR #2 review state before integration. Status: UI brief only.
+and the [simulation guide](../../../../../docs/simulation.md), which states the merged
+foundation's supported topology and limits, before integration. Status: UI brief only.
 
 Build `SimulationPage`, `ScenarioForm`, `RunControls`, `SimulationTimeline`,
 `ResultsView` and `CorrectionHistory`. Use the monitoring scene renderer for a run

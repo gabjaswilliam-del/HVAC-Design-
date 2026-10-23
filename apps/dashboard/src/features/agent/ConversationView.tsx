@@ -161,7 +161,16 @@ export function ConversationView({ site, conversationId, onConversationChange, s
       const done = last?.parts.flatMap((p) => (p.type === "action" && wasApplied(last.id, p.action) ? [p.action] : [])) ?? [];
       const opened = done.filter((x) => x.kind === "open").map((x) => x.label);
       const pointed = done.filter((x) => x.kind === "reveal").map((x) => x.label);
-      setAnnouncement(opened.length ? a.answeredOpened(opened.join(", ")) : pointed.length ? a.answeredPointed(pointed.join(", ")) : a.answered);
+      const shown = last?.parts.flatMap((p) => (p.type === "display" ? [p.item.title] : [])) ?? [];
+      setAnnouncement(
+        shown.length
+          ? a.answeredShown(shown.join(", "))
+          : opened.length
+            ? a.answeredOpened(opened.join(", "))
+            : pointed.length
+              ? a.answeredPointed(pointed.join(", "))
+              : a.answered,
+      );
     } else {
       // Keep the question and its files so it can be retried.
       session.setDraft(prompt);

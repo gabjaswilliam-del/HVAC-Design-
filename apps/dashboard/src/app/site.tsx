@@ -4,7 +4,7 @@
  * here and shared, so the header, the page and Details always show the same sample.
  * All go through the one DataClient; changing scenario discards results from the old one.
  */
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { IssueList, SiteBundle, Snapshot } from "../lib/contracts";
 import type { AgentContext } from "../lib/contracts/agent";
 import { scenarioById } from "../fixtures/scenarios";
@@ -40,6 +40,28 @@ export function SiteProvider({ children }: { children: ReactNode }) {
 
 export const useSite = () => useContext(SiteContext)!.site;
 export const useSnapshot = (): Resource<Snapshot> & { at: string } => useContext(SiteContext)!.snapshot;
+
+/** The plant at rest: equipment the data reports running is shown stopped. Nothing else
+ *  changes (readings, faults and stale data stay as reported). */
+export function plantAtRest(snap: Snapshot): Snapshot {
+  return {
+    ...snap,
+    equipment: Object.fromEntries(Object.entries(snap.equipment).map(([id, e]) => [id, e.state === "running" ? { ...e, state: "stopped" as const } : e])),
+  };
+}
+
+/**
+ * The plant as the Overview and Details show it: it runs only while the simulation plays
+ * (the deck's Run simulation). Paused, running equipment is shown stopped, so nothing
+ * turns or flows on the drawing. Records, trends and the top bar's readings keep the
+ * reported data.
+ */
+export function usePlantSnapshot(): Resource<Snapshot> & { at: string } {
+  const snapshot = useSnapshot();
+  const playing = useOperating((s) => s.playing);
+  const data = useMemo(() => (snapshot.data && !playing ? plantAtRest(snapshot.data) : snapshot.data), [snapshot.data, playing]);
+  return { ...snapshot, data };
+}
 export const useIssues = (): Resource<IssueList> => useContext(SiteContext)!.issues;
 
 /** Context a new assistant conversation is asked in: current source, time and selection. */

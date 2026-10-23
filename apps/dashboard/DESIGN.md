@@ -325,7 +325,7 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   details) and Acknowledge (in this browser only, never a single-key shortcut), then
   Locate. New issues swing in once (a fade with reduced motion), pulse their eyelet
   until acknowledged, prefix the page title "(n) Critical ·" and are announced.
-- **Dock**: four sections, then Shortcuts and System. Items magnify up to 1.3x near the
+- **Dock**: five sections (Overview, Prediction, Engineering, CAD Studio, Knowledge), then Shortcuts and System. Items magnify up to 1.3x near the
   pointer (transform only), show a laminate name tag on hover or focus, and form one tab
   stop with arrow keys; a laminate indicator slides to the current section.
 - **Deck**: Live demo or Replay (a radio group), play and speed in replay, a 00 to 24
@@ -350,10 +350,12 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   not equipment health).
 - **State labels**: an icon and a word, colour secondary. Running is a check in a
   circle, Stopped a dashed circle, Fault a warning triangle, Stale a clock.
-- **List view**: find, type, state and open-issue filters with a live count; faults and
-  open issues first, issues as severity marks; labelled readings ("Fan" for towers,
-  demand and delivered for the data hall); 38 px rows, so all sixteen items fit at
-  1440x900; names on one line; an empty state with Clear filters.
+- **AI display** (owner change 2026-10-15, replacing the list view): the Overview's second
+  view shows what the assistant retrieved (its `show_on_display` tool): a title with
+  provenance tags, a caption, then a line or bar chart, a table, headline figures, an
+  inline image or a sandboxed page it wrote. Earlier items sit under "Shown earlier";
+  with nothing shown it says nothing has been queried yet. Equipment records are in
+  Engineering.
 - **Engineering hub and records**: a page header (title and description), then
   Investigations, Equipment records (with search), Simulation history (the run open in AI
   Pilot, a link to the history, and "Set up a simulation in AI Pilot", which opens it)

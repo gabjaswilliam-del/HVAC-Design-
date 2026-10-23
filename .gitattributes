@@ -1,0 +1,4 @@
+# The vendored engine is stored with LF and its recorded patches are generated against
+# that form. A checkout that rewrote its line endings would make them unreplayable.
+src/hvac_agent/integrations/phyvac/vendor/phyvac.py text eol=lf
+src/hvac_agent/integrations/phyvac/vendor/patches/*.patch text eol=lf

@@ -69,11 +69,10 @@ function NotFound() {
 }
 
 /** The roster is the Overview's list view now; old links keep the demo context. */
-function ToOverviewList() {
+/** The old equipment roster address: the records are in Engineering. */
+function ToEquipmentRecords() {
   const { search } = useLocation();
-  const p = new URLSearchParams(search);
-  p.set("view", "list");
-  return <Navigate replace to={{ pathname: "/", search: `?${p}` }} />;
+  return <Navigate replace to={{ pathname: "/engineering", search }} />;
 }
 
 export const router = createBrowserRouter([
@@ -83,7 +82,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <MonitoringPage /> },
       { path: "engineering", element: <EngineeringPage /> },
-      { path: "equipment", element: <ToOverviewList /> },
+      { path: "equipment", element: <ToEquipmentRecords /> },
       { path: "equipment/:equipmentId", element: <EquipmentRecordPage /> },
       { path: "prediction", element: <PredictionPage /> },
       { path: "agent", element: <AgentPage /> },

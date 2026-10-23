@@ -1,0 +1,116 @@
+# Physics calibration: the parameters no drawing and no data sheet can supply.
+#
+# Pipe resistance depends on how the pipework was actually run, how it was valved and
+# how fouled it is. Across the reference sites, fitting moved these by factors from
+# x0.12 to x6.4 in inconsistent directions, so there is no correction rule that could
+# replace fitting them per site.
+#
+# TWO SECTIONS, and the difference between them is the whole point:
+#
+#   defaults  engineering defaults. Not measured. What a site has on day one.
+#   fits      overlays produced by fitting against real data. Each one carries
+#             provenance and overrides `defaults` by dotted path, later fits winning.
+#
+# An empty `fits` is a Tier 1 site: topology and nameplate data, no calibration. That is
+# a usable model — it answers staging, capacity and fault-baseline questions — but it
+# cannot reproduce measured pressures. Making this visible in the file is deliberate.
+#
+# PROVENANCE IS REQUIRED on every fit. In the reference implementation the same fitted
+# constants were copied verbatim into at least five different plants, which was
+# undetectable because a fitted value and a nameplate value looked identical in the
+# file. `fitted_from` makes borrowed calibration self-declaring.
+
+defaults:
+
+  # Branch names are fixed by the topology family, not invented per site.
+  #
+  # These are sized against the pump curves in equipment.yaml so that the example is a
+  # plant that actually closes: two duty condenser pumps deliver about 2.6 m3/min to each
+  # tower, against a design flow of 3.33, and two duty chilled-water pumps deliver about
+  # 3.4 to the terminal. Resistances far apart from the pump curve do not merely give odd
+  # numbers — the header has no solution at all, because a pump's characteristic reaches
+  # its highest head at a positive flow and delivers nothing above it.
+  hydraulics:
+    terminal:              {kr_eq: 20.0}
+    terminal_branch:       {kr_pipe: 0.50}
+    chw_bypass_branch:     {kr_eq: 0.0, kr_pipe: 6.00}
+    cw_bypass_branch:      {kr_eq: 0.0, kr_pipe: 6.00}
+    chw_pump_branch:       {kr_pipe: 0.50}
+    cw_pump_branch:        {kr_pipe: 0.50}
+    chiller_chw_branch:    {kr_eq: 0.0, kr_pipe: 0.20}
+    chiller_cw_branch:     {kr_eq: 0.0, kr_pipe: 0.20}
+    tower_branch:          {kr_eq: 0.0, kr_pipe: 0.15}
+
+  # Pipework attributable to the towers, kept out of equipment.yaml.
+  tower_hydraulics:
+    resistance_kr: 35.0
+    static_head_m: 2.0
+
+  # How much of a tower's rated duty is available off-design.
+  tower_capacity:
+    fan_speed_exponent: 0.6
+    wet_bulb_penalty_per_k: 0.028
+    wet_bulb_penalty_floor: 0.55
+
+  # First-order lag and per-step limits on condenser water temperature, which exist
+  # because a ten-minute step cannot resolve the thermal mass of a condenser loop.
+  condenser_dynamics:
+    enabled: false
+    return_alpha: 0.42
+    supply_alpha: 0.38
+    return_max_rise_c_per_10min: 6.0
+    return_max_drop_c_per_10min: 4.0
+    supply_max_rise_c_per_10min: 5.5
+    supply_max_drop_c_per_10min: 4.5
+    no_tower_max_rise_c_per_10min: 3.0
+    no_tower_supply_margin_c: 0.3
+
+  # The water temperatures a plant at rest starts from. These are physics: the first
+  # step's chillers see them as inlet conditions, so they set the first step's duty and
+  # power. They are not what a dashboard shows for a stopped machine, which is display.
+  initial_conditions:
+    chw_supply_temp_c: 8.0
+    chw_return_temp_c: 12.0
+    cw_supply_temp_c: 28.0
+    cw_return_temp_c: 32.0
+
+  # The water temperatures this model describes a plant at all. Outside them the engine
+  # still returns numbers — a loop short of capacity heats without limit, since nothing
+  # here models the thermal mass that would slow it or the protections that would trip —
+  # but they are not a plant's, and a run that reaches them fails and says why rather
+  # than recording them. Engineering defaults, not measured limits.
+  #
+  # Wide on purpose. With no loop thermal mass, a cold start near full capacity overshoots
+  # while the second chiller waits out its switch interval: chilled-water return reaches
+  # about 30 C at 1,400 kW on the example site before settling. That is this model's
+  # transient, not a runaway, and must pass; a sustained overload passes 40 C within an
+  # hour and does not.
+  operating_envelope:
+    chilled_water_c: {min: 2.0, max: 40.0}
+    condenser_water_c: {min: 5.0, max: 50.0}
+
+# Tier 2 overlays. Empty here because this example site has not been calibrated.
+#
+# The shape a fit takes, for reference:
+#
+# fits:
+#   - provenance:
+#       fitted_from: this_site        # this_site, or the site the values were taken
+#                                     # from — borrowing is allowed, hiding it is not
+#       data_window: [2026-01-28, 2026-03-08]
+#       fitted_at: 2026-03-15
+#       method: optuna_tpe
+#       residual_pct: 4.2             # against the objective that was fitted
+#       notes: "chilled side only; condenser loop left at defaults"
+#     values:
+#       hydraulics.chw_pump_branch.kr_pipe: 1.9248
+#       hydraulics.terminal_branch.kr_pipe: 0.2154
+#       tower_hydraulics.resistance_kr: 0.0281
+#
+#   # A refitted manufacturer curve is an overlay too; equipment.yaml stays nameplate.
+#   - provenance: {fitted_from: this_site, data_window: [2026-04-01, 2026-04-30],
+#                  fitted_at: 2026-05-02, method: least_squares, residual_pct: 2.1}
+#     values:
+#       equipment.chw_pump_a.curve.pressure: [415.1283, 1.1293, -0.52823]
+
+fits: []

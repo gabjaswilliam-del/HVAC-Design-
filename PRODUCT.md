@@ -163,10 +163,12 @@ Operation on one DGX Spark
 
 ## 5. Current work and open decisions
 
-This checkout contains the scaffold, product context and folder-local engineering
-briefs. UI and prediction are not implemented. The simulation foundation exists on
-the separate PR #2 branch; consult [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for its
-last verified review/merge status. Architecture is documented in
+The repository contains the scaffold, product context, folder-local engineering
+briefs and the Version A dashboard prototype, which runs on labelled demo data (see
+[apps/dashboard/README.md](apps/dashboard/README.md)). The prediction backend is not
+implemented. The simulation foundation is implemented in PR #2 and described in
+[docs/simulation.md](docs/simulation.md); consult [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)
+for its last verified review/merge status. Architecture is documented in
 [docs/architecture.md](docs/architecture.md).
 
 Junior-engineer assignments start in [apps/dashboard/README.md](apps/dashboard/README.md)

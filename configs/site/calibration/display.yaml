@@ -1,0 +1,30 @@
+# Display calibration: how simulated quantities are reported as gauge readings.
+#
+# Nothing here changes physics. The solver produces pressure DIFFERENCES across branches;
+# the gauges on site read absolute pressures against a datum nobody recorded. These
+# parameters are the fitted mapping between the two, so that a value shown next to a
+# gauge is comparable with what the gauge shows.
+#
+# They are fitted from site data exactly as the physics parameters are, and carry the
+# same provenance requirement. They are in a separate file because they have a different
+# consequence: changing a number here changes a reading, never a flow, a temperature or
+# a power. Adjusting how the dashboard reports pressure must not touch a file labelled
+# physics. See docs/architecture.md — a visual rearrangement must not change physics.
+
+defaults:
+
+  pressure_mapping:
+    chw_return_base_kpa: 350.0
+    cw_return_base_kpa: 1240.0
+    # Gauge pressure rises with the square of header flow.
+    chw_return_flow_kpa_per_g2: 0.087
+    cw_return_flow_kpa_per_g2: 0.120
+    # supply_gauge = return_gauge + gain * solved_dp
+    chw_dp_gain: 0.56
+    cw_dp_gain: 2.94
+    # Condenser return gauge drifts with rejected load.
+    cw_return_q_reference_kw: 3500.0
+    cw_return_q_gain_kpa_per_mw: 1.2
+
+# Same overlay mechanism and same provenance requirement as calibration/physics.yaml.
+fits: []

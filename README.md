@@ -10,8 +10,11 @@ CAD installation jobs, and modified PHYVAC. The product will include a repeatabl
 [installation and commissioning procedure](deployment/dgx-spark/README.md), with no
 required cloud services or separate compute machines for installed operation.
 
-**Status:** repository structure only. No application, model, simulator, or equipment
-control is implemented yet.
+**Status:** scaffold, project context and engineering handoffs, plus the simulation
+foundation merged from PR #2 ([docs/simulation.md](docs/simulation.md)). No application
+or prediction model is implemented; prediction backend development is authorized on
+the `feat/prediction` branch. See [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for the
+verified project status.
 
 Product scope: [PRODUCT.md](PRODUCT.md) · [中文版](PRODUCT-zh.md).
 Module boundaries: [docs/architecture.md](docs/architecture.md).

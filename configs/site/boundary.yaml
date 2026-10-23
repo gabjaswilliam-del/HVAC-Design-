@@ -1,0 +1,24 @@
+# Boundary: assumptions about the half of the system we do not model.
+#
+# The plant ends at the terminal. Everything past it — air handlers, room loads, how the
+# building actually absorbs cooling — is represented by the few numbers below. They are
+# assumptions, not measurements and not equipment data, which is why they are neither in
+# equipment.yaml nor in calibration/.
+#
+# They are separated because they are the first thing to question when simulated and
+# measured return temperatures disagree while flows and pressures agree.
+
+terminal:
+  # How the terminal responds to supply temperature and flow.
+  #   demand_synced  the terminal takes the cooling it is asked for, within the dt cap
+  coupling_mode: demand_synced
+  nominal_delta_t_c: 5.0
+  delta_t_cap_factor: 2.0
+  effectiveness: 1.0
+
+# Condenser-side heat rejected per unit of cooling delivered, used only when no tower is
+# running and the tower model cannot close the balance.
+heat_rejection_ratio: 1.25
+
+# Return-water temperature rise when the load is zero and water still circulates.
+zero_load_return_temp_rise_c: 0.3

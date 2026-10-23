@@ -2,12 +2,14 @@
  * Agent harness boundary: conversations, a streamed turn of events, typed data views and
  * typed workspace actions. A local-LLM harness and the offline demo produce the same
  * events, so the UI does not change when the demo is replaced. Views and actions carry
- * typed navigation targets; model output never supplies HTML, scripts, components or
- * arbitrary URLs. Charts are not drawn in the conversation: a view or action opens them
- * in the main display.
+ * typed navigation targets; model output never supplies components or arbitrary URLs.
+ * Charts are not drawn in the conversation: what the assistant retrieves is shown on the
+ * AI display (a `display` event from its `show_on_display` tool, `./display.ts`), where
+ * HTML it writes is drawn only in a sandboxed frame. A view or action opens a screen.
  */
 import { z } from "zod";
 import { isoTime } from "./common";
+import { displayItem } from "./display";
 
 const severity = z.enum(["info", "warning", "critical"]);
 
@@ -105,6 +107,8 @@ export const agentEvent = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("view"), view: dataView }),
   z.object({ type: z.literal("action"), action: workspaceAction }),
+  /** Shown on the AI display. */
+  z.object({ type: z.literal("display"), item: displayItem }),
   z.object({
     type: z.literal("turn_end"),
     status: z.enum(["complete", "cancelled", "error"]),
@@ -127,6 +131,7 @@ export const turnPart = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("view"), view: dataView }),
   z.object({ type: z.literal("action"), action: workspaceAction }),
+  z.object({ type: z.literal("display"), item: displayItem }),
 ]);
 export type TurnPart = z.infer<typeof turnPart>;
 
@@ -192,6 +197,8 @@ export function applyEvent(t: Turn, e: AgentEvent): Turn {
       return { ...t, parts: [...t.parts, { type: "view", view: e.view }] };
     case "action":
       return { ...t, parts: [...t.parts, { type: "action", action: e.action }] };
+    case "display":
+      return { ...t, parts: [...t.parts, { type: "display", item: e.item }] };
     case "turn_end":
       return {
         ...t,

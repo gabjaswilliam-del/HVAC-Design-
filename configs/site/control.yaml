@@ -1,0 +1,75 @@
+# Control: how the plant is operated.
+#
+# These describe the site's PLC and its operating practice, not the machines. Frequency
+# limits belong here rather than in equipment.yaml: across the reference sites four
+# plants running comparable pumps use four different limits, so they record what the
+# operators set, not what the motors allow.
+#
+# This file is the baseline the simulator runs when no agent is driving it. The agent's
+# objective function is NOT here — that is a product decision and belongs to the agent.
+
+frequency_limits_hz:
+  chilled_water_pump_pri: {min: 30.0, max: 50.0}
+  cooling_water_pump:     {min: 30.0, max: 50.0}
+  cooling_towers:         {min: 25.0, max: 50.0}
+
+setpoints:
+  chw_supply_temp_c: {min: 7.0, max: 12.0}
+  # Never ask for a supply temperature within this much of the return temperature, which
+  # would demand zero or negative cooling.
+  min_evaporator_delta_t_c: 0.15
+  # Header pressure each bypass holds to. It opens when the last step came
+  # out above this and closes when it came out below.
+  cw_bypass_dp_kpa: 150.0
+  chw_bypass_dp_kpa: 200.0
+
+staging:
+  chiller:
+    up_at_fraction_of_rated: 0.82
+    down_at_fraction_of_rated: 0.45
+    confirm_steps: 2
+    # How far below the stage-down threshold the load must fall before the LAST chiller
+    # stops, as a fraction of it. Zero means it runs until the load does reach zero.
+    # This was a bare 0.5 in the reference; naming it does not make it right, but it
+    # makes it reviewable.
+    last_unit_shutdown_factor: 0.5
+    # Auxiliaries reach the target count this many steps before a chiller is added,
+    # matching the order operators start equipment in.
+    prestart_steps: 1
+  chilled_water_pump_pri:
+    up_at_fraction_of_design: 0.90
+    down_at_fraction_of_design: 0.60
+    confirm_steps: 1
+  cooling_water_pump:
+    up_at_fraction_of_design: 0.90
+    down_at_fraction_of_design: 0.60
+    confirm_steps: 1
+  cooling_towers:
+    up_at_fraction_of_design: 0.42
+    down_at_fraction_of_design: 0.30
+    confirm_steps: 2
+
+# Minimum time between two changes of a unit's running state. Protects the machine.
+protection:
+  chiller_min_switch_interval_minutes: 30.0
+  pump_min_switch_interval_minutes: 10.0
+  cooling_tower_min_switch_interval_minutes: 20.0
+
+# Tower fan control, which has no single measured heat-rejection signal to follow.
+tower_fan:
+  assumed_cop_for_heat_rejection: 5.0
+  # Raise the fan-speed floor when condenser return runs hot. `weight` is how much of
+  # the remaining headroom a fully severe trim takes; it was a bare literal before.
+  return_temp_trim: {enabled: true, start_c: 38.5, full_c: 43.0, weight: 0.35}
+  # Raise it again when the wet bulb is high and approach is hard to hold.
+  wet_bulb_trim: {enabled: true, reference_c: 28.0, high_c: 32.0, weight: 0.2}
+  min_valve_opening: 0.65
+
+pid:
+  terminal_valve:      {kp: 0.04,  ti: 400.0}
+  chilled_water_pump:  {kp: 0.001, ti: 400.0}
+  cooling_water_pump:  {kp: 0.05,  ti: 200.0}
+  chiller_chw_valve:   {kp: 0.03,  ti: 200.0}
+  chiller_cw_valve:    {kp: 0.03,  ti: 200.0}
+  tower_fan:           {kp: 0.008, ti: 100.0, direction: -1}
+  tower_valve:         {kp: 0.03,  ti: 220.0}

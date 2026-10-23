@@ -1,0 +1,29 @@
+--- a/phyvac.py
++++ b/phyvac.py
+@@ -859,7 +859,7 @@
+             tin_cd_cop = float(np.clip(tin_cd_cop, tin_lo, tin_hi))
+ 
+             # COP插值计算
+-            self.cop = float(cop([[tin_cd_cop, pl_cop]]))
++            self.cop = cop([[tin_cd_cop, pl_cop]]).item()
+             if (not np.isfinite(self.cop)) or self.cop <= 1e-9:
+                 # 保险兜底：极端参数可能导致插值得到非正/非数 COP，避免训练中断
+                 pos_vals = dataset[np.isfinite(dataset) & (dataset > 1e-9)]
+@@ -1372,7 +1372,7 @@
+             pl_cop = float(np.clip(pl_cop, pl_lo, pl_hi))
+             tdb_cop = float(np.clip(float(tdb), tin_lo, tin_hi))
+ 
+-            self.cop = float(cop([[tdb_cop, pl_cop]]))
++            self.cop = cop([[tdb_cop, pl_cop]]).item()
+             # 基于逆卡诺循环按定格冷水出口温度变化校正COP
+             self.cop *= ((273.15 + self.tout_ch) / (tdb - self.tout_ch)) / (
+                         (273.15 + self.tout_ch_d) / (tdb - self.tout_ch_d))
+@@ -1425,7 +1425,7 @@
+             self.pl = self.q_h / max(self.q_h_d, 1e-9)
+             pl_cop = float(np.clip(self.pl, float(np.min(pl)), float(np.max(pl))))
+             tdb_cop = float(np.clip(float(tdb), float(np.min(temp)), float(np.max(temp))))
+-            self.cop = float(cop([[tdb_cop, pl_cop]]))
++            self.cop = cop([[tdb_cop, pl_cop]]).item()
+             if self.tout_h_sp != self.tout_h_d and abs(tdb - self.tout_h_sp) > 1e-6:
+                 self.cop *= ((273.15 + self.tout_h_d) / (tdb - self.tout_h_d)) / (
+                     (273.15 + self.tout_h_sp) / (tdb - self.tout_h_sp)

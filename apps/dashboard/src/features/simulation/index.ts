@@ -2,7 +2,7 @@
 // AI Pilot reuses for a live run.
 export { HistoryPage } from "./HistoryPage";
 export { RunStateLabel, CorrectionStatusLabel, OutcomeText, Loading } from "./labels";
-export { session as simulationSession, useSimulation, liveRunOf, type PilotView, type PilotControl } from "./simulationSession";
+export { session as simulationSession, useSimulation, usePilotRunning, liveRunOf, type PilotView, type PilotControl } from "./simulationSession";
 export { SimulatedPlant } from "./SimulatedPlant";
 export { RunControls, hm } from "./RunControls";
 export { ScenarioForm } from "./ScenarioForm";

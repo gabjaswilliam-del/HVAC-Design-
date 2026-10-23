@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import type { DisplayItem } from "../lib/contracts/display";
 import { agentEvent, type AgentContext, type AgentEvent, type AttachmentInput, type WorkspaceAction } from "../lib/contracts/agent";
 import { pilotReader, simulationReader } from "../lib/api/simulation";
 import type { RunConfig } from "../lib/contracts/simulation";
@@ -27,7 +28,8 @@ async function ask(context: AgentContext, prompt: string, opts: AgentFixtureOpti
   const results = events.filter((e) => e.type === "tool_result") as Extract<AgentEvent, { type: "tool_result" }>[];
   const views = events.filter((e) => e.type === "view") as Extract<AgentEvent, { type: "view" }>[];
   const actions = (events.filter((e) => e.type === "action") as Extract<AgentEvent, { type: "action" }>[]).map((e) => e.action);
-  return { agent, conv, events, text, toolCalls, results, views, actions };
+  const displays = (events.filter((e) => e.type === "display") as Extract<AgentEvent, { type: "display" }>[]).map((e) => e.item);
+  return { agent, conv, events, text, toolCalls, results, views, actions, displays };
 }
 const message = (prompt: string) => ({ prompt, attachments: [] });
 
@@ -35,13 +37,14 @@ const message = (prompt: string) => ({ prompt, attachments: [] });
 async function converse(context: AgentContext, prompts: string[], opts: AgentFixtureOptions = {}) {
   const agent = createFixtureAgent({ delayScale: 0, ...opts });
   const conv = await agent.createConversation(context);
-  const turns: { text: string; actions: WorkspaceAction[] }[] = [];
+  const turns: { text: string; actions: WorkspaceAction[]; displays: DisplayItem[] }[] = [];
   for (const prompt of prompts) {
     const events: AgentEvent[] = [];
     for await (const e of agent.sendMessage(conv.id, message(prompt))) events.push(agentEvent.parse(e));
     turns.push({
       text: events.filter((e) => e.type === "text_delta").map((e) => (e as { text: string }).text).join(""),
       actions: (events.filter((e) => e.type === "action") as Extract<AgentEvent, { type: "action" }>[]).map((e) => e.action),
+      displays: (events.filter((e) => e.type === "display") as Extract<AgentEvent, { type: "display" }>[]).map((e) => e.item),
     });
   }
   return turns;
@@ -100,11 +103,16 @@ describe("offline agent harness", () => {
     const { text, views } = await ask(ctx("pump-trip", 14, 12), "Is the plant meeting cooling demand?");
     expect(text).toContain(`${unmet} kWt of demand is not being met`);
     expect(text).toContain("The shortfall began at 14:05 UTC+8 and is still going on");
-    // A shortfall's course has a view: it opens beside the answer; the chat draws no chart.
-    const { actions } = await ask(ctx("pump-trip", 14, 12), "Is the plant meeting cooling demand?");
-    expect(actions).toEqual([{ kind: "open", target: { type: "metric", key: "plant:unmet_kw" }, label: "Unmet demand today" }]);
+    // The day's demand and delivery go to the AI display; no other screen is opened and the
+    // chat draws no chart.
+    const { actions, displays, toolCalls } = await ask(ctx("pump-trip", 14, 12), "Is the plant meeting cooling demand?");
+    expect(actions).toEqual([]);
+    expect(displays.map((d) => d.title)).toEqual(["Cooling demand and delivery today"]);
+    expect(displays[0].content.kind).toBe("line");
+    expect(displays[0].source).toEqual({ kind: "assistant", conversationId: expect.any(String), demo: true });
+    expect(toolCalls.find((c) => c.tool === "show_on_display")).toMatchObject({ simulated: false, args: { kind: "line" } });
     expect(views.some((v) => v.view.kind === "chart" as never)).toBe(false);
-    // Demand met, nothing to see: the answer is a sentence, the view a link.
+    // The trend page stays a link.
     const met = await ask(ctx("normal", 15, 15), "Is the plant meeting cooling demand?");
     expect(met.actions).toEqual([]);
     expect(met.views.some((v) => v.view.kind === "link" && v.view.target.type === "metric")).toBe(true);
@@ -113,11 +121,18 @@ describe("offline agent harness", () => {
   it("describes the forecast as a baseline, and shows nothing when it is unavailable", async () => {
     const ok = await ask(ctx("normal", 15, 15), "What cooling demand is forecast for the next 6 hours?");
     expect(ok.text).toContain("not a trained model");
-    // The forecast has its own view, so it opens with the answer: no "show me" needed.
-    expect(ok.actions).toHaveLength(1);
-    expect(ok.actions[0]).toMatchObject({ kind: "open", target: { type: "prediction", forecastId: expect.stringMatching(/^fc-normal-/) }, label: "Cooling prediction" });
+    // Observed and forecast demand go to the AI display; the prediction page is a link.
+    expect(ok.actions).toEqual([]);
+    expect(ok.displays).toHaveLength(1);
+    const shown = ok.displays[0].content;
+    expect(shown.kind === "line" && shown.series.map((x) => [x.label, Boolean(x.dashed)])).toEqual([
+      ["Observed demand", false],
+      ["Forecast demand", true],
+    ]);
+    expect(ok.views.some((v) => v.view.kind === "link" && v.view.target.type === "prediction" && v.view.target.forecastId?.startsWith("fc-normal-"))).toBe(true);
     const none = await ask(ctx("new-site", 15, 15), "What cooling demand is forecast for the next 6 hours?");
     expect(none.text).toContain("No forecast is available (INSUFFICIENT_HISTORY)");
+    expect(none.displays).toEqual([]);
     expect(none.views.some((v) => v.view.kind === "link" && v.view.target.type === "prediction" && v.view.target.forecastId)).toBe(false);
   });
 
@@ -159,10 +174,11 @@ describe("offline agent harness", () => {
     expect(value.views.some((v) => v.view.kind === "link" && v.view.target.type === "metric")).toBe(true);
   });
 
-  it("opens what it is asked to show in the workspace, through one typed action, and sums it up", async () => {
+  it("shows what it is asked to show on the AI display, and sums it up", async () => {
     for (const p of ["Show me COP today", "how is our COP doing?", "let me see COP performance", "COP trend", "visualize the coefficient of performance"]) {
-      const { actions, text } = await ask(ctx("normal", 15, 15), p);
-      expect(actions, p).toEqual([{ kind: "open", target: { type: "metric", key: "plant:cop" }, label: "System COP today" }]);
+      const { actions, displays, text } = await ask(ctx("normal", 15, 15), p);
+      expect(actions, p).toEqual([]);
+      expect(displays.map((d) => [d.title, d.content.kind]), p).toEqual([["System COP today", "line"]]);
       expect(text, p).toMatch(/^System COP is .* Since the start of the day it has ranged from .* averaging /);
     }
     const chiller = await ask(ctx("normal", 15, 15), "open Chiller 2");
@@ -170,9 +186,10 @@ describe("offline agent harness", () => {
     expect(chiller.text).toMatch(/^Chiller 2 is running at 15:15 UTC\+8\./);
   });
 
-  it("opens the detailed view a question has, without being asked to show it", async () => {
+  it("shows the data a question needs, without being asked to show it", async () => {
     const how = await ask(ctx("normal", 15, 15), "How has COP been today?");
-    expect(how.actions).toEqual([{ kind: "open", target: { type: "metric", key: "plant:cop" }, label: "System COP today" }]);
+    expect(how.actions).toEqual([]);
+    expect(how.displays.map((d) => d.title)).toEqual(["System COP today"]);
     const what = await ask(ctx("normal", 15, 15), "What is happening with Chiller 2?");
     expect(what.text).toMatch(/^Chiller 2 is running at 15:15 UTC\+8/);
     expect(what.actions).toEqual([{ kind: "open", target: { type: "equipment_page", id: "chiller_plant_2" }, label: "Chiller 2 record" }]);
@@ -181,16 +198,17 @@ describe("offline agent harness", () => {
     expect(fromDetails.actions).toEqual([]);
     expect(fromDetails.views.some((v) => v.view.kind === "link" && v.view.target.type === "equipment_page")).toBe(true);
     const last = await ask(ctx("normal", 15, 15), "COP over the last 6 hours");
-    expect(last.actions).toEqual([{ kind: "open", target: { type: "metric", key: "plant:cop", hours: 6 }, label: "System COP, the last 6 hours" }]);
+    expect(last.displays.map((d) => d.title)).toEqual(["System COP, the last 6 hours"]);
     expect(last.text).toMatch(/Over the last 6 hours it has ranged from /);
   });
 
   it("reads follow-ups against the conversation, and fails safely when it cannot", async () => {
     const [cop, six, power, yesterday] = await converse(ctx("normal", 15, 15), ["Show me COP today", "What about the last 6 hours?", "And power?", "How about yesterday?"]);
-    expect(cop.actions[0]).toEqual(expect.objectContaining({ target: { type: "metric", key: "plant:cop" } }));
-    expect(six.actions).toEqual([{ kind: "open", target: { type: "metric", key: "plant:cop", hours: 6 }, label: "System COP, the last 6 hours" }]);
-    expect(power.actions[0]).toEqual(expect.objectContaining({ target: { type: "metric", key: "plant:power_kw", hours: 6 } }));
+    expect(cop.displays.map((d) => d.title)).toEqual(["System COP today"]);
+    expect(six.displays.map((d) => d.title)).toEqual(["System COP, the last 6 hours"]);
+    expect(power.displays[0].title).toMatch(/power, the last 6 hours$/i);
     expect(yesterday.actions).toEqual([]);
+    expect(yesterday.displays).toEqual([]);
     expect(yesterday.text).toMatch(/^The demo data holds one synthetic day, so there is nothing for yesterday/);
 
     const [, history] = await converse(ctx("tower-fault", 15, 15), ["What is happening with Cooling tower 4?", "Show me its history."]);
@@ -401,6 +419,7 @@ describe("stopping, and the assistant's boundary with simulation", () => {
       "get_simulation_run",
       "get_run_summary",
       "get_pilot_findings",
+      "show_on_display",
     ]);
     expect(caps.tools.filter((t) => /correct|override|setpoint|release|start|stop|pause|resume|step|apply|monitor|create|command|submit/i.test(t.name))).toEqual([]);
     const { simulation, pilot } = createSimulationService({ pace: 0, storage: null });

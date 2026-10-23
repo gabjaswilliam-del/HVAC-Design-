@@ -22,6 +22,7 @@ import {
   type Turn,
   type WorkspaceAction,
 } from "../../lib/contracts/agent";
+import type { DisplayItem } from "../../lib/contracts/display";
 import { agentClient as agent } from "../../app/dataClient";
 
 export interface Session {
@@ -83,6 +84,8 @@ const asError = (e: unknown) => (e instanceof ApiError ? e : new ApiError("UNAVA
 
 type ActionListener = (action: WorkspaceAction, context: AgentContext) => void;
 const actionListeners = new Set<ActionListener>();
+/** What the assistant shows on the AI display, as it streams. */
+const displayListeners = new Set<(item: DisplayItem) => void>();
 /** Actions the app applied, by turn and target, so a turn can say what it opened. */
 const applied = new Set<string>();
 // The same action, streamed (as parsed) or stored (as the harness wrote it), in any key order.
@@ -117,6 +120,11 @@ export const session = {
   onAction(listener: ActionListener) {
     actionListeners.add(listener);
     return () => void actionListeners.delete(listener);
+  },
+  /** The app shows what the assistant sends to the AI display; returns the unsubscribe. */
+  onDisplay(listener: (item: DisplayItem) => void) {
+    displayListeners.add(listener);
+    return () => void displayListeners.delete(listener);
   },
 
   /** Send a question (typed, transcribed, with files or not); creates a conversation with
@@ -157,6 +165,7 @@ export const session = {
             applied.add(actionKey(turn.id, e.action));
             actionListeners.forEach((l) => l(e.action, context));
           }
+          if (e.type === "display" && state.id === id) displayListeners.forEach((l) => l(e.item));
         }
         if (state.id === id) set({ live: turn });
       }

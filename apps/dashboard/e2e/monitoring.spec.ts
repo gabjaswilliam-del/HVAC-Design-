@@ -160,7 +160,8 @@ test("5: selection highlights connected pipelines and the inspector shows detail
   await expect(node(page, "cooling_towers_1")).not.toHaveClass(/eq-node--related/);
 
   const panel = inspector(page);
-  await expect(panel.getByText("Running")).toBeVisible();
+  // Details show the plant as the Overview does: at rest until the simulation runs.
+  await expect(panel.getByText("Stopped")).toBeVisible();
   await expect(panel.locator('[data-metric="chiller_plant_2:load_pct"]')).toContainText("%");
   // The third column is the signal (data quality), labelled as not equipment health.
   await expect(panel.getByRole("columnheader", { name: "Signal" })).toBeVisible();
@@ -336,8 +337,9 @@ test("locate keeps the zoom when the item is in view, and zooms in when it is no
 });
 
 test("playback and scenarios change the readings and states", async ({ page }) => {
-  await open(page, "/?scenario=tower-fault&time=13:10");
-  await expect(node(page, "cooling_towers_4")).toHaveAttribute("aria-label", /Running/);
+  await open(page, "/?scenario=tower-fault&time=13:10&mode=replay");
+  // Paused, the plant is at rest: the tower the data reports running is shown stopped.
+  await expect(node(page, "cooling_towers_4")).toHaveAttribute("aria-label", /Stopped/);
   await expect(page.locator(".attention")).toContainText("No open issues");
   const slider = page.getByRole("slider", { name: "Time of day" });
   for (let i = 0; i < 3; i++) await slider.press("ArrowRight");
@@ -363,12 +365,13 @@ test("disconnected telemetry keeps last values, marked stale, and says so once p
   await expect(page.getByText("Telemetry disconnected. No samples received")).toHaveCount(0);
 });
 
-test("scene revision mismatch falls back to the equipment list", async ({ page }) => {
+test("scene revision mismatch shows the AI display and points to the equipment records", async ({ page }) => {
   await page.goto("/?scenario=scene-mismatch");
   await expect(page.getByText("Scene does not match the site configuration")).toBeVisible();
   await expect(page.getByRole("radio", { name: "Schematic" })).toBeDisabled();
-  await page.getByRole("button", { name: "Chiller 2", exact: true }).click();
-  await expect(inspector(page).getByRole("heading", { level: 2 })).toHaveText("Chiller 2");
+  await expect(page.getByRole("radio", { name: "AI display" })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "Open equipment records" }).click();
+  await expect(page).toHaveURL(/\/engineering/);
 });
 
 test("a failed readings request shows a retryable error", async ({ page }) => {

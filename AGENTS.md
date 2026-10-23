@@ -1,6 +1,7 @@
 # Project context and working agreements
 
-Updated from the owner's project definition on 2026-09-20. Read [PRODUCT.md](PRODUCT.md)
+Updated from the owner's project definition on 2026-09-20; implementation authorization
+for stages 1 and 2 added 2026-09-21. Read [PRODUCT.md](PRODUCT.md)
 and [docs/architecture.md](docs/architecture.md) before making architectural changes.
 Reference-project findings and the development sequence are in
 [docs/reference-review.md](docs/reference-review.md).
@@ -55,9 +56,16 @@ on it; implementation on an open PR is not implementation merged into this branc
 
 ## Current scope and implementation boundaries
 
-- The initial request is **folder structure and documentation only**, followed by
-  a PR. The follow-up is reference review and planning only. No feature development
-  is authorized by either scaffolding or reference review.
+- Scaffolding and reference review did not themselves authorize feature development.
+  As of 2026-09-21 the owner authorizes stages 1 and 2 of the sequence in
+  [docs/reference-review.md](docs/reference-review.md): site definition contracts and
+  the modified PHYVAC foundation. Work under this authorization is confined to
+  `src/hvac_agent/core/`, `src/hvac_agent/simulation/`, `src/hvac_agent/integrations/`,
+  `configs/site/` and `tests/`. Do not add dashboard, API, agent, prediction, pilot,
+  knowledge or training features under it; later stages need their own authorization.
+  Those two stages are delivered and were merged to `main` through PR #2 on 2026-10-10
+  — see [docs/simulation.md](docs/simulation.md) — and that authorization does not
+  extend to anything beyond them.
 - On 2026-10-01 the owner requested folder-local UI and cooling-load prediction
   implementation briefs for junior engineers. This handoff change is documentation
   and folder setup only. When assigned implementation, follow
@@ -65,6 +73,17 @@ on it; implementation on an open PR is not implementation merged into this branc
   `src/hvac_agent/prediction/README.md`; coordinate API shapes through
   `docs/ui-data-contracts.md`. Draft components/endpoints are not existing code.
   Keep UI fixtures explicitly labeled and preserve the single-DGX/site constraints.
+- On 2026-10-11 the owner authorizes the backend of stage 5 of that sequence,
+  cooling-load prediction, developed on the `feat/prediction` branch. Work under it is
+  confined to `src/hvac_agent/prediction/`, `tests/` and prediction documentation; add
+  a type to `core/` only when another module genuinely needs that contract. It does
+  not authorize changes to `simulation/`, the agent, pilot, knowledge or training
+  modules, the API routes or the dashboard, nor choosing the API or dashboard
+  frameworks. Stages 3 and 4 remain unauthorized: prediction reads data through
+  injected interfaces and must not depend on them.
+- Implementation happens on a branch and lands through a PR, never directly on `main`.
+  A PR must pass `pytest` and be validated on the DGX Spark; state explicitly when DGX
+  validation could not be completed.
 - Backend modules live under `src/hvac_agent/`; entry points under `apps/` compose
   them. See the architecture document for dependency direction and ownership.
 - `core` owns shared domain contracts, not provider clients or application logic.

@@ -5,7 +5,7 @@ import { EquipmentInspector } from "../../features/equipment";
 import { KpiDetailsPanel, sceneMatchesTopology } from "../../features/monitoring";
 import { ISSUES_KPI } from "../../features/monitoring/kpiDefinitions";
 import { operating, useOperating } from "../operatingContext";
-import { useIssues, useSite, useSnapshot } from "../site";
+import { useIssues, usePlantSnapshot, useSite } from "../site";
 import { useShowOnPlant } from "../useShowOnPlant";
 
 /**
@@ -14,7 +14,7 @@ import { useShowOnPlant } from "../useShowOnPlant";
  */
 export function DetailsPane({ restoreFocus }: { restoreFocus: (...selectors: string[]) => void }) {
   const site = useSite();
-  const snapshot = useSnapshot();
+  const snapshot = usePlantSnapshot();
   const issues = useIssues();
   const selectedId = useOperating((x) => x.selectedId);
   const kpiKey = useOperating((x) => x.kpiKey);
@@ -65,7 +65,7 @@ export function DetailsPane({ restoreFocus }: { restoreFocus: (...selectors: str
 export function DetailsStrip() {
   const s = useStrings();
   const site = useSite();
-  const snapshot = useSnapshot();
+  const snapshot = usePlantSnapshot();
   const selectedId = useOperating((x) => x.selectedId);
   const kpiKey = useOperating((x) => x.kpiKey);
   const device = site.data?.topology.devices.find((d) => d.id === selectedId);

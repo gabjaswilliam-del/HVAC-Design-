@@ -18,6 +18,7 @@
  * for several readings side by side.
  */
 import type { AgentContext, AgentMessage, DataView, NavTarget } from "../lib/contracts/agent";
+import type { DisplayRequest } from "../lib/contracts/display";
 import type { Device, ForecastResult, History, Issue, SiteBundle, Snapshot } from "../lib/contracts";
 import { isFinal, matchedRuns, type PilotIssue, type RunStatus } from "../lib/contracts/simulation";
 import { formatNumber, formatTime, siteDayStart } from "../lib/format";
@@ -43,6 +44,8 @@ export interface ScriptHost {
   open(target: NavTarget, label: string): void;
   /** Point to an operator control in AI Pilot. It is shown, never pressed (F10). */
   reveal(control: RevealControl, label: string, ids?: { runId?: string; issueId?: string }): void;
+  /** Show what was retrieved on the operator's AI display (the `show_on_display` tool). */
+  display(request: DisplayRequest): Promise<void>;
 }
 
 export type RevealControl = SimulationControl | "apply" | "corrections";
@@ -318,7 +321,24 @@ async function shortfall(h: ScriptHost) {
     text += table(["Period", "Peak unmet"], periods.map((p) => [span(p), `${formatNumber(p.peak, 0)} kWt`]));
   }
   await h.say(text);
-  present(h, { type: "metric", key: "plant:unmet_kw" }, "Unmet demand today", Boolean(unmet?.value) || Boolean(periods?.length));
+  const line = (k: string) => (hist?.series.find((x) => x.metric === k)?.values ?? []).map((v, i) => ({ t: hist!.times[i], v }));
+  if (hist?.times.length) {
+    await h.display({
+      title: "Cooling demand and delivery today",
+      caption: `Site cooling demand, cooling delivered and unmet demand from midnight to ${time(at)}, from get_history.`,
+      content: {
+        kind: "line",
+        unit: "kWt",
+        decimals: 0,
+        series: [
+          { label: "Cooling demand", points: line("plant:cooling_demand_kw") },
+          { label: "Cooling delivered", points: line("plant:cooling_delivered_kw") },
+          { label: "Unmet demand", points: line("plant:unmet_kw") },
+        ],
+      },
+    });
+  }
+  h.view({ kind: "link", label: "Unmet demand trend", target: { type: "metric", key: "plant:unmet_kw" } });
   h.view({ kind: "link", label: "Cooling delivered details", target: { type: "monitoring_kpi", kpi: "plant:cooling_delivered_kw" } });
 }
 
@@ -327,6 +347,7 @@ async function forecast(h: ScriptHost) {
   const at = h.context.at;
   const f = (await h.tool("get_forecast", { at, horizon_minutes: 360, step_minutes: 15 })) as ForecastResult | null;
   const snap = await h.tool("get_plant_snapshot", { at });
+  const observed = await h.tool("get_history", { metrics: "plant:cooling_demand_kw", from: new Date(Date.parse(at) - 6 * 3_600_000).toISOString(), to: at });
   let text = "";
   if (!f) text = "The forecast could not be retrieved.";
   else if (f.status === "unavailable") {
@@ -344,12 +365,28 @@ async function forecast(h: ScriptHost) {
     }
   }
   await h.say(text);
-  const available = Boolean(f && f.status !== "unavailable");
-  present(h, { type: "prediction", forecastId: f && f.status !== "unavailable" ? f.forecastId : undefined }, "Cooling prediction", available);
+  if (f && f.status !== "unavailable") {
+    const demand = observed?.series.find((x) => x.metric === "plant:cooling_demand_kw");
+    await h.display({
+      title: "Cooling demand: the last 6 hours and the next 6",
+      caption: `Observed demand to ${time(at)} (get_history) and the demonstration baseline's forecast after it (get_forecast); the shaded spread is uncalibrated.`,
+      content: {
+        kind: "line",
+        unit: "kWt",
+        decimals: 0,
+        series: [
+          { label: "Observed demand", points: (observed?.times ?? []).map((t, i) => ({ t, v: demand?.values[i] ?? null })) },
+          { label: "Forecast demand", dashed: true, points: f.series.map((p) => ({ t: p.timestamp, v: p.valueKw })) },
+        ],
+        band: f.interval ? { label: "Uncalibrated spread", points: f.series.map((p) => ({ t: p.timestamp, lo: p.lowerKw ?? null, hi: p.upperKw ?? null })) } : undefined,
+      },
+    });
+  }
+  h.view({ kind: "link", label: "Cooling prediction", target: { type: "prediction", forecastId: f && f.status !== "unavailable" ? f.forecastId : undefined } });
 }
 
 async function efficiency(h: ScriptHost) {
-  const { site, time, value, label } = helpers(h);
+  const { site, tz, time, value, label } = helpers(h);
   const at = h.context.at;
   const snap = await h.tool("get_plant_snapshot", { at });
   // A simple question gets a short answer: the figure, what it is made of, the largest loads.
@@ -362,6 +399,18 @@ async function efficiency(h: ScriptHost) {
       .sort((a, b) => b.v - a.v)
       .slice(0, 3)
       .map((x) => ({ name: label(x.id), kw: `${formatNumber(x.v, 1)} kW` }));
+    const loads = site.topology.devices
+      .map((d) => ({ label: d.label, value: snap.values[`${d.id}:power_kw`]?.value ?? null }))
+      .filter((x) => x.value !== null && x.value > 0)
+      .sort((a, b) => b.value! - a.value!)
+      .slice(0, 10);
+    if (loads.length) {
+      await h.display({
+        title: `Electrical load by equipment at ${formatTime(at, tz)}`,
+        caption: `System COP ${value(snap, "plant:cop")}: ${value(snap, "plant:cooling_delivered_kw")} of cooling for ${value(snap, "plant:power_kw")} of electrical power (get_plant_snapshot).`,
+        content: { kind: "bar", unit: "kW", decimals: 1, bars: loads },
+      });
+    }
     if (top.length) {
       // Equal loads share first place.
       const lead = top.filter((x) => x.kw === top[0].kw);
@@ -401,7 +450,21 @@ async function metricTrend(h: ScriptHost, key: string, range: TimeRange) {
     text += ` ${since} it has ranged from ${withUnit(Math.min(...values), key)} to ${withUnit(Math.max(...values), key)}, averaging ${withUnit(avg, key)}.`;
   }
   await h.say(text);
-  present(h, { type: "metric", key, ...(hours ? { hours } : {}) }, hours ? `${name}, ${period}` : `${name} today`, true);
+  const m = info(key);
+  const series = hist?.series.find((s) => s.metric === key);
+  if (hist && series && values.length) {
+    await h.display({
+      title: hours ? `${name}, ${period}` : `${name} today`,
+      caption: `${name} from ${time(new Date(start).toISOString())} to ${time(at)}, from get_history.`,
+      content: {
+        kind: "line",
+        unit: m?.unit ?? "",
+        decimals: Math.min(3, Math.max(0, m?.decimals ?? 1)),
+        series: [{ label: name, points: hist.times.map((t, i) => ({ t, v: series.values[i] })) }],
+      },
+    });
+  }
+  h.view({ kind: "link", label: `${name} trend page`, target: { type: "metric", key, ...(hours ? { hours } : {}) } });
 }
 
 /** A current value, answered here; the trend is a link, not opened. */

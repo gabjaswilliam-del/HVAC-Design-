@@ -1,0 +1,84 @@
+# Structure: what equipment exists and what connects to what.
+#
+# Every link is written out. They are not generated from a convention at load time,
+# because a convention is invisible and cannot be corrected. A tool proposes this file
+# from the CAD extraction and the operator reviews it, which is only possible if each
+# connection is a line someone can read and change.
+#
+# EVIDENCE is required on every link and on every device:
+#   confirmed  an operator confirmed it against the installation
+#   drawing    read from the CAD drawing, not yet confirmed
+#   inferred   produced by a rule, not by evidence — e.g. "pump n serves chiller n"
+#   unknown    the topology family requires the connection but nothing supports it
+#
+# `inferred` and `unknown` are not errors and do not block a run. They are reported, so
+# that a result is never presented as site fidelity when the topology behind it was
+# guessed. See docs/reference-review.md: do not silently substitute a conventional
+# plant topology for the customer's station.
+
+devices:
+  - {id: chiller_plant_1,          family: chiller_plant,          equipment: chiller_a,  evidence: confirmed}
+  - {id: chiller_plant_2,          family: chiller_plant,          equipment: chiller_a,  evidence: confirmed}
+  - {id: chilled_water_pump_pri_1, family: chilled_water_pump_pri, equipment: chw_pump_a, evidence: confirmed}
+  - {id: chilled_water_pump_pri_2, family: chilled_water_pump_pri, equipment: chw_pump_a, evidence: confirmed}
+  - {id: chilled_water_pump_pri_3, family: chilled_water_pump_pri, equipment: chw_pump_a, evidence: confirmed, role: standby}
+  - {id: cooling_water_pump_1,     family: cooling_water_pump,     equipment: cw_pump_a,  evidence: confirmed}
+  - {id: cooling_water_pump_2,     family: cooling_water_pump,     equipment: cw_pump_a,  evidence: confirmed}
+  - {id: cooling_water_pump_3,     family: cooling_water_pump,     equipment: cw_pump_a,  evidence: confirmed, role: standby}
+  - {id: cooling_towers_1,         family: cooling_towers,         equipment: tower_a,    evidence: confirmed}
+  - {id: cooling_towers_2,         family: cooling_towers,         equipment: tower_a,    evidence: confirmed}
+
+# Headers. Identity and medium only: where a bus is drawn belongs to the scene, not here.
+buses:
+  - {id: cw_supply,  medium: cw}
+  - {id: cw_return,  medium: cw}
+  - {id: chw_supply, medium: chw}
+  - {id: chw_return, medium: chw}
+
+# The lumped terminal. One aggregate load, not modelled floor by floor.
+terminal:
+  id: terminal
+  evidence: confirmed
+
+links:
+  # Condenser loop
+  - {from: [cooling_towers_1, water_out], to: [bus, cw_supply],          medium: cw, evidence: confirmed}
+  - {from: [cooling_towers_2, water_out], to: [bus, cw_supply],          medium: cw, evidence: confirmed}
+  - {from: [bus, cw_return],  to: [cooling_towers_1, water_in],          medium: cw, evidence: confirmed}
+  - {from: [bus, cw_return],  to: [cooling_towers_2, water_in],          medium: cw, evidence: confirmed}
+  - {from: [bus, cw_supply],  to: [cooling_water_pump_1, suction],       medium: cw, evidence: confirmed}
+  - {from: [bus, cw_supply],  to: [cooling_water_pump_2, suction],       medium: cw, evidence: confirmed}
+  - {from: [bus, cw_supply],  to: [cooling_water_pump_3, suction],       medium: cw, evidence: confirmed}
+  # Pump-to-chiller pairing. The reference implementation assigns these positionally
+  # (`zip(pumps, chillers)`), which is a convention, not a measurement. Marked so.
+  - {from: [cooling_water_pump_1, discharge], to: [chiller_plant_1, cond_in], medium: cw, evidence: inferred,
+     note: "positional pairing; headered arrangement not ruled out"}
+  - {from: [cooling_water_pump_2, discharge], to: [chiller_plant_2, cond_in], medium: cw, evidence: inferred,
+     note: "positional pairing; headered arrangement not ruled out"}
+  - {from: [cooling_water_pump_3, discharge], to: [bus, cw_supply],       medium: cw, evidence: unknown,
+     note: "standby pump; which chiller it backs is not recorded on the drawing"}
+  - {from: [chiller_plant_1, cond_out], to: [bus, cw_return],             medium: cw, evidence: confirmed}
+  - {from: [chiller_plant_2, cond_out], to: [bus, cw_return],             medium: cw, evidence: confirmed}
+
+  # Chilled-water loop
+  - {from: [chiller_plant_1, evap_out], to: [chilled_water_pump_pri_1, suction], medium: chw, evidence: inferred}
+  - {from: [chiller_plant_2, evap_out], to: [chilled_water_pump_pri_2, suction], medium: chw, evidence: inferred}
+  - {from: [chilled_water_pump_pri_1, discharge], to: [bus, chw_supply],  medium: chw, evidence: confirmed}
+  - {from: [chilled_water_pump_pri_2, discharge], to: [bus, chw_supply],  medium: chw, evidence: confirmed}
+  - {from: [chilled_water_pump_pri_3, discharge], to: [bus, chw_supply],  medium: chw, evidence: confirmed}
+  - {from: [bus, chw_supply], to: [terminal, water_in],                   medium: chw, evidence: confirmed}
+  - {from: [terminal, water_out], to: [bus, chw_return],                  medium: chw, evidence: confirmed}
+  - {from: [bus, chw_return], to: [chiller_plant_1, evap_in],             medium: chw, evidence: confirmed}
+  - {from: [bus, chw_return], to: [chiller_plant_2, evap_in],             medium: chw, evidence: confirmed}
+
+# Bypasses and isolation valves the family requires. Sizing lives in equipment.yaml.
+valves:
+  - {id: chw_bypass,          across: [[bus, chw_supply], [bus, chw_return]], equipment: bypass_valve_a, evidence: confirmed}
+  - {id: cw_bypass,           across: [[bus, cw_supply], [bus, cw_return]],  equipment: bypass_valve_a, evidence: confirmed}
+  - {id: terminal_valve,      at: [terminal, water_in], equipment: terminal_valve_a, evidence: confirmed}
+  - {id: chiller_plant_1_chw, at: [chiller_plant_1, evap_out],            equipment: isolation_valve_chw, evidence: drawing}
+  - {id: chiller_plant_2_chw, at: [chiller_plant_2, evap_out],            equipment: isolation_valve_chw, evidence: drawing}
+  - {id: chiller_plant_1_cw,  at: [chiller_plant_1, cond_in],             equipment: isolation_valve_cw,  evidence: drawing}
+  - {id: chiller_plant_2_cw,  at: [chiller_plant_2, cond_in],             equipment: isolation_valve_cw,  evidence: drawing}
+  - {id: cooling_towers_1_cw, at: [cooling_towers_1, water_in],           equipment: isolation_valve_ct,  evidence: drawing}
+  - {id: cooling_towers_2_cw, at: [cooling_towers_2, water_in],           equipment: isolation_valve_ct,  evidence: drawing}

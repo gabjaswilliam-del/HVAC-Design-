@@ -10,6 +10,16 @@ Read the [canonical draft contract](../../../../../docs/ui-data-contracts.md) an
 fixture prototype, fed by a labeled seasonal-profile demo baseline (not a trained model).
 No model or live API integration. Details: [VERSION_A.md](../../../VERSION_A.md).
 
+**Owner change, 2026-10-15:** the `/prediction` page (the Prediction tab, formerly Analytics) is now a predicted-against-
+actual chart. It opens empty with **Predict**; Predict requests the forecast as of the
+playback clock and draws the predicted curve in. The plant is then played from the deck
+(the same global clock the Overview runs on) and the actual cooling load is logged onto
+the chart up to the clock, with the points logged and the error so far
+(`predictionError.ts`). The prediction is kept across screens in `predictionStore.ts`; a
+forecast link (`?forecast=`) opens that forecast instead. AI Pilot is started from the
+workspace, not from this page. The provenance, earlier-forecast comparison and readiness
+panels described below are no longer on the page; `PredictionReadiness` is kept for `/setup`.
+
 ## Own these components
 
 | Component / controller | Placement and responsibility |

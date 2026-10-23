@@ -1,0 +1,24 @@
+# Root manifest for one site's configuration.
+#
+# One installation has one site. There is no name level above this directory and no
+# registry: the sanitized example lives here, the real installation's configuration
+# lives in ignored `var/site/` with the same structure.
+#
+# `revision` is what an Observation reports as `config_revision`. Bump it whenever any
+# file below changes, including calibration — a refit changes computed results and must
+# be distinguishable in recorded history.
+
+schema_version: 1
+revision: 1
+
+# Which topology the site is assembled as. The family fixes the bus set, the port names
+# and the hydraulic branch names; only the device counts and the link set vary.
+topology_family: water_cooled_chiller_plant_v1
+
+files:
+  topology: topology.yaml
+  equipment: equipment.yaml
+  control: control.yaml
+  boundary: boundary.yaml
+  calibration_physics: calibration/physics.yaml
+  calibration_display: calibration/display.yaml
