@@ -26,6 +26,21 @@ import type {
 } from "../../lib/contracts/simulation";
 import { isFinal } from "../../lib/contracts/simulation";
 import { pilotClient, simulationClient as sim, simulationPace } from "../../app/dataClient";
+import { getOperating, operating } from "../../app/operatingContext";
+import { en } from "../../lib/i18n/en";
+
+/**
+ * The autopilot goes with the simulation: when AI Pilot starts working (a run launched or
+ * resumed, or monitoring switched on), Run simulation starts too, so the Overview's plant
+ * runs and the prediction logs. The other way round never happens: running the simulation
+ * does not start the pilot. Called only after the service has accepted the operation.
+ */
+const runSimulation = () => operating.runSimulation();
+/** A replay is playing: nothing that would start the simulation may run until it is paused. */
+const replayBlocks = () => {
+  const o = getOperating();
+  return o.playing && o.mode === "replay" ? new ApiError("CONFLICT", en.playback.replayPlaying, false) : null;
+};
 
 /** What AI Pilot shows of the run: live (its summary once ended), findings or corrections. */
 export type PilotView = "live" | "findings" | "corrections";
@@ -97,8 +112,12 @@ let state: SimulationSession = {
   pointer: null,
 };
 const listeners = new Set<() => void>();
+/** A run of AI Pilot's is playing: the replay must wait for it (see `operating.setMode`). */
+const pilotRunningOf = (s: SimulationSession) => s.run?.state === "running" || s.runs.some((r) => r.state === "running");
+
 const set = (patch: Partial<SimulationSession>) => {
   state = { ...state, ...patch };
+  operating.setPilotRunning(pilotRunningOf(state));
   listeners.forEach((l) => l());
 };
 
@@ -167,7 +186,7 @@ async function refresh() {
 /** The newest run that has not ended, if any: the one AI Pilot is running. */
 export const liveRunOf = (runs: RunStatus[]) => runs.find((r) => !isFinal(r.state)) ?? null;
 
-// One poll loop at most, running while anything shows the session.
+// One poll loop at most, running while anything shows the session (the deck always does).
 let polling = false;
 function poll() {
   polling = true;
@@ -185,6 +204,9 @@ function subscribe(l: () => void) {
 }
 const snapshot = () => state;
 export const useSimulation = () => useSyncExternalStore(subscribe, snapshot);
+/** Whether an AI Pilot run is playing. Subscribing keeps the runs read while the pilot
+ *  panel is closed, so the deck knows when the replay must wait. */
+export const usePilotRunning = () => useSyncExternalStore(subscribe, () => pilotRunningOf(state));
 
 /** One operator command at a time: a second click while one is in flight does nothing.
  *  `shown` puts the service's own answer on screen at once; the read after it fills in
@@ -208,6 +230,13 @@ async function command<T>(busy: string, op: () => Promise<T>, shown?: (out: T) =
 
 /** A run command's answer is the run's new status. */
 const statusShown = (s: RunStatus): Partial<SimulationSession> => (state.run?.runId === s.runId ? { run: { ...state.run, ...s } } : {});
+
+/** Refuse, and say why, when a playing replay would be overrun. */
+function blocked() {
+  const err = replayBlocks();
+  if (err) set({ commandError: err });
+  return Boolean(err);
+}
 
 export const session = {
   /** The state now, for code that must not act on a render's stale copy. */
@@ -265,6 +294,7 @@ export const session = {
    * the initial observation; a pilot that cannot monitor does not stop the simulation.
    */
   async launch(config: RunConfig, requestId: string, paused: boolean, name?: string) {
+    if (!paused && blocked()) return null;
     return command(paused ? "launchPaused" : "launch", async () => {
       const created = await sim.createRun(config, requestId, name);
       session.attach(created.runId);
@@ -278,27 +308,49 @@ export const session = {
       }
       const started = await sim.command(created.runId, "start");
       const status = !paused && started.state === "paused" ? await sim.command(created.runId, "play") : started;
+      if (!paused) runSimulation();
       return status;
     }, statusShown);
   },
   /** Start records the initial observation and leaves the run paused (PR #2); `play`
    *  then runs it. "Start run" is both, as two service operations. */
-  start: (runId: string, play: boolean) =>
-    command(
+  start(runId: string, play: boolean) {
+    if (play && blocked()) return Promise.resolve(null);
+    return command(
       play ? "start" : "startPaused",
       async () => {
         const s = await sim.command(runId, "start");
-        return play && s.state === "paused" ? sim.command(runId, "play") : s;
+        const status = play && s.state === "paused" ? await sim.command(runId, "play") : s;
+        if (play) runSimulation();
+        return status;
       },
       statusShown,
-    ),
+    );
+  },
   // Stopping is a decision to end: AI Pilot turns to the outcome. (A run that ends on its
   // own leaves the operator where they were.)
-  command: (runId: string, op: RunCommand) =>
-    command(op, () => sim.command(runId, op), (s) => ({ ...statusShown(s), ...(op === "stop" ? { view: "live" as const, issueId: null } : {}) })),
+  command(runId: string, op: RunCommand) {
+    if (op === "play" && blocked()) return Promise.resolve(null);
+    return command(
+      op,
+      async () => {
+        const status = await sim.command(runId, op);
+        if (op === "play") runSimulation();
+        return status;
+      },
+      (s) => ({ ...statusShown(s), ...(op === "stop" ? { view: "live" as const, issueId: null } : {}) }),
+    );
+  },
   submit: (runId: string, request: CorrectionRequest): Promise<Correction | null> =>
     command(request.origin.kind === "pilot" ? `apply:${request.origin.issueId}` : `correct:${request.point}`, () => sim.submitCorrection(runId, request)),
-  setMonitoring: (runId: string, on: boolean) => command("monitor", () => pilotClient.setMonitoring(runId, on)),
+  setMonitoring(runId: string, on: boolean) {
+    if (on && blocked()) return Promise.resolve(null);
+    return command("monitor", async () => {
+      const state = await pilotClient.setMonitoring(runId, on);
+      if (on) runSimulation();
+      return state;
+    });
+  },
   rename: (runId: string, name: string) => command("rename", () => sim.renameRun(runId, name), statusShown),
   /** The operator declines an issue's standing proposal: nothing is applied. */
   decline: (runId: string, issueId: string) => command(`decline:${issueId}`, () => pilotClient.declineProposal(runId, issueId), (pilot) => (state.runId === runId ? { pilot } : {})),

@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router";
-import { List, Waypoints, X } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router";
+import { Presentation, Waypoints, X } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import { openIssues } from "../../lib/issues";
 import type { Issue } from "../../lib/contracts";
 import { Notice } from "../../components/Notice";
 import { RadioGroup } from "../../components/RadioGroup";
 import { getOperating, operating, useOperating, type OverviewView } from "../../app/operatingContext";
-import { useIssues, useSite, useSnapshot } from "../../app/site";
+import { useIssues, usePlantSnapshot, useSite } from "../../app/site";
 import { useWorkspaceLayout } from "../../app/useWorkspaceLayout";
-import { EquipmentList } from "./EquipmentList";
 import { isKpiKey, kpiEquipment } from "./kpiDefinitions";
 import { sceneMatchesTopology } from "./scene/PlantScene";
 import { PlantViewport } from "./scene/PlantViewport";
+import { AiDisplay } from "../display";
 import "./monitoring.css";
 
 /**
@@ -25,7 +25,8 @@ export function MonitoringPage() {
   const s = useStrings();
   const m = s.monitoring;
   const site = useSite();
-  const snapshot = useSnapshot();
+  // The plant runs only while the simulation plays; paused, it is shown at rest.
+  const snapshot = usePlantSnapshot();
   const issues = useIssues();
   const selectedId = useOperating((x) => x.selectedId);
   const kpiKey = useOperating((x) => x.kpiKey);
@@ -36,6 +37,7 @@ export function MonitoringPage() {
   const [locate, setLocate] = useState<{ id: string; nonce: number } | null>(null);
   const [params, setParams] = useSearchParams();
   const mountedAt = useRef(Date.now());
+  const navigate = useNavigate();
 
   // URL <-> state. This page is the only writer of `equipment`, `kpi`, `locate` and
   // `view`, and reacts only to values it did not write itself (deep links, assistant
@@ -60,16 +62,16 @@ export function MonitoringPage() {
     written.current.kpi = pKpi;
     operating.openKpi(pKpi);
   }, [pKpi]);
-  // `?view=list` (and the old /equipment address) open the list. Read when the page
-  // opens only: the address is written below, and a late copy must not flip the view.
+  // `?view=display` opens the AI display. Read when the page opens only: the address is
+  // written below, and a late copy must not flip the view.
   useEffect(() => {
-    if (pView === "list") operating.setOverviewView("list");
+    if (pView === "display") operating.setOverviewView("display");
   }, []);
   useEffect(() => {
     // Read the store now, not this render's values: a deep link applied by the effects
     // above is already in the store, and must not be written away for one render.
     const { selectedId: equipment, kpiKey: kpi, overviewView } = getOperating();
-    const viewParam = overviewView === "list" ? "list" : null;
+    const viewParam = overviewView === "display" ? "display" : null;
     written.current = { equipment, kpi };
     const next = new URLSearchParams(params);
     if (equipment) next.set("equipment", equipment);
@@ -131,7 +133,8 @@ export function MonitoringPage() {
   const bundle = site.data;
   const snap = snapshot.data;
   const matches = sceneMatchesTopology(bundle.scene, bundle.topology);
-  const shown: OverviewView = matches ? view : "list";
+  // A scene drawn for another configuration is not drawn: the AI display is shown instead.
+  const shown: OverviewView = matches ? view : "display";
   const readings = snap ?? { equipment: {}, values: {} };
   const unknownKpi = pKpi && !isKpiKey(pKpi) ? pKpi : null;
 
@@ -153,7 +156,7 @@ export function MonitoringPage() {
           onDismiss={layout === "float" ? dismiss : undefined}
         />
       ) : (
-        <EquipmentList site={bundle} snapshot={snap} issues={issues.data?.issues} selectedId={selectedId} onSelect={select} />
+        <AiDisplay timeZone={bundle.site.timezone} />
       )}
 
       <RadioGroup<OverviewView>
@@ -163,14 +166,14 @@ export function MonitoringPage() {
         onChange={(v) => operating.setOverviewView(v)}
         options={[
           { value: "schematic", label: <Waypoints size={16} aria-hidden="true" />, name: m.viewSchematic, title: `${m.viewSchematic} (L)`, disabled: !matches },
-          { value: "list", label: <List size={16} aria-hidden="true" />, name: m.viewList, title: `${m.viewList} (L)` },
+          { value: "display", label: <Presentation size={16} aria-hidden="true" />, name: m.viewDisplay, title: `${m.viewDisplay} (L)` },
         ]}
       />
 
       {(unknownKpi || snapshot.error || !matches) && (
         <div className="stage-notices">
           {!matches && (
-            <Notice tone="warning">
+            <Notice tone="warning" action={{ label: m.openRecords, onClick: () => navigate("/engineering") }}>
               <strong>{m.mismatchTitle}.</strong> {m.mismatchBody(bundle.scene.configRevision, bundle.topology.configRevision)}
             </Notice>
           )}

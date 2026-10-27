@@ -1,5 +1,5 @@
-import { useEffect, useId, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { useId, useState } from "react";
+import { Link } from "react-router";
 import { Crosshair, Search } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import { formatTime } from "../../lib/format";
@@ -18,23 +18,11 @@ import "./engineering.css";
 
 /**
  * Engineering: a hub in four flat sections, in the order engineers work. Simulation has
- * its own screen (`/simulation`); its row here says which run is open. CAD is not built
- * in this release; its row says what it needs, and `/cad` opens the hub at that row.
+ * its own screen (`/simulation`); CAD Studio has its own fixture-only screen (`/cad`).
  */
 export function EngineeringPage() {
   const s = useStrings();
   const site = useSite();
-  const location = useLocation();
-  const focus = location.pathname.split("/")[1];
-
-  // `/cad` opens the hub with its row focused.
-  useEffect(() => {
-    if (focus !== "cad") return;
-    const row = document.getElementById(`hub-${focus}`);
-    row?.focus({ preventScroll: true });
-    row?.scrollIntoView({ block: "center" });
-  }, [focus, site.data === undefined]);
-
   if (site.error && !site.data) {
     return (
       <div className="page">
@@ -45,10 +33,10 @@ export function EngineeringPage() {
     );
   }
   if (!site.data) return <div className="page" aria-busy="true" />;
-  return <Hub site={site.data} focus={focus} />;
+  return <Hub site={site.data} />;
 }
 
-function Hub({ site, focus }: { site: SiteBundle; focus: string }) {
+function Hub({ site }: { site: SiteBundle }) {
   const s = useStrings();
   const e = s.engineering;
   const issues = useIssues();
@@ -170,15 +158,14 @@ function Hub({ site, focus }: { site: SiteBundle; focus: string }) {
         </p>
       </section>
 
-      <section id="hub-cad" className={`hub__section${focus === "cad" ? " is-target" : ""}`} aria-labelledby="hub-cad-title" tabIndex={-1}>
+      <section id="hub-cad" className="hub__section" aria-labelledby="hub-cad-title">
         <div className="hub__section-head">
           <h2 id="hub-cad-title">{e.cad}</h2>
-          <span className="tag-chip tag-chip--planned" title={s.nav.plannedTitle(s.planned.screens.cad.milestone)}>
-            {s.nav.planned}
-          </span>
+          <span className="tag-chip">CAD demo</span>
         </div>
         <p>{e.cadBody}</p>
         <p className="hub__needs">{e.cadNeeds}</p>
+        <p className="hub__links"><Link className="link" to="/cad">{s.nav.pages.cad}</Link></p>
         <div className="hub__evidence">
           <div className="hub__section-head">
             <h3>{e.evidence}</h3>

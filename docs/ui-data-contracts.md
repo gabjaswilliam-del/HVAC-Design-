@@ -6,6 +6,12 @@ owners should agree these shapes together, then implement one canonical versione
 wire schema and update this brief. Do not treat existing Python objects on PR #2
 as an already published HTTP API.
 
+**Revised 2026-10-11:** added the optional request field `requested_mode`. The result
+could already carry an explicitly selected `baseline`, but no request field could
+select one. The forecast request and result shapes are being implemented as
+`src/hvac_agent/prediction/contracts.py` on the `feat/prediction` branch, not yet merged;
+that module and this brief change together.
+
 ## Ownership and data path
 
 ```text
@@ -86,10 +92,12 @@ schedule or weather forecast is permitted only with its own issuance provenance.
 | `as_of` | Data cutoff on the source clock; all usable input must be at/before it |
 | `horizon_minutes` | Positive API-supported horizon |
 | `step_minutes` | Positive API-supported output interval; divides horizon |
+| `requested_mode` | Optional. Absent: automatic selection, site-adapted then pretrained, never `baseline`. Present: a mode that capability discovery advertises as explicitly requestable; otherwise the request is rejected, not silently ignored |
 
 Do not accept arbitrary model paths, provider URLs, site IDs or credentials from
 the browser. Capability discovery advertises supported source/target/horizon/step
-combinations, local model readiness, input requirements and adaptation availability.
+combinations, which modes may be requested explicitly, local model readiness, input
+requirements and adaptation availability.
 Examples such as six hours are illustrations, not an accuracy or availability promise.
 
 ## Proposed forecast result
@@ -98,12 +106,12 @@ Examples such as six hours are illustrations, not an accuracy or availability pr
 |---|---|
 | `schema_version`, `forecast_id` | Versioned response and immutable result identity |
 | `status` | `ready`, `partial` or `unavailable`; a job failure is reported separately |
-| `source`, `config_revision`, `target` | Echo validated context; do not infer it in the UI |
+| `source`, `config_revision`, `target`, `requested_mode` | Echo validated context; do not infer it in the UI |
 | `unit` | `kW` thermal; target labeling makes this distinguishable from electrical power |
 | `as_of`, `generated_at` | Input cutoff on source clock; generation timestamp on wall clock |
 | `input_window`, `latest_input_at` | History bounds and freshest usable sample |
 | `horizon_minutes`, `step_minutes` | Requested/supported output grid |
-| `model` | Artifact ID/revision and `site_adapted`, `pretrained` or explicitly selected `baseline` mode; null when unavailable |
+| `model` | Artifact ID/revision and `site_adapted`, `pretrained` or `baseline` mode; `baseline` only when `requested_mode` is `baseline`; null when unavailable |
 | `quality` | Freshness/coverage status, reason codes and applicable stale-after policy; no invented percentage of confidence |
 | `series` | Ordered `{timestamp, value_kw, lower_kw, upper_kw, quality}` samples; bounds optional, missing values null |
 | `interval` | Optional prediction-interval metadata: coverage, method and calibration status; absent when unavailable |
@@ -126,8 +134,12 @@ issuance/cutoff and align actuals by time rather than overwriting predictions.
 For unavailable model/history/source, return an explicit reason such as
 `MODEL_UNAVAILABLE`, `INSUFFICIENT_HISTORY`, `INPUT_STALE`, `CONFIG_MISMATCH`, or
 `SOURCE_UNSUPPORTED`. If neither site history nor a compatible pretrained artifact
-is usable, the answer is unavailable. A persistence baseline may be a separately
-advertised option; it must never masquerade as our pretrained model.
+is usable, the answer is unavailable; automatic selection never falls back to a
+baseline. A persistence or seasonal-naive baseline may be advertised as an explicitly
+requestable mode; it must never masquerade as our pretrained model. A request for a
+mode that is not advertised is rejected as an invalid request. An advertised mode
+that cannot run in this context, such as a baseline without enough history, returns
+an unavailable result with its reason.
 
 ## Job and client behavior
 
@@ -142,7 +154,7 @@ key): repeated delivery of the same key/request returns the same job; key reuse 
 a different payload fails. Clients do not blindly retry ambiguous writes.
 
 Forecast cache identity includes input cutoff, source/run, config revision, target,
-horizon, step and model revision. Invalidate current-result selection after model
+horizon, step, requested mode and model revision. Invalidate current-result selection after model
 promotion/config changes; retain historical results under their own identities.
 Responses for obsolete context are discarded. Reading a forecast must not step the
 simulator, invoke training or silently create another inference job.

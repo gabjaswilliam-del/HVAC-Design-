@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { settled } from "./pilot-console";
 
-// Every screen, and how the navigation reaches it (F3): four sections in the dock,
+// Every screen, and how the navigation reaches it (F3): primary sections in the dock,
 // the System menu at its foot, and the workspace for the assistant and pilot pages.
 // The page name is the top bar's h1.
 type Step = (page: Page) => Promise<void>;
@@ -13,8 +13,9 @@ const systemMenu = (name: string): Step => async (page) => {
   await page.getByRole("group", { name: "System and installation" }).getByRole("link", { name }).click();
 };
 const ROUTES: [string, string, Step][] = [
-  ["/prediction", "Cooling prediction", dock("Analytics")],
+  ["/prediction", "Cooling prediction", dock("Prediction")],
   ["/engineering", "Engineering", dock("Engineering")],
+  ["/cad", "CAD Studio", dock("CAD Studio")],
   ["/simulation", "Simulation history", async (page) => {
     await dock("Engineering")(page);
     await page.locator("#hub-simulation").getByRole("link", { name: "Open Simulation history" }).click();
@@ -62,20 +63,20 @@ test("no scenario switch outside AI Pilot: the deck keeps the source, playback a
   await expect(page.locator(".attention")).toContainText("No open issues");
 });
 
-test("the dock marks the current section; /simulation and /trend are their own screens, /cad opens the hub at its row", async ({ page }) => {
+test("the dock marks the current section; /simulation, /trend and /cad open their own screens", async ({ page }) => {
   // M6: Simulation history is its own screen inside the Engineering section.
   await page.goto("/simulation");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Simulation history");
   await expect(nav(page).getByRole("link", { name: "Engineering", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(nav(page).getByRole("link", { name: "Overview", exact: true })).not.toHaveAttribute("aria-current", "page");
-  // An indicator's trend, the workspace's answer to "show me COP", belongs to Analytics.
+  // An indicator's trend, the workspace's answer to "show me COP", belongs to Prediction.
   await page.goto("/trend?metric=plant:cop");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Trend");
-  await expect(nav(page).getByRole("link", { name: "Analytics", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(nav(page).getByRole("link", { name: "Prediction", exact: true })).toHaveAttribute("aria-current", "page");
   await page.goto("/cad");
-  await expect(page.locator("#hub-cad")).toHaveClass(/is-target/);
-  await expect(page.locator("#hub-cad")).toBeFocused();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Engineering");
+  await expect(nav(page).getByRole("link", { name: "CAD Studio", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("CAD Studio");
+  await expect(page.getByRole("button", { name: /Water-cooled plant/i })).toBeVisible();
 });
 
 test("the dock is one tab stop; arrow keys move between its items", async ({ page }) => {
@@ -84,7 +85,7 @@ test("the dock is one tab stop; arrow keys move between its items", async ({ pag
   await overview.focus();
   await expect(nav(page).locator('[tabindex="0"]')).toHaveCount(1);
   await page.keyboard.press("ArrowDown");
-  await expect(nav(page).getByRole("link", { name: "Analytics", exact: true })).toBeFocused();
+  await expect(nav(page).getByRole("link", { name: "Prediction", exact: true })).toBeFocused();
   await page.keyboard.press("ArrowUp");
   await page.keyboard.press("ArrowUp");
   await expect(nav(page).getByRole("button", { name: "System", exact: true })).toBeFocused();
@@ -105,10 +106,10 @@ test("single-key shortcuts navigate, fit, switch the view and cycle readings; ? 
   await page.locator("body").press("1");
   await expect(page.locator(".plant-view")).toBeVisible();
 
-  // L: list and back. R: readings, from Auto (key at this fit) to all, off, key.
+  // L: the AI display and back. R: readings, from Auto (key at this fit) to all, off, key.
   await page.keyboard.press("l");
-  await expect(page.getByRole("radio", { name: "Equipment list" })).toHaveAttribute("aria-checked", "true");
-  await expect(page).toHaveURL(/view=list/);
+  await expect(page.getByRole("radio", { name: "AI display" })).toHaveAttribute("aria-checked", "true");
+  await expect(page).toHaveURL(/view=display/);
   await page.keyboard.press("l");
   await expect(page.locator(".plant-view")).toHaveAttribute("data-read", "key");
   await page.keyboard.press("r");
@@ -237,7 +238,7 @@ test("bundled font loads and readings use tabular figures", async ({ page }) => 
 });
 
 // Forced colours (F8): system colours throughout, and no serious or critical findings.
-for (const path of ["/?scenario=tower-fault", "/?view=list&scenario=tower-fault", "/engineering?scenario=tower-fault", "/equipment/chiller_plant_2"]) {
+for (const path of ["/?scenario=tower-fault", "/?view=display&scenario=tower-fault", "/engineering?scenario=tower-fault", "/equipment/chiller_plant_2"]) {
   test(`no serious accessibility violations under forced colours on ${path}`, async ({ page }) => {
     await page.emulateMedia({ forcedColors: "active" });
     await page.goto(path);
@@ -249,7 +250,7 @@ for (const path of ["/?scenario=tower-fault", "/?view=list&scenario=tower-fault"
   });
 }
 
-for (const path of ["/", "/?view=list", "/engineering", "/equipment/chiller_plant_2", "/prediction", "/knowledge"]) {
+for (const path of ["/", "/?view=display", "/engineering", "/equipment/chiller_plant_2", "/prediction", "/knowledge"]) {
   test(`no serious accessibility violations on ${path}`, async ({ page }) => {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -262,3 +263,22 @@ for (const path of ["/", "/?view=list", "/engineering", "/equipment/chiller_plan
     expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(" | ")}`)).toEqual([]);
   });
 }
+
+test("the live simulation and the replay never run together", async ({ page }) => {
+  await page.goto("/");
+  const deck = page.getByRole("contentinfo", { name: "Data source and time" });
+  const source = deck.getByRole("radiogroup", { name: "Data source" });
+  // Running the simulation: the replay cannot be chosen until it is paused.
+  await deck.getByRole("button", { name: "Run simulation" }).click();
+  await expect(source.getByRole("radio", { name: "Replay" })).toBeDisabled();
+  await deck.getByRole("button", { name: "Pause simulation" }).click();
+  await expect(source.getByRole("radio", { name: "Replay" })).toBeEnabled();
+
+  // Playing the replay: the button says so, and the live simulation cannot be chosen.
+  await source.getByRole("radio", { name: "Replay" }).click();
+  await deck.getByRole("button", { name: "Play replay" }).click();
+  await expect(deck.getByRole("button", { name: "Pause replay" })).toBeVisible();
+  await expect(source.getByRole("radio", { name: "Live demo" })).toBeDisabled();
+  await deck.getByRole("button", { name: "Pause replay" }).click();
+  await expect(source.getByRole("radio", { name: "Live demo" })).toBeEnabled();
+});

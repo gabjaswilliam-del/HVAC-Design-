@@ -1,0 +1,70 @@
+# Equipment: what the manufacturer says each machine does.
+#
+# This file is ALWAYS nameplate and manufacturer data. Nothing here is fitted to site
+# measurements. When a curve is later refitted against BMS data, the refit does not edit
+# this file — it becomes an overlay in calibration/physics.yaml carrying provenance.
+# That is what makes "has this site been calibrated?" answerable by looking rather than
+# by comparing numbers.
+#
+# Numeric keys carry their unit in the name, matching hvac_agent.core.units.
+#
+# Values below are synthetic and rounded. A performance workbook is customer data and is
+# never committed: `workbook` resolves against the configuration directory, so the real
+# file sits beside the real configuration in ignored `var/site/`. Tests generate a
+# synthetic workbook instead of shipping one.
+
+equipment:
+
+  chiller_a:
+    family: chiller_plant
+    performance_table:
+      workbook: equipment_spec.xlsx
+      sheet: ChillerA
+    design:
+      chw_supply_temp_c: 7.0
+      chw_return_temp_c: 12.0
+      chw_flow_m3_per_min: 2.0
+      cw_flow_m3_per_min: 2.5
+      cooling_capacity_kw: 700.0
+
+  chw_pump_a:
+    family: chilled_water_pump_pri
+    curve:
+      # dp = pressure[0] + pressure[1]*g + pressure[2]*g^2, g in m3/min (phyvac `pg`)
+      pressure: [300.0, 85.0, -51.0]
+      # efficiency polynomial in the same variable (phyvac `eg`)
+      efficiency: [-0.09, 1.02, -0.34]
+      rated_efficiency: 0.68
+    rated:
+      flow_m3_per_min: 1.83
+      motor_power_kw: 15.0
+
+  cw_pump_a:
+    family: cooling_water_pump
+    curve:
+      pressure: [330.0, 68.0, -29.0]
+      efficiency: [-0.12, 0.76, -0.18]
+      rated_efficiency: 0.68
+    rated:
+      flow_m3_per_min: 2.58
+      motor_power_kw: 22.0
+
+  tower_a:
+    family: cooling_towers
+    design:
+      water_in_temp_c: 35.0
+      water_out_temp_c: 30.0
+      wet_bulb_temp_c: 28.0
+      water_flow_m3_per_min: 3.33
+      air_flow_m3_per_min: 1600.0
+      fan_power_kw: 5.5
+    # The tower's own hydraulic resistance and static head are NOT here. Across the
+    # reference sites those two differ by a factor of thirty-five for towers of the same
+    # duty, which means they were absorbing pipework, not describing the machine. They
+    # live in calibration/physics.yaml.
+
+  terminal_valve_a:  {family: valve, cv_max: 5000.0, rangeability: 100.0}
+  bypass_valve_a:    {family: valve, cv_max: 1800.0, rangeability: 100.0}
+  isolation_valve_chw: {family: valve, cv_max: 2000.0, rangeability: 100.0}
+  isolation_valve_cw:  {family: valve, cv_max: 2200.0, rangeability: 100.0}
+  isolation_valve_ct:  {family: valve, cv_max: 2200.0, rangeability: 100.0}

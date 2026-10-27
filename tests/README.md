@@ -1,7 +1,8 @@
 # Tests
 
 The moved `test_smoke.py` retains the initial repository's layout check, updated for
-the modular structure. It is a placeholder, not a test of product capabilities.
+the modular structure. Behavioural tests for the site contracts and simulation
+foundation are in `core/`, `configs/`, `simulation/` and `integrations/`.
 
 As implementation arrives, put behavioral tests here grouped by module, plus
 integration/evaluation coverage where meaningful. Use synthetic, sanitized fixtures;

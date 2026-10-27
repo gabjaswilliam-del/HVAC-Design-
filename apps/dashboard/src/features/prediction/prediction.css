@@ -24,81 +24,7 @@
   font-size: var(--type-body);
 }
 
-/* Full prediction page */
-.prediction__controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--space-3) var(--space-5);
-}
-.prediction__control {
-  display: grid;
-  gap: 4px;
-}
-.prediction__control-label,
-.prediction__overlays legend {
-  color: var(--text-2);
-  font-size: var(--type-caption);
-}
-.prediction__overlays {
-  display: flex;
-  gap: var(--space-3);
-  margin: 0;
-  padding: 0;
-  border: 0;
-  font-size: var(--type-body);
-}
-.prediction__overlays label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 32px;
-}
-.prediction__overlays input {
-  accent-color: var(--laminate);
-}
-.prediction__main {
-  display: grid;
-  grid-template-columns: minmax(0, 2.4fr) minmax(260px, 1fr);
-  gap: var(--space-4);
-  align-items: start;
-}
-.prediction__lower {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr);
-  gap: var(--space-4);
-  align-items: start;
-}
-.figures {
-  display: grid;
-  gap: var(--space-3);
-}
-.figure {
-  display: grid;
-  gap: 2px;
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--hairline);
-}
-.figure__label {
-  color: var(--text-2);
-  font-size: var(--type-body);
-}
-.figure__value {
-  font-size: var(--type-title);
-}
-.figure__link {
-  font-size: var(--type-body);
-  justify-self: start;
-}
-.provenance__value {
-  overflow-wrap: anywhere;
-}
-.provenance__warnings {
-  margin: var(--space-1) 0 0;
-  padding-left: var(--space-4);
-  font-size: var(--type-body);
-  color: var(--text-2);
-}
+/* Forecasting readiness (kept for the installation screen) */
 .readiness {
   display: grid;
   gap: var(--space-2);
@@ -126,9 +52,71 @@
   padding-left: 24px;
   color: var(--text-2);
 }
-@media (max-width: 1100px) {
-  .prediction__main,
-  .prediction__lower {
-    grid-template-columns: minmax(0, 1fr);
-  }
+
+/* Cooling prediction: predicted against actual as the plant plays */
+.prediction {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 1180px;
+}
+.prediction__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+.prediction__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.prediction__horizon {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.prediction__label {
+  color: var(--text-2);
+  font-size: var(--type-caption);
+}
+.prediction__body {
+  display: grid;
+  gap: var(--space-3);
+}
+.prediction__status {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--type-body);
+}
+.prediction__figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin: 0;
+}
+.prediction__figure {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--hairline);
+}
+.prediction__figure dt {
+  color: var(--text-2);
+  font-size: var(--type-caption);
+}
+.prediction__figure dd {
+  margin: 0;
+  font-size: var(--type-title);
+  font-weight: 600;
+}
+.prediction__figure dd.prediction__figure--small {
+  font-size: var(--type-body);
+}
+.prediction__figure dd.prediction__figure-note {
+  color: var(--text-3);
+  font-size: var(--type-caption);
+  font-weight: 400;
 }

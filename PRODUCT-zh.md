@@ -125,9 +125,10 @@ pilot 对比。仿真状态和时钟不能依赖某个仪表盘页面是否保�
 
 ## 5. 当前工作与待定事项
 
-当前检出包含仓库骨架、项目上下文和各目录中的工程实施说明；UI 与预测尚未实现。
-仿真基础代码位于独立的 PR #2 分支，最近核实的审阅与合并状态见
-[PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)。模块边界见
+仓库包含骨架、项目上下文、各目录中的工程实施说明，以及使用带标注演示数据运行的
+Version A 仪表盘原型（见 [apps/dashboard/README.md](apps/dashboard/README.md)）；预测后端尚未实现。
+仿真基础在 PR #2 中实现，说明见 [docs/simulation.md](docs/simulation.md)；
+最近核实的审阅与合并状态见 [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)。模块边界见
 [docs/architecture.md](docs/architecture.md)。
 
 初级工程师的工作入口为 [apps/dashboard/README.md](apps/dashboard/README.md)

@@ -14,6 +14,9 @@ const viewport = (page: Page) => page.locator(".plant-view__box > svg");
 const zoom = async (page: Page) => Number(await page.locator(".plant-view").getAttribute("data-zoom"));
 const strip = (page: Page, name: string) => page.locator(".det-strip", { hasText: name });
 const lastTurn = (page: Page) => page.locator(".agent-turn").last();
+/** The Overview's AI display, and what it shows. */
+const aiDisplay = (page: Page) => page.locator(".ai-display");
+const shownTitle = (page: Page) => aiDisplay(page).getByRole("heading", { level: 2 });
 
 async function openMonitoring(page: Page, query = "") {
   await page.goto(`/?agentSpeed=fast${query}`);
@@ -123,12 +126,15 @@ test("asking from a KPI panel identifies a cooling shortfall", async ({ page }) 
   await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "complete", { timeout: 15_000 });
   await expect(lastTurn(page).locator(".agent-prose")).toContainText("of demand is not being met");
   await expect(lastTurn(page).locator(".agent-prose")).toContainText("The shortfall began at 14:05 UTC+8 and is still going on");
-  // The chart opens in the main display, in the conversation's context, not in the chat.
+  // The day's demand and delivery are shown on the Overview's AI display, not in the chat.
   await expect(lastTurn(page).locator(".ts-chart")).toHaveCount(0);
-  await lastTurn(page).getByRole("button", { name: "Unmet demand today" }).click();
+  await expect(lastTurn(page).locator('[data-view="display"]')).toHaveText(/Shown on the AI display: Cooling demand and delivery today/);
+  await expect(page.getByRole("radio", { name: "AI display" })).toHaveAttribute("aria-checked", "true");
+  await expect(shownTitle(page)).toHaveText("Cooling demand and delivery today");
+  await expect(aiDisplay(page).getByRole("img", { name: /Cooling demand and delivery today/ })).toBeVisible();
+  // The trend page is still one press away.
+  await lastTurn(page).getByRole("button", { name: "Unmet demand trend" }).click();
   await expect(page).toHaveURL(/\/trend\?metric=plant%3Aunmet_kw/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Trend");
-  await expect(page.getByRole("img", { name: "Unmet demand today (kWt)" })).toBeVisible();
 });
 
 test("the forecast answer is a labelled baseline and opens the exact forecast it read", async ({ page }) => {
@@ -446,31 +452,38 @@ async function askTyped(page: Page, text: string, scope = drawer(page)) {
   await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "complete", { timeout: 15_000 });
 }
 
-test("a request to see something opens it in the main display through one typed action; questions only answer", async ({ page }) => {
+test("what the assistant retrieves is shown on the AI display; questions only answer", async ({ page }) => {
   await openMonitoring(page);
+  await expect(page.getByRole("radio", { name: "Schematic" })).toHaveAttribute("aria-checked", "true");
   await askTyped(page, "Show me COP today");
-  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Trend");
-  await expect(page.getByRole("img", { name: "System COP today" })).toBeVisible();
-  const action = page.locator(".agent-turn").first().locator('[data-view="action"]');
-  await expect(action).toHaveText(/Opened in the workspace: System COP today/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Overview");
+  await expect(page.getByRole("radio", { name: "AI display" })).toHaveAttribute("aria-checked", "true");
+  await expect(shownTitle(page)).toHaveText("System COP today");
+  await expect(aiDisplay(page).getByRole("img", { name: /System COP today/ })).toBeVisible();
+  await expect(aiDisplay(page)).toContainText("From the assistant");
+  const shown = page.locator(".agent-turn").first().locator('[data-view="display"]');
+  await expect(shown).toHaveText(/Shown on the AI display: System COP today/);
+  await expect(page.locator('.agent-turn').first().locator('[data-view="action"]')).toHaveCount(0);
   await expect(lastTurn(page).locator(".agent-prose")).toContainText(/^System COP is [\d.]+ at 15:15 UTC\+8\. Since the start of the day it has ranged from /);
-  // The conversation keeps focus for a follow-up; the opened view is announced.
+  // The conversation keeps focus for a follow-up; what was shown is announced.
   await expect(drawer(page).getByLabel("Question for the assistant")).toBeFocused();
-  await expect(drawer(page).getByRole("status").filter({ hasText: "Answer complete. Opened in the workspace: System COP today." })).toBeAttached();
+  await expect(drawer(page).getByRole("status").filter({ hasText: "Answer complete. Shown on the AI display: System COP today." })).toBeAttached();
 
-  // An ordinary question is answered in the conversation; the display stays where it is.
+  // A value now is answered in the conversation; the display keeps what it shows.
   await askTyped(page, "What's the COP now?");
-  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop/);
-  await expect(lastTurn(page).locator('[data-view="action"]')).toHaveCount(0);
+  await expect(lastTurn(page).locator('[data-view="display"]')).toHaveCount(0);
+  await expect(shownTitle(page)).toHaveText("System COP today");
+  // A new retrieval replaces it; the earlier one stays one step away.
   await askTyped(page, "Is the plant meeting cooling demand?");
-  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop/);
+  await expect(shownTitle(page)).toHaveText("Cooling demand and delivery today");
+  await expect(aiDisplay(page).getByLabel("Shown earlier")).toBeVisible();
 
-  // Equipment opens its record; the earlier view is one press away again.
+  // Equipment opens its record; the earlier display item is one press away again.
   await askTyped(page, "open Chiller 2");
   await expect(page).toHaveURL(/\/equipment\/chiller_plant_2/);
-  await action.getByRole("button", { name: "Open again: System COP today" }).click();
-  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop/);
+  await shown.getByRole("button", { name: "Show: System COP today" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Overview");
+  await expect(shownTitle(page)).toHaveText("System COP today");
 });
 
 test("simulation requests read the history and open recorded runs' replays, comparisons and findings", async ({ page }) => {
@@ -586,17 +599,16 @@ test("questions whose answer is a view open it; follow-ups read the conversation
   expect(new URL(page.url()).pathname).toBe("/");
 
   await askTyped(page, "How has COP been today?");
-  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop$/);
-  await expect(page.getByRole("img", { name: "System COP today" })).toBeVisible();
+  await expect(shownTitle(page)).toHaveText("System COP today");
   // The indicator carries over; the period changes.
   await askTyped(page, "What about the last 6 hours?");
-  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop&hours=6$/);
-  await expect(lastTurn(page).locator('[data-view="action"]')).toHaveText(/Opened in the workspace: System COP, the last 6 hours/);
-  // Outside the one demo day: said plainly, and the display stays.
+  await expect(lastTurn(page).locator('[data-view="display"]')).toHaveText(/Shown on the AI display: System COP, the last 6 hours/);
+  await expect(shownTitle(page)).toHaveText("System COP, the last 6 hours");
+  // Outside the one demo day: said plainly, and the display keeps what it shows.
   await askTyped(page, "How about yesterday?");
   await expect(lastTurn(page).locator(".agent-prose")).toContainText("The demo data holds one synthetic day, so there is nothing for yesterday");
-  await expect(lastTurn(page).locator('[data-view="action"]')).toHaveCount(0);
-  await expect(page).toHaveURL(/hours=6$/);
+  await expect(lastTurn(page).locator('[data-view="display"]')).toHaveCount(0);
+  await expect(shownTitle(page)).toHaveText("System COP, the last 6 hours");
 
   // Equipment opens its record; "its history" is that equipment's.
   await askTyped(page, "What is happening with Chiller 2?");
@@ -617,7 +629,8 @@ test("questions whose answer is a view open it; follow-ups read the conversation
 test("F10: the assistant's tools only read; simulation and pilot tools are named read only", async ({ page }) => {
   await page.goto("/agent?agentSpeed=fast");
   const tools = page.locator("[data-tool-name]");
-  await expect(tools).toHaveCount(10);
+  // Ten reading tools and show_on_display, which only draws on the operator's AI display.
+  await expect(tools).toHaveCount(11);
   const names = await tools.evaluateAll((els) => els.map((e) => e.getAttribute("data-tool-name") ?? ""));
   expect(names.filter((n) => /correct|override|setpoint|release|start|stop|pause|resume|step|apply|monitor|create|command|submit/i.test(n))).toEqual([]);
   for (const name of ["list_simulation_runs", "get_simulation_run", "get_run_summary", "get_pilot_findings"]) {
@@ -634,28 +647,29 @@ test("Stop before the action: a stopped answer opens nothing", async ({ page }) 
   await expect(lastTurn(page).locator("[data-tool]").first()).toBeVisible({ timeout: 15_000 });
   await box.press("Escape");
   await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "cancelled");
-  await page.waitForTimeout(1500); // past where the action would have come
+  await page.waitForTimeout(1500); // past where the display would have come
   expect(new URL(page.url()).pathname).toBe("/");
-  await expect(lastTurn(page).locator('[data-view="action"]')).toHaveCount(0);
+  await expect(lastTurn(page).locator('[data-view="display"]')).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: "Schematic" })).toHaveAttribute("aria-checked", "true");
 });
 
-test("from the full assistant page, an opened view takes the display and the conversation moves to the workspace", async ({ page }) => {
+test("from the full assistant page, a display item takes the Overview and the conversation moves to the workspace", async ({ page }) => {
   await page.goto("/agent?agentSpeed=fast");
   await askTyped(page, "Show me COP today", page.getByRole("region", { name: "AI assistant" }));
-  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Overview");
+  await expect(shownTitle(page)).toHaveText("System COP today");
   await expect(drawer(page)).toBeVisible();
-  await expect(drawer(page).locator('[data-view="action"]')).toHaveText(/Opened in the workspace: System COP today/);
+  await expect(drawer(page).locator('[data-view="display"]')).toHaveText(/Shown on the AI display: System COP today/);
 });
 
-test("on a phone the opened view waits behind the conversation; Open again shows it", async ({ page }) => {
+test("on a phone the AI display waits behind the conversation; Show reveals it", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?agentSpeed=fast");
   await page.getByRole("button", { name: "Assistant", exact: true }).click();
   await askTyped(page, "Show me COP today");
-  await expect(page).toHaveURL(/\/trend\?metric=plant%3Acop/);
-  await lastTurn(page).getByRole("button", { name: "Open again: System COP today" }).click();
+  await lastTurn(page).getByRole("button", { name: "Show: System COP today" }).click();
   await expect(drawer(page)).toHaveCount(0);
-  await expect(page.getByRole("img", { name: "System COP today" })).toBeVisible();
+  await expect(aiDisplay(page).getByRole("img", { name: /System COP today/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
 });
 

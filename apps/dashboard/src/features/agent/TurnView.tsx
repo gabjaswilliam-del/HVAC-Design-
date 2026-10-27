@@ -1,13 +1,14 @@
 import { useId, useState } from "react";
 import { useNavigate } from "react-router";
-import { ChevronDown, ChevronRight, CircleAlert, CircleCheck, Crosshair, FileText, Highlighter, LoaderCircle, PanelRight, PanelsTopLeft, SquareMousePointer } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleAlert, CircleCheck, Crosshair, FileText, Highlighter, LoaderCircle, PanelRight, PanelsTopLeft, Presentation, SquareMousePointer } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import type { AgentContext, DataView, Turn, TurnPart, WorkspaceAction } from "../../lib/contracts/agent";
 import type { SiteBundle } from "../../lib/contracts";
+import type { DisplayItem } from "../../lib/contracts/display";
 import { formatTime } from "../../lib/format";
 import { formatBytes } from "../../lib/agent/attachments";
 import { NARROW, operating } from "../../app/operatingContext";
-import { applyAction, openInContext, openTarget } from "../../app/openTarget";
+import { applyAction, openInContext, openTarget, showOnDisplay } from "../../app/openTarget";
 import { targetPath } from "../../app/navigation";
 import { wasApplied } from "./conversationSession";
 import { Prose } from "./Prose";
@@ -218,6 +219,30 @@ function ActionLine({ turnId, action, context }: { turnId: string; action: Works
   );
 }
 
+/** What the assistant put on the AI display, with a way back to it. */
+function DisplayLine({ item }: { item: DisplayItem }) {
+  const d = useStrings().display;
+  const navigate = useNavigate();
+  return (
+    <p className="agent-action" data-view="display" data-display-id={item.id}>
+      <Presentation size={14} aria-hidden="true" className="agent-action__icon" />
+      <span className="agent-action__text">{d.shown(item.title)}</span>
+      <button
+        type="button"
+        className="text-button agent-action__open"
+        aria-label={`${d.showAgain}: ${item.title}`}
+        onClick={() => {
+          showOnDisplay(navigate, item);
+          // On a phone the conversation covers the screen: close it to show the display.
+          if (matchMedia(NARROW).matches) operating.closeWorkspace();
+        }}
+      >
+        {d.showAgain}
+      </button>
+    </p>
+  );
+}
+
 /**
  * One question and its answer as it arrives: the question at once, a working line until
  * the first step, the tool activity, then the answer streaming in; typed views and the
@@ -229,7 +254,7 @@ export function TurnView({ turn, site, context }: { turn: Turn; site: SiteBundle
   const running = turn.status === "running";
   const groups = groupParts(turn.parts);
   const tail = turn.parts.at(-1);
-  const working = running && (!tail || tail.type === "view" || tail.type === "action" || (tail.type === "tool" && tail.status !== "running"));
+  const working = running && (!tail || tail.type === "view" || tail.type === "action" || tail.type === "display" || (tail.type === "tool" && tail.status !== "running"));
   return (
     <article className="agent-turn" data-turn-status={turn.status} aria-busy={running || undefined}>
       <div className="agent-turn__prompt">
@@ -260,6 +285,7 @@ export function TurnView({ turn, site, context }: { turn: Turn; site: SiteBundle
           if (g.type === "tools") return <ToolGroup key={i} tools={g.tools} startOpen={last && turn.status !== "complete"} />;
           if (g.type === "text") return <Prose key={i} text={g.text} streaming={running && last} />;
           if (g.type === "action") return <ActionLine key={i} turnId={turn.id} action={g.action} context={context} />;
+          if (g.type === "display") return <DisplayLine key={i} item={g.item} />;
           return <ViewBlock key={i} view={g.view} site={site} context={context} />;
         })}
         {working && <Working />}

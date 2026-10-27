@@ -1,8 +1,9 @@
-import { useId, useState } from "react";
-import { Link, useSearchParams } from "react-router";
-import { Info, Pin } from "lucide-react";
+import { useEffect, useId, useState } from "react";
+import { useSearchParams } from "react-router";
+import { BrainCircuit, Info, Pin, X } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
-import { formatDateTime, formatNumber, formatTime } from "../../lib/format";
+import { formatNumber, formatTime } from "../../lib/format";
+import { ApiError } from "../../lib/api/client";
 import { useResource } from "../../lib/api/useResource";
 import type { ForecastResult, SiteBundle } from "../../lib/contracts";
 import { Notice } from "../../components/Notice";
@@ -10,22 +11,31 @@ import { TimeSeriesChart, type ChartSeries } from "../../components/TimeSeriesCh
 import { useDataClient } from "../../app/dataClient";
 import { useOperating } from "../../app/operatingContext";
 import { useSite } from "../../app/site";
-import { useForecastById, useForecastCapabilities, useLatestForecast } from "./ForecastDataController";
-import { PredictionReadiness } from "./PredictionReadiness";
+import { useForecastById, useForecastCapabilities } from "./ForecastDataController";
+import { errorSoFar, predictedPeak } from "./predictionError";
+import { prediction, usePrediction } from "./predictionStore";
 import "./prediction.css";
 
-const HOUR = 3_600_000;
-const LOOKBACK = { "24h": 24 * HOUR, "7d": 7 * 24 * HOUR };
-const COMPARE_HOURS = [3, 6, 12];
-const DELIVERED = "plant:cooling_delivered_kw";
-const CAPACITY = "plant:available_capacity_kw";
+const MINUTE = 60_000;
+/** Actual values are logged on the source's 5-minute grid. */
+const LOG_STEP = 5 * MINUTE;
+/** How long the predicted curve takes to draw in. */
+const DRAW_MS = 900;
+const iso = (ms: number) => new Date(ms).toISOString();
+const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+/** Predictions already drawn in this tab: coming back to the page shows them at once. */
+const drawn = new Set<string>();
 
+/**
+ * Cooling prediction (the Prediction tab): an empty chart and Predict. Predict forecasts the cooling
+ * load from the moment the playback clock shows and draws the predicted curve. The plant is
+ * then played from the deck below, the same clock the Overview runs on, and the actual
+ * cooling load is logged onto the chart as time passes, with the error so far. AI Pilot is
+ * started from the workspace, not here.
+ */
 export function PredictionPage() {
   const s = useStrings();
   const site = useSite();
-  const [params, setParams] = useSearchParams();
-  const pinnedId = params.get("forecast");
-
   if (site.error && !site.data) {
     return (
       <div className="page">
@@ -42,41 +52,60 @@ export function PredictionPage() {
       </div>
     );
   }
-  const unpin = () => {
+  return <PredictionContent site={site.data} />;
+}
+
+function PredictionContent({ site }: { site: SiteBundle }) {
+  const s = useStrings();
+  const t = s.prediction;
+  const f = s.forecast;
+  const id = useId();
+  const tz = site.site.timezone;
+  const tzLabel = site.site.timezoneLabel;
+  const client = useDataClient();
+  const caps = useForecastCapabilities();
+  const { scenarioId, cursor, mode, playing, speed } = useOperating((x) => x);
+  const [params, setParams] = useSearchParams();
+  const linkedId = params.get("forecast");
+  const linked = useForecastById(linkedId, site.topology.configRevision);
+  const saved = usePrediction();
+  const current = saved && saved.scenarioId === scenarioId ? saved : null;
+  const r = current?.forecast ?? null;
+  const [horizon, setHorizon] = useState(r?.horizonMinutes ?? 360);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<ApiError | null>(null);
+
+  // A forecast link (the top bar's outlook, an assistant answer) opens that forecast.
+  useEffect(() => {
+    if (linked.data && linked.data.forecastId !== r?.forecastId) prediction.set({ scenarioId, forecast: linked.data, linked: true });
+  }, [linked.data]);
+
+  const unlink = () => {
+    if (!linkedId) return;
     const next = new URLSearchParams(params);
     next.delete("forecast");
     setParams(next, { replace: true });
   };
-  return <PredictionContent site={site.data} pinnedId={pinnedId} unpin={unpin} />;
-}
-
-function PredictionContent({ site, pinnedId, unpin }: { site: SiteBundle; pinnedId: string | null; unpin: () => void }) {
-  const s = useStrings();
-  const t = s.prediction;
-  const tz = site.site.timezone;
-  const tzLabel = site.site.timezoneLabel;
-  const rev = site.topology.configRevision;
-  const caps = useForecastCapabilities();
-  const [horizon, setHorizon] = useState(360);
-  const [step, setStep] = useState(15);
-  const [lookback, setLookback] = useState<keyof typeof LOOKBACK>("24h");
-  const [showDelivered, setShowDelivered] = useState(true);
-  const [showCapacity, setShowCapacity] = useState(true);
-
-  const pinned = useForecastById(pinnedId, rev);
-  const latest = useLatestForecast({ horizonMinutes: horizon, stepMinutes: step, configRevision: rev });
-  const active = pinnedId ? pinned : latest;
-  const r = active.data;
-  const shownHorizon = r?.horizonMinutes ?? horizon;
-  const shownStep = r?.stepMinutes ?? step;
-
-  const choose = (h: number, st: number) => {
-    unpin();
-    setHorizon(h);
-    setStep(st);
-  };
   const horizons = caps.data?.horizonsMinutes ?? [];
-  const steps = (caps.data?.stepsMinutes ?? []).filter((x) => shownHorizon % x === 0);
+  const predict = async () => {
+    if (busy) return;
+    const steps = [...(caps.data?.stepsMinutes ?? [15])].sort((a, b) => a - b);
+    setBusy(true);
+    setError(null);
+    try {
+      const forecast = await client.getLatestForecast({ at: iso(cursor), horizonMinutes: horizon, stepMinutes: steps.find((x) => horizon % x === 0) ?? steps[0] });
+      unlink();
+      prediction.set({ scenarioId, forecast, linked: false });
+    } catch (e) {
+      setError(e instanceof ApiError ? e : new ApiError("UNAVAILABLE", String(e), true));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const clear = () => {
+    unlink();
+    prediction.clear();
+  };
 
   return (
     <div className="page prediction">
@@ -87,403 +116,203 @@ function PredictionContent({ site, pinnedId, unpin }: { site: SiteBundle; pinned
         </p>
       </div>
 
-      <dl className="context-bar">
-        <div>
-          <dt>{t.source}</dt>
-          <dd>{t.sourceValue}</dd>
-        </div>
-        <div>
-          <dt>{t.revision}</dt>
-          <dd className="num">{rev}</dd>
-        </div>
-        <div>
-          <dt>{t.basedOn}</dt>
-          <dd className="num">{r ? `${formatDateTime(r.latestInputAt ?? r.asOf, tz)} ${tzLabel}` : " "}</dd>
-        </div>
-        <div>
-          <dt>{t.forecastId}</dt>
-          <dd className="context-bar__id" data-forecast-id={r?.forecastId}>
-            {r?.forecastId ?? " "}
-          </dd>
-        </div>
-      </dl>
-
-      {pinnedId && pinned.data && (
-        <Notice tone="info" action={{ label: t.showLatest, onClick: unpin }}>
-          <Pin size={14} aria-hidden="true" /> {t.pinned(`${formatTime(pinned.data.asOf, tz)} ${tzLabel}`)}
+      {current?.linked && (
+        <Notice tone="info" action={{ label: t.clear, onClick: clear }}>
+          <Pin size={14} aria-hidden="true" /> {t.pinned(`${formatTime(current.forecast.asOf, tz)} ${tzLabel}`)}
         </Notice>
       )}
-      {pinnedId && pinned.error && (
-        <Notice tone="warning" action={{ label: t.showLatest, onClick: unpin }}>
-          {t.notFound}
+      {linkedId && linked.error && <Notice tone="warning">{t.notFound}</Notice>}
+      {error && (
+        <Notice tone="warning" action={{ label: s.monitoring.retry, onClick: () => void predict() }}>
+          {f.loadFailed} {error.message}
         </Notice>
       )}
 
-      <div className="prediction__controls" role="group" aria-label={t.heading}>
-        <Segmented
-          label={t.horizon}
-          options={horizons.map((h) => ({ value: h, label: t.hours(h / 60) }))}
-          value={shownHorizon}
-          onChange={(h) => choose(h, h % step === 0 ? step : (caps.data?.stepsMinutes ?? [15])[0])}
-        />
-        <Segmented
-          label={t.step}
-          options={steps.map((x) => ({ value: x, label: t.minutes(x) }))}
-          value={shownStep}
-          onChange={(x) => choose(shownHorizon, x)}
-        />
-        <Segmented
-          label={t.history}
-          options={[
-            { value: "24h", label: t.history24h },
-            { value: "7d", label: t.history7d },
-          ]}
-          value={lookback}
-          onChange={(x) => setLookback(x as keyof typeof LOOKBACK)}
-        />
-        <fieldset className="prediction__overlays">
-          <legend>{t.overlays}</legend>
-          <label>
-            <input type="checkbox" checked={showDelivered} onChange={(e) => setShowDelivered(e.target.checked)} /> {t.delivered}
-          </label>
-          <label>
-            <input type="checkbox" checked={showCapacity} onChange={(e) => setShowCapacity(e.target.checked)} /> {t.capacity}
-          </label>
-        </fieldset>
-      </div>
-
-      {active.error && !r && !pinnedId ? (
-        <Notice tone="warning" action={{ label: s.monitoring.retry, onClick: active.retry }}>
-          {s.forecast.loadFailed} {active.error.message}
-        </Notice>
-      ) : !r ? (
-        <div className="skeleton" style={{ height: 360 }} aria-busy="true" />
-      ) : (
-        <ForecastView
-          site={site}
-          r={r}
-          lookbackMs={LOOKBACK[lookback]}
-          showDelivered={showDelivered}
-          showCapacity={showCapacity}
-        />
-      )}
+      <section className="panel" aria-labelledby={`${id}-title`}>
+        <div className="panel__head prediction__head">
+          <h2 id={`${id}-title`}>{t.chartTitle}</h2>
+          <div className="prediction__actions">
+            {horizons.length > 1 && (
+              <div className="prediction__horizon">
+                <span className="prediction__label" id={`${id}-horizon`}>
+                  {t.horizon}
+                </span>
+                <div className="segmented segmented--small" role="group" aria-labelledby={`${id}-horizon`}>
+                  {horizons.map((h) => (
+                    <button key={h} type="button" aria-pressed={h === horizon} onClick={() => setHorizon(h)}>
+                      {t.hours(h / 60)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <button type="button" className="button button--primary" aria-disabled={busy || undefined} aria-busy={busy || undefined} onClick={() => void predict()}>
+              <BrainCircuit size={15} aria-hidden="true" />
+              {busy ? t.predicting : r ? t.predictAgain : t.predict}
+            </button>
+            {r && (
+              <button type="button" className="button button--quiet" onClick={clear}>
+                <X size={14} aria-hidden="true" />
+                {t.clear}
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="panel__body prediction__body">
+          {r ? (
+            <PredictionChart r={r} site={site} />
+          ) : (
+            <>
+              <TimeSeriesChart
+                title={t.chartTitle}
+                series={[]}
+                unit="kWt"
+                decimals={0}
+                timeZone={tz}
+                xDomain={[cursor, cursor + horizon * MINUTE]}
+                height={320}
+              />
+              <p className="prediction__status" role="status">
+                {t.emptyHint(`${formatTime(cursor, tz)} ${tzLabel}`)}
+              </p>
+            </>
+          )}
+        </div>
+      </section>
+      {r && <Status r={r} tz={tz} tzLabel={tzLabel} cursor={cursor} replay={mode === "replay"} playing={playing} speed={speed} />}
     </div>
   );
 }
 
-function Segmented<T extends string | number>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: { value: T; label: string }[];
-  value: T;
-  onChange: (v: T) => void;
-}) {
-  // A generated ID: label text can contain spaces, which aria-labelledby would split.
-  const labelId = useId();
-  return (
-    <div className="prediction__control">
-      <span className="prediction__control-label" id={labelId}>
-        {label}
-      </span>
-      <div className="segmented" role="group" aria-labelledby={labelId}>
-        {options.map((o) => (
-          <button key={String(o.value)} type="button" aria-pressed={o.value === value} onClick={() => onChange(o.value)}>
-            {o.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** Observed demand up to the cutoff plus optional delivered/capacity history. */
-function useContextHistory(site: SiteBundle, asOf: number, lookbackMs: number) {
-  const client = useDataClient();
-  const scenarioId = useOperating((x) => x.scenarioId);
-  const from = new Date(asOf - lookbackMs).toISOString();
-  const to = new Date(asOf).toISOString();
-  const demand = useResource(`pdemand:${from}:${to}`, scenarioId, (signal) => client.getDemandHistory({ from, to }, { signal }));
-  const plant = useResource(`pplant:${from}:${to}`, scenarioId, (signal) =>
-    client.getHistory({ metrics: [DELIVERED, CAPACITY], from, to }, { signal }),
-  );
-  return { demand, plant, site };
-}
-
-function ForecastView({
-  site,
-  r,
-  lookbackMs,
-  showDelivered,
-  showCapacity,
-}: {
-  site: SiteBundle;
-  r: ForecastResult;
-  lookbackMs: number;
-  showDelivered: boolean;
-  showCapacity: boolean;
-}) {
+/** The predicted curve, drawn in once, and the actual cooling load logged up to the clock. */
+function PredictionChart({ r, site }: { r: ForecastResult; site: SiteBundle }) {
   const s = useStrings();
   const t = s.prediction;
   const f = s.forecast;
   const tz = site.site.timezone;
-  const tzLabel = site.site.timezoneLabel;
-  const asOf = Date.parse(r.asOf);
-  const { demand, plant } = useContextHistory(site, asOf, lookbackMs);
-  const plantSeries = (metric: string) => plant.data?.series.find((x) => x.metric === metric);
-  const lastOf = (values: (number | null)[] | undefined) => values?.findLast((v) => v !== null) ?? null;
+  const client = useDataClient();
+  const scenarioId = useOperating((x) => x.scenarioId);
+  const cursor = useOperating((x) => x.cursor);
+  const start = Date.parse(r.asOf);
+  const end = start + r.horizonMinutes * MINUTE;
+  const upTo = Math.min(cursor, end);
 
-  const series: ChartSeries[] = [];
-  const delivered = plantSeries(DELIVERED);
-  if (showDelivered && delivered) {
-    series.push({
-      id: "delivered",
-      label: t.delivered,
-      color: "var(--chart-delivered)",
-      width: 4,
-      points: plant.data!.times.map((x, i) => ({ t: Date.parse(x), v: delivered.values[i] })),
+  // Draw the predicted curve in from the left, the first time it is shown.
+  const n = r.series.length;
+  const [shown, setShown] = useState(() => (drawn.has(r.forecastId) || reducedMotion() ? n : 0));
+  useEffect(() => {
+    if (drawn.has(r.forecastId) || reducedMotion()) {
+      setShown(n);
+      return;
+    }
+    setShown(0);
+    const t0 = performance.now();
+    let frame = requestAnimationFrame(function step(now) {
+      const k = Math.min(n, Math.ceil(((now - t0) / DRAW_MS) * n));
+      setShown(k);
+      // Marked once fully drawn: an interrupted drawing starts again next time.
+      if (k < n) frame = requestAnimationFrame(step);
+      else drawn.add(r.forecastId);
     });
-  }
-  series.push({
-    id: "observed",
-    label: t.observed,
-    color: "var(--chart-observed)",
-    points: (demand.data?.times ?? []).map((x, i) => ({ t: Date.parse(x), v: demand.data!.values[i] })),
-  });
-  if (r.status !== "unavailable") {
-    series.push({
-      id: "forecast",
-      label: t.predicted,
-      color: "var(--chart-forecast)",
-      dashed: true,
-      points: r.series.map((p) => ({ t: Date.parse(p.timestamp), v: p.valueKw })),
-    });
-  }
-  const capacity = plantSeries(CAPACITY);
-  if (showCapacity && capacity) {
-    // Solid: dashed lines mean forecasts, and capacity is history only.
-    series.push({
-      id: "capacity",
-      label: t.capacity,
-      color: "var(--chart-capacity)",
-      width: 1.5,
-      points: plant.data!.times.map((x, i) => ({ t: Date.parse(x), v: capacity.values[i] })),
-    });
-  }
+    return () => cancelAnimationFrame(frame);
+  }, [r.forecastId]);
 
-  const figure = (label: string, value: number | null, unit: string, kpi?: string, extra?: string) => (
-    <div className="figure">
-      <span className="figure__label">{label}</span>
-      <strong className="figure__value num">{value === null ? s.quality.unavailable : `${formatNumber(value, 0)} ${unit}`}</strong>
-      {extra && <span className="figure__label">{extra}</span>}
-      {kpi && (
-        <Link className="link figure__link" to={`/?kpi=${kpi}`}>
-          {t.details}
-        </Link>
-      )}
-    </div>
+  // Logged on the 5-minute grid as the clock passes it; earlier points stay while the next load.
+  const step = Math.floor(upTo / LOG_STEP);
+  const actual = useResource(upTo > start ? `actual:${r.forecastId}:${step}` : null, `actual:${scenarioId}`, (signal) =>
+    client.getDemandHistory({ from: r.asOf, to: iso(step * LOG_STEP) }, { signal }),
   );
+  const logged = (actual.data?.times ?? [])
+    .map((x, i) => ({ t: Date.parse(x), v: actual.data!.values[i] }))
+    .filter((p) => p.t >= start && p.t <= upTo);
+
+  if (r.status === "unavailable") {
+    return (
+      <Notice tone="warning">
+        <strong>{f.unavailable}.</strong> {r.reasonCode && f.reasons[r.reasonCode]} {r.warnings.join(" ")} {r.reasonCode && t.nextSteps[r.reasonCode]}
+      </Notice>
+    );
+  }
+  const drawnPoints = r.series.slice(0, shown);
+  const series: ChartSeries[] = [
+    { id: "predicted", label: t.predicted, color: "var(--chart-forecast)", dashed: true, points: drawnPoints.map((p) => ({ t: Date.parse(p.timestamp), v: p.valueKw })) },
+    { id: "actual", label: t.actual, color: "var(--chart-observed)", points: logged },
+  ];
+  const peak = predictedPeak(r);
+  const err = errorSoFar(r, actual.data, upTo);
 
   return (
     <>
-      {r.status === "unavailable" && (
-        <Notice tone="warning">
-          <strong>{f.unavailable}.</strong> {r.reasonCode && f.reasons[r.reasonCode]} {r.warnings.join(" ")}{" "}
-          {r.reasonCode && t.nextSteps[r.reasonCode]}
-        </Notice>
-      )}
-      {r.status !== "unavailable" && r.quality.freshness === "stale" && <Notice tone="warning">{r.warnings.slice(1).join(" ") || f.stale}</Notice>}
-
-      <div className="prediction__main">
-        <section className="panel" aria-labelledby="prediction-chart">
-          <div className="panel__head">
-            <h2 id="prediction-chart">{t.chartTitle}</h2>
-            <span className="forecast-summary__label">{f.target}</span>
-          </div>
-          <div className="panel__body">
-            {!demand.data ? (
-              <div className="skeleton" style={{ height: 300 }} />
-            ) : (
-              <TimeSeriesChart
-                title={t.chartTitle}
-                series={series}
-                band={
-                  r.status !== "unavailable" && r.interval
-                    ? {
-                        label: f.spread,
-                        color: "var(--chart-forecast)",
-                        points: r.series.map((p) => ({ t: Date.parse(p.timestamp), lo: p.lowerKw ?? null, hi: p.upperKw ?? null })),
-                      }
-                    : undefined
-                }
-                unit="kWt"
-                decimals={0}
-                timeZone={tz}
-                xDomain={[asOf - lookbackMs, asOf + r.horizonMinutes * 60_000]}
-                marker={{ t: asOf, label: f.dataThrough }}
-                height={320}
-              />
-            )}
-          </div>
-        </section>
-
-        <section className="panel" aria-labelledby="prediction-figures">
-          <div className="panel__head">
-            <h2 id="prediction-figures">{t.figures}</h2>
-          </div>
-          <div className="panel__body figures">
-            {figure(
-              t.predictedPeak,
-              r.summary?.peakKw ?? null,
-              "kWt",
-              undefined,
-              r.summary ? `${t.at} ${formatTime(r.summary.peakAt, tz)} ${tzLabel}, ${f.within(r.horizonMinutes / 60)}` : undefined,
-            )}
-            {figure(t.observedNow, lastOf(demand.data?.values), "kWt", "plant:cooling_demand_kw")}
-            {figure(t.deliveredNow, lastOf(delivered?.values), "kWt", DELIVERED)}
-            {figure(t.capacityNow, lastOf(capacity?.values), "kWt", "plant:cooling_demand_kw")}
-            <p className="inspector__muted">{t.capacityCaveat}</p>
-          </div>
-        </section>
-      </div>
-
-      <div className="prediction__lower">
-        <Provenance site={site} r={r} />
-        <PredictionReadiness />
-      </div>
-      {r.status !== "unavailable" && <EarlierComparison site={site} r={r} />}
+      <TimeSeriesChart
+        title={t.chartTitle}
+        series={series}
+        band={
+          r.interval
+            ? { label: f.spread, color: "var(--chart-forecast)", points: drawnPoints.map((p) => ({ t: Date.parse(p.timestamp), lo: p.lowerKw ?? null, hi: p.upperKw ?? null })) }
+            : undefined
+        }
+        unit="kWt"
+        decimals={0}
+        timeZone={tz}
+        xDomain={[start, end]}
+        // While the clock is inside the window, "Now" shows how far the actual line has come.
+        marker={cursor > start && cursor < end ? { t: cursor, label: t.now } : { t: start, label: t.madeAt }}
+        height={320}
+      />
+      <dl className="prediction__figures" data-prediction="figures">
+        <Figure label={t.predictedPeak} value={peak ? `${formatNumber(peak.kw, 0)} kWt` : "–"} note={peak ? t.at(formatTime(peak.at, tz)) : undefined} />
+        <Figure label={t.logged} value={t.loggedValue(err.logged, err.total)} />
+        <Figure label={t.mae} value={err.maeKw === null ? "–" : `${formatNumber(err.maeKw, 0)} kWt`} />
+        <Figure label={t.mape} value={err.mapePct === null ? "–" : `${formatNumber(err.mapePct, 1)} %`} />
+        <Figure label={t.method} value={r.model ? t.methodValue(r.model.artifactId) : "–"} note={t.methodNote} small />
+      </dl>
     </>
   );
 }
 
-function Provenance({ site, r }: { site: SiteBundle; r: ForecastResult }) {
-  const s = useStrings();
-  const t = s.prediction;
-  const tz = site.site.timezone;
-  const when = (x: string | null | undefined) => (x ? `${formatDateTime(x, tz)} ${site.site.timezoneLabel}` : s.quality.unavailable);
-  const rows: [string, string][] = [
-    [t.forecastId, r.forecastId],
-    [t.issued, when(r.asOf)],
-    [t.generated, when(r.generatedAt)],
-    [t.inputWindow, r.inputWindow ? `${when(r.inputWindow.start)} – ${when(r.inputWindow.end)}` : s.quality.unavailable],
-    [t.latestInput, when(r.latestInputAt)],
-    [t.model, r.model ? `${t.modeLabels[r.model.mode]}: ${r.model.artifactId} (${r.model.revision})` : t.notAvailable],
-    [t.interval, r.interval ? t.intervalValue(r.interval.method, r.interval.calibration) : t.notAvailable],
-    [t.quality, `${r.quality.freshness}, ${r.quality.coverage} coverage${r.quality.reasonCodes.length ? `, ${r.quality.reasonCodes.join(", ")}` : ""}`],
-    [t.revision, String(r.configRevision)],
-  ];
+function Figure({ label, value, note, small }: { label: string; value: string; note?: string; small?: boolean }) {
   return (
-    <section className="panel" aria-labelledby="provenance-heading">
-      <div className="panel__head">
-        <h2 id="provenance-heading">{t.provenance}</h2>
-      </div>
-      <div className="panel__body">
-        <table className="data-table">
-          <tbody>
-            {rows.map(([k, v]) => (
-              <tr key={k}>
-                <th scope="row">{k}</th>
-                <td className="provenance__value">{v}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {r.warnings.length > 0 && (
-          <>
-            <h3 className="kpi-panel__subhead">{t.warnings}</h3>
-            <ul className="provenance__warnings">
-              {r.warnings.map((w) => (
-                <li key={w}>{w}</li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
-    </section>
+    <div className="prediction__figure">
+      <dt>{label}</dt>
+      <dd className={`num${small ? " prediction__figure--small" : ""}`}>{value}</dd>
+      {note && <dd className="prediction__figure-note">{note}</dd>}
+    </div>
   );
 }
 
-function EarlierComparison({ site, r }: { site: SiteBundle; r: ForecastResult }) {
-  const s = useStrings();
-  const t = s.prediction;
-  const f = s.forecast;
-  const tz = site.site.timezone;
-  const client = useDataClient();
-  const scenarioId = useOperating((x) => x.scenarioId);
-  const [hours, setHours] = useState(6);
-  const asOf = Date.parse(r.asOf);
-  const earlier = useLatestForecast({
-    horizonMinutes: r.horizonMinutes,
-    stepMinutes: r.stepMinutes,
-    configRevision: r.configRevision,
-    at: asOf - hours * HOUR,
-  });
-  const e = earlier.data;
-  const eAsOf = e ? Date.parse(e.asOf) : null;
-  const from = eAsOf === null ? null : new Date(eAsOf - 3 * HOUR).toISOString();
-  // Observed demand is only shown up to the current cutoff: no future actuals.
-  const observed = useResource(from && `cmp:${from}:${r.asOf}`, scenarioId, (signal) =>
-    client.getDemandHistory({ from: from!, to: r.asOf }, { signal }),
-  );
-
+/** What the clock is doing for the logging: play from the deck below, playing, or done. */
+function Status({
+  r,
+  tz,
+  tzLabel,
+  cursor,
+  replay,
+  playing,
+  speed,
+}: {
+  r: ForecastResult;
+  tz: string;
+  tzLabel: string;
+  cursor: number;
+  replay: boolean;
+  playing: boolean;
+  speed: number;
+}) {
+  const t = useStrings().prediction;
+  const start = Date.parse(r.asOf);
+  const end = start + r.horizonMinutes * MINUTE;
+  const now = `${formatTime(cursor, tz)} ${tzLabel}`;
+  const text =
+    cursor < start
+      ? t.before(`${formatTime(start, tz)} ${tzLabel}`)
+      : cursor >= end
+        ? t.passed
+        : !playing
+          ? t.playHint(replay)
+          : t.playing(speed, now);
   return (
-    <section className="panel" aria-labelledby="compare-heading">
-      <div className="panel__head">
-        <h2 id="compare-heading">{t.compare}</h2>
-        <Segmented
-          label={t.compareWith}
-          options={COMPARE_HOURS.map((h) => ({ value: h, label: t.hoursEarlier(h) }))}
-          value={hours}
-          onChange={setHours}
-        />
-      </div>
-      <div className="panel__body">
-        <p className="inspector__muted">{t.compareNote}</p>
-        {!e || !observed.data ? (
-          <div className="skeleton" style={{ height: 220 }} />
-        ) : e.status === "unavailable" ? (
-          <Notice tone="info">
-            {f.unavailable}. {e.reasonCode && f.reasons[e.reasonCode]}
-          </Notice>
-        ) : (
-          <TimeSeriesChart
-            title={`${t.compare}: ${t.earlierForecast} ${formatTime(e.asOf, tz)}`}
-            series={[
-              {
-                id: "observed",
-                label: t.observed,
-                color: "var(--chart-observed)",
-                points: observed.data.times.map((x, i) => ({ t: Date.parse(x), v: observed.data!.values[i] })),
-              },
-              {
-                id: "earlier",
-                label: `${t.earlierForecast} (${formatTime(e.asOf, tz)})`,
-                color: "var(--chart-forecast)",
-                dashed: true,
-                points: e.series.map((p) => ({ t: Date.parse(p.timestamp), v: p.valueKw })),
-              },
-            ]}
-            band={
-              e.interval
-                ? {
-                    label: f.spread,
-                    color: "var(--chart-forecast)",
-                    points: e.series.map((p) => ({ t: Date.parse(p.timestamp), lo: p.lowerKw ?? null, hi: p.upperKw ?? null })),
-                  }
-                : undefined
-            }
-            unit="kWt"
-            decimals={0}
-            timeZone={tz}
-            xDomain={[eAsOf! - 3 * HOUR, Math.max(asOf, eAsOf! + e.horizonMinutes * 60_000)]}
-            marker={{ t: eAsOf!, label: t.compareWith }}
-            height={220}
-          />
-        )}
-      </div>
-    </section>
+    <p className="prediction__status" role="status" data-prediction="status">
+      {text}
+    </p>
   );
 }

@@ -2,3 +2,6 @@ node_modules/
 dist/
 test-results/
 playwright-report/
+
+# Developer-only language overlays. The tracked product interface remains English.
+src/lib/i18n/*.local.ts

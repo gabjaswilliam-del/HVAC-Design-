@@ -7,11 +7,13 @@
 import { useEffect } from "react";
 import { useNavigate, type NavigateFunction } from "react-router";
 import type { AgentContext, NavTarget, WorkspaceAction } from "../lib/contracts/agent";
+import type { DisplayItem } from "../lib/contracts/display";
+import { display } from "../features/display";
 import type { ScenarioId } from "../fixtures/scenarios";
 import { isKpiKey } from "../features/monitoring/kpiDefinitions";
 import { session } from "../features/agent/conversationSession";
 import { simulationSession } from "../features/simulation";
-import { segmentOf, targetPath } from "./navigation";
+import { navSearch, segmentOf, targetPath } from "./navigation";
 import { getOperating, NARROW, operating } from "./operatingContext";
 
 /**
@@ -87,8 +89,21 @@ export function applyAction(navigate: NavigateFunction, context: AgentContext, a
   openTarget(navigate, context, action.target);
 }
 
-/** The shell applies the assistant's workspace actions as they stream. */
+/**
+ * Show an item on the AI display: the main display goes to the Overview with its AI display
+ * shown, whatever screen it was on, and the item is drawn there. From the full assistant
+ * page the conversation moves into the workspace beside it.
+ */
+export function showOnDisplay(navigate: NavigateFunction, item: DisplayItem) {
+  display.show(item);
+  if (leavingAgentPage() && !matchMedia(NARROW).matches) operating.openWorkspace("assistant");
+  operating.setOverviewView("display");
+  if (segmentOf(location.pathname) !== "") navigate({ pathname: "/", search: navSearch(location.search) });
+}
+
+/** The shell applies the assistant's workspace actions, and its display items, as they stream. */
 export function useAssistantActions() {
   const navigate = useNavigate();
   useEffect(() => session.onAction((action, context) => applyAction(navigate, context, action)), [navigate]);
+  useEffect(() => session.onDisplay((item) => showOnDisplay(navigate, item)), [navigate]);
 }

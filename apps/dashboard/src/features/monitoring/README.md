@@ -3,8 +3,17 @@
 **Assignment:** implement `/`, the main operator view. Follow the
 [dashboard standards](../../../README.md). Status (2026-10-04): Version A fixture
 prototype implemented (`MonitoringPage`, `PlantViewport`/`PlantScene` with fit/zoom/pan
-and selection, `KpiStrip`, `EquipmentList`, `RecentIssues`) against demo fixtures only;
+and selection, `KpiStrip`, `RecentIssues`) against demo fixtures only; since 2026-10-15 the
+Overview's second view is the [AI display](../display/README.md) instead of `EquipmentList`;
 no live API integration. Acceptance evidence: [VERSION_A.md](../../../VERSION_A.md).
+
+**Owner change, 2026-10-15:** the plant runs only while it plays. The deck opens on the
+live demo, paused ("Plant off"), at 60×; **Run simulation** (or **Play replay** in the
+replay) starts it. The live simulation and the replay never run together: the other
+source cannot be chosen while one plays, and an AI Pilot simulation run, which keeps its
+own clock, keeps the replay waiting until it is paused in AI Pilot. Starting AI Pilot runs
+the simulation; running the simulation never starts AI Pilot, and AI Pilot is refused
+while a replay plays. The rules live in `app/operatingContext.ts`.
 
 ## Components and layout
 

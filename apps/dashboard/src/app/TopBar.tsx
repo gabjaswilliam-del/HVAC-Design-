@@ -259,7 +259,7 @@ function Balance({ demand, delivered, capacity }: { demand?: number | null; deli
   );
 }
 
-/** The 6-hour outlook: the same forecast as the Analytics page. Loaded when the tray opens. */
+/** The 6-hour outlook: the same forecast as the Prediction page. Loaded when the tray opens. */
 function Outlook({ site, onOpen }: { site: SiteBundle; onOpen: () => void }) {
   const s = useStrings();
   const t = s.topBar;

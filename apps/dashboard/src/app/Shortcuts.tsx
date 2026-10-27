@@ -48,7 +48,7 @@ export function useShortcuts(toggleList: () => void) {
         if (loc.pathname !== "/agent") operating.openWorkspace("assistant");
         focusComposer();
       } else if (overview && k === "f") operating.requestFit();
-      else if (overview && k === "l") operating.setOverviewView(getOperating().overviewView === "list" ? "schematic" : "list");
+      else if (overview && k === "l") operating.setOverviewView(getOperating().overviewView === "display" ? "schematic" : "display");
       else if (overview && k === "r") operating.cycleReadMode();
       else return;
     };

@@ -134,7 +134,7 @@ test("Open issues says plainly when there are none", async ({ page }) => {
 });
 
 test("demand and delivered panels identify a shortfall, and replay keeps card and panel consistent", async ({ page }) => {
-  await open(page, "/?scenario=pump-trip&time=14:12&kpi=plant:cooling_delivered_kw");
+  await open(page, "/?scenario=pump-trip&time=14:12&kpi=plant:cooling_delivered_kw&mode=replay");
   const p = panel(page);
   await expect(p.getByRole("alert")).toContainText("Shortfall now");
   await expect(p.locator("[data-shortfall-periods]")).toContainText("14:05–ongoing");

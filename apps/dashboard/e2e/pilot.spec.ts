@@ -486,3 +486,51 @@ for (const [width, height] of [
     await expect.poll(overflow).toBeLessThanOrEqual(1);
   });
 }
+
+test("starting the AI Pilot runs the simulation; running the simulation does not start the AI Pilot", async ({ page }) => {
+  const deck = page.getByRole("contentinfo", { name: "Data source and time" });
+  await page.goto("/?simSpeed=fast");
+  await openConsole(page);
+  // Running the simulation from the deck leaves the pilot as it was: nothing launched.
+  await deck.getByRole("button", { name: "Run simulation" }).click();
+  await expect(deck.getByRole("button", { name: "Pause simulation" })).toBeVisible();
+  await expect(pilotConsole(page).getByRole("heading", { name: "Start a simulation" })).toBeVisible();
+  await expect(consoleBand(page)).toHaveCount(0);
+
+  // Paused, a pilot started paused leaves it paused too.
+  await deck.getByRole("button", { name: "Pause simulation" }).click();
+  await expect(deck).toContainText("Plant off");
+  await startRun(page, { paused: true });
+  await expect(deck).toContainText("Plant off");
+
+  // Starting the pilot's run starts the simulation with it.
+  await control(page, "Resume");
+  await expect(deck.getByRole("button", { name: "Pause simulation" })).toBeVisible();
+  await expect(deck).not.toContainText("Plant off");
+
+  // The pilot's run keeps its own clock, so pausing the deck does not stop it: the replay
+  // waits until the run is paused in AI Pilot.
+  const replayRadio = deck.getByRole("radio", { name: "Replay" });
+  await deck.getByRole("button", { name: "Pause simulation" }).click();
+  await expect(replayRadio).toBeDisabled();
+  await expect(replayRadio).toHaveAttribute("title", /AI Pilot simulation is running/);
+  await control(page, "Pause");
+  await expect(replayRadio).toBeEnabled();
+});
+
+test("the AI Pilot cannot start a simulation over a playing replay; from a paused one it runs the live simulation", async ({ page }) => {
+  const deck = page.getByRole("contentinfo", { name: "Data source and time" });
+  await page.goto("/?simSpeed=fast&mode=replay");
+  await openConsole(page);
+  await deck.getByRole("button", { name: "Play replay" }).click();
+  const form = pilotConsole(page);
+  await form.getByRole("button", { name: "Start simulation" }).click();
+  await expect(form.getByText("A replay is playing. Pause it before starting a simulation.")).toBeVisible();
+  await expect(consoleBand(page)).toHaveCount(0);
+  await expect(deck.getByRole("button", { name: "Pause replay" })).toBeVisible();
+
+  await deck.getByRole("button", { name: "Pause replay" }).click();
+  await startRun(page);
+  await expect(deck.getByRole("radio", { name: "Live demo" })).toHaveAttribute("aria-checked", "true");
+  await expect(deck.getByRole("button", { name: "Pause simulation" })).toBeVisible();
+});

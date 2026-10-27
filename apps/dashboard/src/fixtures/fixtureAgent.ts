@@ -8,6 +8,7 @@
  * the scenario and time it was recorded with, never silently against the current one.
  */
 import { ApiError, type RequestOptions } from "../lib/api/client";
+import { SHOW_ON_DISPLAY_TOOL, type DisplayItem, type DisplayRequest } from "../lib/contracts/display";
 import type { AgentClient } from "../lib/api/agent";
 import type { PilotReader, SimulationReader } from "../lib/api/simulation";
 import {
@@ -194,6 +195,18 @@ async function runTurn(conv: Conversation, message: AgentMessage, opts: AgentFix
         check();
         record({ type: "action", action: { kind: "reveal", control, label, ...ids } });
       },
+      async display(request: DisplayRequest) {
+        check();
+        // The same tool a local model would call (MCP `show_on_display`); not simulated: it
+        // really draws on the operator's AI display.
+        const callId = nextId("call");
+        record({ type: "tool_call", callId, tool: SHOW_ON_DISPLAY_TOOL.name, args: { title: request.title, kind: request.content.kind }, simulated: false });
+        await pause(vary(160) * scale);
+        check();
+        const item: DisplayItem = { ...request, id: nextId("display"), shownAt: new Date().toISOString(), source: { kind: "assistant", conversationId: conv.id, demo: true } };
+        record({ type: "tool_result", callId, status: "ok", summary: `Shown on the AI display: ${request.title}.` });
+        record({ type: "display", item });
+      },
     };
     await respond(host);
     check();
@@ -255,7 +268,10 @@ export function createFixtureAgent(opts: AgentFixtureOptions = {}): AgentClient 
           ? { state: "unavailable", detail: "The assistant service is not available." }
           : { state: "offline", detail: "No language model is connected. Offline rules in this browser read each request; answers come from simulated, read-only tools." },
         model: null,
-        tools: TOOL_INFO.map((t) => ({ ...t, available: t.name !== "search_knowledge", simulated: true })),
+        tools: [
+          ...TOOL_INFO.map((t) => ({ ...t, available: t.name !== "search_knowledge", simulated: true })),
+          { name: SHOW_ON_DISPLAY_TOOL.name, description: SHOW_ON_DISPLAY_TOOL.description, available: true, simulated: false },
+        ],
         suggestedPrompts: SUGGESTED_PROMPTS,
       };
       return caps;

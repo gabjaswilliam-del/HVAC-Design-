@@ -1,6 +1,6 @@
 # HVAC Agent — living project context prompt
 
-**Last updated:** 2026-10-04 (Asia/Shanghai)
+**Last updated:** 2026-10-23 (Asia/Shanghai)
 
 **Purpose:** A self-contained information prompt for an LLM joining this project.
 
@@ -107,9 +107,12 @@ forecast views, simulation controls/results, and pilot issue/action history. The
 agent should be able to present grounded data views and highlight equipment within
 the same workspace. Keep presentation requests separate from simulation commands.
 
-The API composes backend modules and application lifecycle. No dashboard framework
-or API transport has been selected. Neither application is implemented in the
-verified snapshot below.
+The API composes backend modules and application lifecycle. No production API
+transport has been selected. A Version A dashboard prototype (React 19, TypeScript and
+Vite, approved on 2026-10-04 for that prototype) and a framework-neutral local WSGI
+server for knowledge and memory (`apps/api/local_server.py`) are merged into the local
+`main`; see section 6 for push and validation status. The prototype shows labelled demo
+data everywhere except its knowledge workspace.
 
 ### Interactive agent harness
 
@@ -214,30 +217,56 @@ Shared artifacts should retain site/configuration revision, equipment identity,
 units, timestamps, observation origin/quality, and simulation-run identity where
 applicable. Real telemetry and simulated observations must remain distinguishable.
 
-## 6. Verified project state as of 2026-10-01
+## 6. Verified project state as of 2026-10-23
 
-This snapshot was checked against GitHub on the date above. It is branch-specific.
+On 2026-10-23, at the user's request, the collaborators' fork
+[gabjaswilliam-del/HVAC-Design-](https://github.com/gabjaswilliam-del/HVAC-Design-) was
+brought level with this repository: one commit by the user on top of the fork's `2c87b8a`
+whose files are identical to this `main` as of this update. It was pushed without
+force, so the fork keeps its own history, including its original commits; the two
+histories differ while the files match. That commit removes from the fork the files this
+repository never carried (`.claude/`, `CLAUDE.md`, `install.ps1` and the root
+`package.json` and `package-lock.json`); they remain in the fork's history.
+
+Fetched `origin` on 2026-10-19: remote `main` was `ae9c139`, the 2026-10-16 push below.
+The fork's 2026-10-17 commits were then integrated (see "Fork update" below) and, at the
+user's instruction ("push to main"), `main` was pushed to `origin` as a fast-forward with
+this context update, without a pull request.
+
+Fetched `origin` on 2026-10-16: remote `main` was still at
+`6b9fa285ad8675b4141b193b0d954ade0bba8098`. At the user's instruction ("push to main"),
+the local `main` (the 2026-10-14 dashboard merge and its context update) was fast-forwarded
+to `feat/prediction-vs-actual`, this context update was committed on top, and `main` was
+pushed to `origin` as a fast-forward, without a pull request. Prediction-branch
+implementation was not re-reviewed.
 
 | Item | Verified state |
 |---|---|
 | PR #1 — modular scaffold | [Merged](https://github.com/yxiao986/hvac-agent/pull/1) on 2026-09-20 |
-| `main` | `85093f81ccaa6220de5b65c49741a1704e5f048c`; scaffold and product/architecture/reference/deployment documentation |
-| Local checkout when this prompt was written | `chore/modular-single-site-structure` at `95f08a0`; scaffold branch, not the simulation branch |
-| PR #2 — simulation foundation | [Open](https://github.com/yxiao986/hvac-agent/pull/2), **changes requested**, not merged |
-| PR #2 branch and reviewed head | `feat/simulation-foundation`, `3d5663d8b9eaea7d0bfe9e0dbfecf7a6515858d1` |
+| PR #2 — simulation foundation | [Approved](https://github.com/yxiao986/hvac-agent/pull/2#pullrequestreview-5477334444) at `ac0697e` and merged on 2026-10-10 |
+| `main` (local and remote) | Pushed 2026-10-19, fast-forward from `ae9c139`: the fork's RAG Graph `fd80e7e` and CAD Studio `20070f6`, the integration record `9d1c9fd` and this context update. Pushed 2026-10-16, fast-forward from `6b9fa28`: the dashboard merge `404ee4d`, its context update `48a8baa`, the owner UI changes `a8b610a` and `ae9c139`. No PR for either, at the user's instruction; `pytest` and the dashboard unit tests and build pass on the user's macOS workstation; browser tests not run; not DGX-validated |
+| Fork `gabjaswilliam-del/HVAC-Design-` | `main` synced 2026-10-23: one commit on top of `2c87b8a`, files identical to this `main` at the commit that records the sync; history differs (no force-push) |
+| `feat/prediction` | Upstream records creation from `e7b29be` on 2026-10-11; branch implementation was not rechecked during this pull, and no prediction code is merged on main |
+| `feat/prediction-vs-actual` | Local branch from `48a8baa` with the owner UI changes `a8b610a` (below); now contained in `main`. The branch itself was not pushed |
+| `feat/fork-update-2026-10-17` | Local branch from `ae9c139`: the fork's two 2026-10-17 commits replayed with their authors, and this context update; local `main` fast-forwarded to it and pushed on 2026-10-19. The branch itself was not pushed; no PR, browser tests not run, not DGX-validated |
 | Integrated standalone application | Not implemented or released |
 | Customer/site commissioning and physical validation | Not completed |
 
-The scaffold's README/product documents describe a scaffold because that is what
-exists on that branch and on `main`. The PR's documentation describes stages 1 and
-2 as delivered because their code exists on the PR branch. Neither statement means
-that the PR is approved, merged, calibrated, or ready for customer deployment.
+Merged and approved does not mean calibrated against a site or ready for customer
+deployment; see section 7 for the model's limits.
 
-Initial work authorized folder structure and documentation. The PR branch's
-`AGENTS.md` records later authorization for stages 1 and 2: site contracts and the
-simulation foundation, confined to core/simulation/integrations, configuration,
-tests, and associated documentation. Later product stages require their own task
-authorization. Creating or reading this context prompt does not extend that scope.
+Initial work authorized folder structure and documentation. `AGENTS.md` records later
+authorization for stages 1 and 2: site contracts and the simulation foundation,
+confined to core/simulation/integrations, configuration, tests, and associated
+documentation. Both are merged. On 2026-10-11 the owner authorized the **backend** of
+stage 5, cooling-load prediction, on `feat/prediction`, confined to
+`src/hvac_agent/prediction/`, `tests/` and prediction documentation. It excludes the
+API routes, the dashboard and their framework choices; stages 3 and 4 remain
+unauthorized. Other product stages require their own task authorization. Creating or
+reading this context prompt does not extend that scope.
+
+This scope and status update was committed directly to `main` without a PR, at the
+owner's explicit instruction, as on 2026-10-04. It is documentation only.
 
 On 2026-10-01 the owner requested folder-local UI and cooling-load prediction
 instructions for junior engineers. That task added README briefs and a draft data/API
@@ -247,13 +276,13 @@ dashboard/prediction handoffs below. Draft endpoint names are not existing servi
 | Capability | What exists | What remains |
 |---|---|---|
 | Modular layout and product definition | Merged scaffold, ownership READMEs, product descriptions in English/Chinese, architecture and installation requirements | Keep synchronized with verified implementation and owner decisions |
-| Site contracts and metrics | Implemented in PR #2 | Resolve review issues and integration/acceptance needs; not merged |
-| Modified PHYVAC and simulation lifecycle | Implemented in PR #2 with tests | Remaining correctness findings, review/merge, measured fidelity work |
-| CAD Studio, generated assets, editable scene | UI folder brief and backend responsibility documented | Implementation and commissioning workflow |
-| Dashboard/API and telemetry ingestion | Per-screen/shared UI briefs, ownership folders and draft API/data contracts. Version A fixture prototype on local branch `feat/dashboard-version-a`: M0–M5 implemented (shell, approved artwork, fixture data layer, interactive monitoring with KPI details, cooling prediction and equipment pages, scripted AI assistant); not pushed, no PR, M5 awaiting owner review | Version A M6–M8 after owner review of M5; API framework, adapters, storage and integrated implementation |
-| Harness, local model serving, RAG and memory | Responsibility/plan only | Implementation, curated content, model selection/evaluation |
-| Cooling prediction and installation adaptation | Backend subfolder briefs, API route brief, full-page/monitoring UI brief | Models/data pipeline, no-history path, backtesting and uncertainty |
-| Simulation AI pilot | Responsibility/plan only; supporting action/run contracts in PR #2 | Monitoring/diagnosis policy, issue workflow, tool integration and evaluation |
+| Site contracts and metrics | Merged on `main` through PR #2 after three request-changes reviews and a fourth approving review | Consistency with future scene, telemetry and model bindings |
+| Modified PHYVAC and simulation lifecycle | Merged on `main` through PR #2 with tests; every review finding verified resolved | Measured-site fidelity, calibration workflow, topology coverage beyond the current family |
+| CAD Studio, generated assets, editable scene | UI folder brief and backend responsibility documented; on `main` (pushed 2026-10-19 without a PR) a fixture-only `/cad` review interface from the fork (tcy, 2026-10-17): file-selection placeholder that stops at "Parser not connected", one synthetic sample, synchronized side-by-side drawing and extraction canvases, findings and evidence review, fixture port resolution, and a labelled draft preview in the Overview renderer. No parser, backend, model, persistence or activation | Real CAD formats/parser, durable jobs, backend validation, generated assets and commissioning integration |
+| Dashboard/API and telemetry ingestion | Per-screen/shared UI briefs, ownership folders and draft API/data contracts; on `main` (pushed without a PR on 2026-10-16 and 2026-10-19), the Version A prototype (milestones M0 to M7.3) on labelled fixtures and a local WSGI server for knowledge and memory; and the 2026-10-15 owner UI changes (section 6) | Browser-test run; owner confirmation of scope; DGX build/test validation; live simulation and telemetry adapters; production API transport; replacing fixtures |
+| Harness, local model serving, RAG and memory | On `main` (pushed 2026-10-16 without a PR): a scripted assistant demonstration with no language model, and a knowledge (graph RAG) and memory service using the Python standard library and SQLite, with 62 tests | Model serving, a real agent loop and tools, curated content, model selection/evaluation |
+| Cooling prediction and installation adaptation | Backend subfolder briefs, API route brief, full-page/monitoring UI brief; backend authorized on `feat/prediction`, no code merged on main | Models/data pipeline, no-history path, backtesting and uncertainty; API/UI integration awaits stage 4 |
+| Simulation AI pilot | Responsibility/plan only; supporting action/run contracts merged with the simulation foundation | Monitoring/diagnosis policy, issue workflow, tool integration and evaluation |
 | Domain LLM training | Objective only | Data/feedback pipelines, evaluations, fine-tuning, RLHF and later RLAIF |
 | Standalone installer and managed lifecycle | Requirements documented | Packaging, service management, commissioning, upgrade and recovery implementation |
 
@@ -272,16 +301,120 @@ dashboard/prediction handoffs below. Draft endpoint names are not existing servi
 - `docs/ui-data-contracts.md` defines draft target/units/source/run/cutoff semantics,
   forecast/job states, provenance, error handling and end-to-end acceptance.
 
-On 2026-10-04 the owner selected React 19 + TypeScript + Vite for the dashboard
-(Version A "Industrial Control Center" prototype; a separate Version C design is
-deferred). Tokens live in `apps/dashboard/src/styles/tokens.css`. The API framework
-and prediction model remain undecided. UI fixture demonstrations must not claim live integration, model
+The frontend framework, exact visual tokens, API framework and prediction model
+remain undecided. UI fixture demonstrations must not claim live integration, model
 accuracy, successful installation or physical equipment control.
 
-## 7. What PR #2 currently implements
+### Dashboard merge from a collaborator's fork (2026-10-14)
 
-Read the PR version of `docs/simulation.md`, configuration guidance, code, and tests
-before changing this foundation. These files may not exist on the scaffold branch.
+At the user's request, merge commit `404ee4d` (branch `feat/dashboard-ui`) merges
+[gabjaswilliam-del/HVAC-Design-](https://github.com/gabjaswilliam-del/HVAC-Design-),
+a fork of this repository from `main` at `85093f8` (PR #1) with seven commits by
+gabjaswilliam-del dated 2026-10-04 to 2026-10-10. The user then asked for it to be merged
+into `main`, and the local `main` was fast-forwarded to it without a pull request; this
+departs, at the user's direction, from the `AGENTS.md` rule that work lands through a PR
+that passes `pytest` and DGX validation.
+
+- Before merging, those seven commits were rewritten locally (original head `cd94b78`,
+  cleaned head `48c4dc2`; authorship and dates unchanged). Co-author trailers naming an AI
+  coding assistant were removed from the messages at the user's request. Files that were
+  specific to the fork author's workstation or tooling were removed from that history:
+  `.claude/` (hooks pointing at another workstation's paths and a third-party skill),
+  `CLAUDE.md`, `install.ps1` (a tool installer) and a stray root `package.json` and
+  `package-lock.json` (the dependency is already declared in `apps/dashboard/package.json`).
+- The merge adds `apps/dashboard/` (the Version A prototype, its tests, and the records
+  `VERSION_A.md`, `DESIGN.md` and `M6_HANDOFF.md`), `apps/api/local_server.py`, the
+  knowledge and memory modules (`src/hvac_agent/knowledge/`, `agent/memory.py`,
+  `integrations/{embeddings,knowledge_store,memory_store,pdf_text}.py`, `core/errors.py`),
+  `scripts/export_knowledge_demo.py`, three test modules and a `.gitignore` entry.
+- Twelve documentation files conflicted. `main`'s newer text was kept for `AGENTS.md`,
+  `docs/ui-data-contracts.md` (with `requested_mode`), the simulation READMEs and this
+  file; the fork carried an older copy of the 2026-10-01 handoff and a 2026-10-04 snapshot
+  of this file. The fork's implemented-status lines were taken for the agent, equipment,
+  monitoring and prediction feature READMEs, and the status sentences in
+  `apps/dashboard/README.md` and both product descriptions were updated.
+- Scope: `AGENTS.md` records authorization for stages 1 and 2 and for the stage 5
+  prediction backend. Dashboard, API, agent and knowledge work belongs to stage 4, which
+  `AGENTS.md` still lists as unauthorized. The owner should confirm this scope and
+  record the authorization in `AGENTS.md`; that has not been done.
+- The fork's own records predate this merge: `VERSION_A.md` lists M7 and M7.1 as
+  uncommitted and awaiting review, and `M6_HANDOFF.md` refers to the removed local files
+  and the fork author's workstation. They were left unchanged as history.
+
+### Fork update: the collaborators' 2026-10-17 commits (integrated 2026-10-19)
+
+At the user's request ("if those updates do not conflict with my updates … then update
+this repository"), the fork [gabjaswilliam-del/HVAC-Design-](https://github.com/gabjaswilliam-del/HVAC-Design-)
+was re-read. It has two commits after its `cd94b78` (merged on 2026-10-14 as the cleaned
+`48c4dc2`), both based on the fork's original, uncleaned history. They were replayed onto
+`main` at `ae9c139` in a temporary clone, so none of that history or the removed files
+re-entered this repository. Authors are kept; no AI co-author trailer was present.
+
+- `fd80e7e` (gabjaswilliam-del; fork `d960455`): Version A M7.2 and M7.3, the RAG Graph
+  redesign. Knowledge workspace, graph layout, the 3D graph, the local API server and one
+  Python test. Applied cleanly; `DESIGN.md` and `shell.spec.ts` merged automatically.
+- `20070f6` (tcy; fork `2c87b8a`): the fixture-only CAD Studio at `/cad` as a fifth dock
+  section (it was the Engineering hub's row), a design-preview mode of `PlantViewport`
+  that hides telemetry, and an optional developer-only language overlay (`?lang=zh`, from
+  an ignored `src/lib/i18n/*.local.ts`; the tracked interface stays English). Three
+  overlap conflicts, none against the owner's changes in intent: the shortcuts list line
+  (kept "Prediction" and added "CAD Studio"), the dashboard README status (kept this
+  repository's current text and added a CAD sentence) and this file (this repository's
+  copy kept; the fork's copy was its 2026-10-04 snapshot, and its CAD entry is
+  summarized here instead).
+- The overlap was otherwise checked: `/cad` no longer opens the Engineering hub; the
+  equipment records `/equipment` redirects to are unchanged; the design preview is off on
+  the Overview, so "Plant off" and the playback rules are unaffected. A leftover
+  "Analytics" dock link in `e2e/attention.spec.ts` (from the 2026-10-15 rename, not the
+  fork) and two comments were corrected; the dock description in `DESIGN.md` now names
+  five sections.
+- The fork's own records still describe this work as uncommitted and awaiting owner
+  review (`VERSION_A.md`, the CAD feature README); they were kept as the authors wrote them.
+- **Validation** on the user's macOS workstation: `tsc --noEmit` clean, Vitest 198 passed
+  in 21 files, `vite build` succeeded, `pytest` 554 passed, 4 xfailed (Python 3.12, a
+  temporary virtual environment). The CAD author reports Windows checks and two focused
+  Playwright assertions; not reproduced here. Browser tests not run; not DGX-validated.
+- **Scope:** CAD Studio belongs to stage 3 and the dashboard and knowledge work to stage
+  4, both still unauthorized in `AGENTS.md`.
+
+### Dashboard owner changes on `feat/prediction-vs-actual` (2026-10-15 to 2026-10-16)
+
+At the user's requests, on the fixture prototype only (no model, live API or simulation
+service is connected). Each change is noted in the affected feature README.
+
+- **Prediction page and tab.** The dock tab "Analytics" is now "Prediction". `/prediction`
+  opens as an empty chart with a horizon and **Predict**; the predicted curve draws in, and
+  while the plant plays the actual cooling load is drawn on the same chart up to the
+  clock, with the points logged, MAE and MAPE so far (`predictionError.ts`). The
+  prediction persists for the tab session (`predictionStore.ts`).
+- **Deck and plant.** The Overview plant runs only while the deck plays ("Plant off"
+  otherwise). The deck opens on the live demo, paused, at 60×, with **Run simulation**
+  (**Play replay** in the replay); the speed applies to both sources.
+- **Simulation and replay are mutually exclusive** (`app/operatingContext.ts`): the other
+  source cannot be chosen while one plays; an AI Pilot run, which keeps its own clock,
+  keeps the replay waiting until it is paused; starting AI Pilot runs the simulation but
+  is refused while a replay plays; running the simulation never starts AI Pilot. To know
+  about AI Pilot runs, the deck keeps the simulation session's run list polled (every
+  0.5 s) instead of only while the AI Pilot panel is open. The two clocks are not unified.
+- **AI display** (`features/display/`) replaces the Overview's equipment list
+  (`EquipmentList.tsx` removed; `/equipment` redirects to Engineering). The assistant
+  shows line, bar, table, stats, inline PNG/JPEG/WebP images and model-written HTML (in a
+  sandboxed iframe with a network-blocking CSP) through one tool, `show_on_display`,
+  whose MCP definition is generated from its zod schema (`lib/contracts/display.ts`). A
+  new `display` assistant event carries it; the scripted demo assistant now uses it.
+  No MCP server or model harness exists; `src/hvac_agent/agent/README.md` notes the tool.
+- **Validation** on the user's macOS workstation: `tsc --noEmit` clean, Vitest 192 passed
+  in 19 files, `vite build` succeeded; `pytest` 553 passed, 4 xfailed (Python 3.12, a
+  temporary virtual environment, before the push). Playwright specs were written or
+  updated but **not run** (the browser is not installed). No Python code changed. Not
+  validated on the DGX.
+- **Scope:** this is further stage 4 dashboard work, which `AGENTS.md` still lists as
+  unauthorized; the owner should confirm it with the earlier dashboard merge.
+
+## 7. What the merged simulation foundation implements
+
+Merged on `main` through PR #2. Read `docs/simulation.md`, configuration guidance,
+code, and tests before changing this foundation.
 
 - Core unit conversions, a `device:metric` vocabulary, observations with origin,
   quality, notes and revisions, partial actions, and a site-definition loader.
@@ -296,9 +429,20 @@ before changing this foundation. These files may not exist on the scaffold branc
   stepping and history, and a correction gate/ledger in `simulation/`.
 - Manual overrides held until replaced or released; a PLC action releases all
   overrides. Running-state commands affect availability and dispatch. These are
-  current PR semantics, not a physical equipment control design.
+  simulation semantics, not a physical equipment control design.
 - Distinct reported demand/removed cooling/unmet cooling/loop heat accumulation,
   engine quality notes, and operating-envelope failure reporting.
+- Per-machine temperature points from the engine's own calculation for that step;
+  mixed loop temperatures only on SYSTEM points; a machine with no water moving
+  through it reports the header water, marked uncertain with a note.
+- A chiller cools only with water on both sides; one told to run without it removes
+  nothing, and the shortfall is unmet demand. The operating envelope covers each
+  cooling chiller's own outlets as well as the mixed loops.
+- Parallel pumps at unequal speeds resolved into a shut check valve or the rising
+  part of the slower pump's curve, with every conducting branch on its own curve.
+- Header pumps staged as a shared pool rather than one per chiller.
+- Actions copy their setpoints into an immutable snapshot when made, so the checked,
+  executed and recorded values cannot diverge.
 - Synthetic configuration/workbook fixtures, component characterization, integration
   and lifecycle tests, and comparisons with a reference simulator.
 
@@ -318,12 +462,12 @@ quality of telemetry needed for calibration must be measured, not promised unive
 
 ### Engine provenance and dependencies
 
-The PR vendors a `simulate_ai` fork of upstream
+The foundation vendors a `simulate_ai` fork of upstream
 [ShoheiMiyata/phyvac](https://github.com/ShoheiMiyata/phyvac), using baseline commit
 `5b452aa23474216a76d1e57b1d104cef123e1c04`, engine string `ver20231120`.
 The exact upstream commit is unknown. Its provenance, source location, license
 notice, and reproducible patches are recorded in
-`src/hvac_agent/integrations/phyvac/vendor/UPSTREAM.md` on the PR branch.
+`src/hvac_agent/integrations/phyvac/vendor/UPSTREAM.md`.
 
 A NumPy 2 compatibility patch uses `.item()` for scalar extraction. Four strict
 expected-failure checks pin defects in storage/absorption components outside the
@@ -331,21 +475,22 @@ current topology family. Do not enable those components without resolving the
 defects and validating affected results. Vendor changes should have recorded patches,
 reasons, tests, and DGX characterization; do not silently edit vendored arithmetic.
 
-The upstream BSD-3-Clause notice is included. The PR records unresolved permission
-to redistribute the fork authors' modifications; resolve and document that before
-customer distribution. Do not infer that the copied upstream notice resolves every
+The upstream BSD-3-Clause notice is included. The provenance file records unresolved
+permission to redistribute the fork authors' modifications; resolve and document that
+before customer distribution. Do not infer that the copied upstream notice resolves every
 fork-specific right or claim permission has already been obtained.
 
-The backend requires Python 3.11+. PR #2 declares NumPy, pandas, SciPy, openpyxl,
+The backend requires Python 3.11+. It declares NumPy, pandas, SciPy, openpyxl,
 matplotlib, scikit-learn, and PyYAML, plus pytest for development. Some libraries
-are inherited from engine imports, not product technology selections. Inspect the
-actual branch's `pyproject.toml`; do not claim its dependency set is present on the
-scaffold or that release dependency locking has been solved.
+are inherited from engine imports, not product technology selections; their presence
+does not choose a prediction model family. Inspect the branch's `pyproject.toml`;
+do not claim release dependency locking has been solved.
 
 ## 8. Review status, evidence, and immediate unfinished work
 
-PR #2 has received two submitted request-changes reviews. These are engineering
-findings with synthetic reproductions, not measurements of the real data center.
+PR #2 received three request-changes reviews, followed by an approval at `ac0697e`
+on 2026-10-10. The earlier findings are now verified resolved. These are engineering
+checks with synthetic reproductions, not measurements of the real data center.
 
 ### First review: fixes present at the latest reviewed head
 
@@ -358,22 +503,75 @@ The updated head `3d5663d` addresses those six reproductions with corresponding
 regression coverage. Keep that coverage. The first review is
 [recorded here](https://github.com/yxiao986/hvac-agent/pull/2#pullrequestreview-5363041134).
 
-### Second review: four unresolved findings at `3d5663d`
+### Second review: all four findings verified resolved at `b0d90c9`
 
 The [follow-up review](https://github.com/yxiao986/hvac-agent/pull/2#pullrequestreview-5368901805)
-requests these changes:
+identified four findings at `3d5663d`. The third review independently verified the
+candidate fixes and their original synthetic reproductions on the DGX:
 
-| Priority | Finding and reproduction | Required behavior |
+| Previous finding | Fixing commit | Verified behavior at `b0d90c9` |
 |---|---|---|
-| P1 | `integrations/phyvac/hydraulics.py`: unequal-speed fallback scales a pump's flow to close mass balance without satisfying its pressure equation. Example: reported header 123.531 kPa, slower-pump flow 0.122943 m³/min, but the same branch produces only 116.168 kPa at that flow. | Use a physically consistent operating-point/check-valve model or reject unsupported points; test pressure-flow relations as well as total mass balance. |
-| P2 | `simulation/dispatch.py`: header pumps are consumed as exclusive per-chiller assignments. An accepted two-chiller configuration with one common-header pump per side starts only one chiller when the controller asks for two, capping reported cooling near 697.67 kW at 1,000 kW demand. | Model shared-header allocation correctly within flow constraints, or explicitly reject the unsupported arrangement during loading. |
-| P2 | `integrations/phyvac/plant.py`: per-chiller temperatures are copied from mixed loop state. Actual outlets 9.5 °C and 8.41526 °C both appear as 8.95763 °C; next-step return is reported as the completed step's inlet. | Report each device's actual completed-step inlet/outlet values; keep mixed header values on system points and define stopped-device behavior. |
-| P2 | `core/actions.py`: a frozen Action retains the caller's mutable setpoint dictionary. Changing an accepted 9.5 °C command to 20 °C before stepping bypasses the configured 7–12 °C limits and rewrites the proposal history. | Copy/freeze command values before validation; use the same immutable snapshot for the queue and ledger; test caller mutation after submission. |
+| P1: unequal-speed pump flow did not satisfy its pressure equation | `9fcd6a2` | Original rising-curve case satisfies each branch head; the 45 Hz chilled-pump correction closes the slower pump's check valve. Additional sweep: 240 three-/four-pump cases satisfy branch-pressure and mass-balance checks. |
+| P2: common-header pumps incorrectly assigned exclusively per chiller | `e32d2dc` | Two chillers on one pump per side both run; the original synthetic 1,000 kW scenario reports about 1,314 kW removed after four steps, exceeding one chiller's rating. This transient removal is not a measured capacity claim. |
+| P2: each chiller reported mixed/next-step water temperatures | `62055f0` | Original 9.5 °C correction reports separate outlets 9.5 °C and 8.41526 °C and completed-step inlets 14.76512 °C. Regression coverage includes condenser and tower temperatures and no-flow behavior. |
+| P2: caller mutation bypassed limits and rewrote the action ledger | `2f7b479` | Changing the caller's dictionary from 9.5 to 20 °C after acceptance leaves both the applied setpoint and recorded proposal at 9.5 °C. |
 
-Do not silently mark these resolved because code changed or a thread was closed.
-Verify the relevant fix at a new commit and update this section with its evidence.
-Do not require support for every topology family to resolve this review; enforce
-correct behavior and honest rejection within the declared family.
+Keep the corresponding regression coverage. Resolution of these four findings does
+not establish correct behavior for all combinations of the newly supported states.
+
+### Third review: P1 finding verified resolved at `ac0697e`
+
+The [third review](https://github.com/yxiao986/hvac-agent/pull/2#pullrequestreview-5411611269)
+requests changes for `integrations/phyvac/plant.py`, around lines 290–323:
+
+- **Chiller continues cooling with zero condenser-water flow.** On the synthetic
+  example site, run eight steps at 1,000 kW, then submit condenser pump 1 at 50 Hz
+  and pump 2 at 30 Hz through the correction gate and take one step. Both commands
+  are valid. The solver returns condenser source flows `(3.9773560201, 0, 0)` m³/min,
+  but chiller 2 still reports 513.243028 kW of cooling. The chiller calculation is
+  passed an invented `g_cd = 1e-6`; its condenser outlet is 8,459,753.606803 °C and
+  marked `good`. The step succeeds because that stream has zero mixing weight.
+  Only the pump has an uncertainty note; no real condenser heat path exists.
+- **Required behavior:** require actual positive water flow on both sides before
+  calculating active cooling, or reject the unsupported step explicitly. An inactive
+  chiller must preserve/pass through water on whichever side still flows, report
+  unavailable flow/temperatures honestly, and account for lost cooling in the system
+  heat balance. Add integration coverage for the 50/30 Hz correction, including
+  cooling, temperature quality and unmet demand. The existing unequal-speed plant
+  regression covers loss of evaporator flow only.
+
+The new shut-check-valve solver makes this state reachable within accepted equipment
+limits. Fix `1b3e1c3`, documented in `ac0697e`, guards actual flow on both sides,
+removes the invented condenser-flow clamp, reports starvation and pass-through
+water honestly, and checks each calculating chiller's outlets against the envelope.
+The two integration regressions cover zero condenser flow and a positive trickle.
+
+### Fourth review: approved at `ac0697e`, no remaining review blocker
+
+The [fourth review](https://github.com/yxiao986/hvac-agent/pull/2#pullrequestreview-5477334444)
+independently verified the third-review fix on the designated DGX Spark:
+
+- Original eight-step, 1,000 kW, 50/30 Hz reproduction: the starved chiller has zero
+  cooling and power; no chiller calculation is called with fabricated flow. Its
+  condenser outlet reports 27.460535 °C header water as uncertain, remaining
+  evaporator water passes through unchanged, and unmet demand is 486.756972 kW.
+- Loss of evaporator flow, condenser flow and both sides all suppress cooling and
+  preserve the per-device heat balance. Restoring actual flow resumes engine
+  calculation and cooling. The gate accepts valid commands; the observations show
+  which outcomes were achieved and which could not be.
+- Nearby 50/32 Hz case: the run fails explicitly because the individual condenser
+  outlet would reach 66.6 °C, even though the mixed return stays within the envelope.
+  The last valid observation/history, successful-step count and simulation time
+  remain unchanged after the failure.
+- All additional probe assertions passed, including 78 hydraulic balances checked
+  against branch pressure-flow curves and mass balance. The complete suite passes
+  with all earlier review regression coverage retained.
+
+Approval is for the configuration-driven foundation within its documented topology
+family. It is not a claim of measured-site fidelity, calibrated customer operation,
+installer/release acceptance, or fixes to the four excluded engine defects. After
+approval, the owner authorized merging PR #2 and updating the local main checkout;
+both are complete at `e7b29be`. No deployment was performed.
 
 ### Verified test results
 
@@ -381,9 +579,18 @@ correct behavior and honest rejection within the declared family.
 |---|---|---|
 | `d625107` | Designated DGX Spark, isolated checkout/venv: 388 passed, 4 xfailed | Earlier suite passed despite six targeted correctness findings |
 | `3d5663d` | Designated DGX Spark as `ghani`, ARM64, isolated checkout/venv: 463 passed, 4 xfailed; GitHub CI passed at review | Original regressions have coverage; four additional targeted reproductions still fail the intended behavior |
+| `e32d2dc` | Author's Windows workstation and designated DGX Spark as `ghani`, Python 3.12.3, isolated checkout/venv: 489 passed, 4 xfailed; run/correction/dispatch tests repeated ten times, 101 passed each | Author-run validation of second-review fixes; separately reproduced by the reviewer at `b0d90c9` |
+| `b0d90c9` | Designated DGX Spark as `ghani`, ARM64, Python 3.12.3, fresh temporary checkout/venv: 489 passed, 4 xfailed in 6.82 s; GitHub CI passed | Four second-review reproductions resolved; 240 additional unequal-speed hydraulic cases passed; zero-condenser-flow probe still produces false cooling and impossible good-quality temperature |
+| `1b3e1c3` | Author's Windows workstation and designated DGX Spark as `ghani`, Python 3.12.3, isolated checkout/venv: 491 passed, 4 xfailed; run/correction/dispatch tests repeated ten times, 101 passed each | Author-run validation of third-review fix; separately reproduced by the reviewer at `ac0697e` |
+| `ac0697e` | Reviewer, designated DGX Spark as `ghani`, ARM64, Python 3.12.3, fresh temporary checkout/venv: 491 passed, 4 xfailed in 6.91 s; GitHub CI passed | Third-review blocker resolved; zero-/trickle-flow, symmetric starvation and recovery probes passed, including 78 hydraulic balances; approval submitted |
+| `e7b29be` | GitHub merge and main CI verified; local main fast-forwarded; full-tree comparison with `ac0697e` has no differences | Merge preserves the reviewed/tested implementation exactly; no new DGX test run or deployment was performed during the local update |
+| `feat/dashboard-ui` merge of `6b9fa28` and fork head `48c4dc2` | User's macOS workstation (not the DGX), Python 3.14.6, temporary venv, `PYTHONPATH=src pytest`: 553 passed, 4 xfailed in 42 s | The simulation suite is intact after the merge and the fork's 62 knowledge, memory and local API tests pass. DGX validation, CI and the dashboard's `npm` build, unit and browser tests were not run; the fork records its dashboard checks on a Windows workstation only |
 
-These are historical results for exact commits, not tests newly run while writing
-this prompt. No full product, installed deployment, forecasting system, pilot,
+The `ac0697e` checks were independently run during the 2026-10-10 review; earlier
+rows preserve historical results at their original commits. The author reports
+the reference-day comparison unchanged after the second- and third-review fixes;
+this is a reference-simulator comparison, not measured-site validation. No full product,
+installed deployment, forecasting system, pilot,
 specialized LLM, or customer-site fidelity has been validated by those results.
 
 ## 9. Reference projects and lessons
@@ -406,23 +613,23 @@ ground truth; power/energy accuracy cannot be inferred from fitting only tempera
 pressure, and flow. The documented vendored engine is a specific provenance-tracked
 dependency, not permission to import the surrounding legacy application.
 
-Detailed source-based findings live in `docs/reference-review.md`; the simulation
-branch contains later additions beyond the scaffold version.
+Detailed source-based findings live in `docs/reference-review.md`.
 
 ## 10. Remaining product roadmap
 
 This is a dependency guide and status inventory, not a schedule or instruction to
-start implementation. Resolve the active simulation review before treating that
-foundation as accepted for dependent work.
+start implementation. Stages 1 and 2 are merged. The stage 5 backend is authorized
+ahead of stages 3 and 4: it proceeds through injected data interfaces, and its API and
+dashboard integration waits for stage 4.
 
 | Stage | Remaining outcome |
 |---|---|
 | 0. Local packaging design | Artifact inventory, resource budgets, preflight, data locations, service/lifecycle ownership and a local deployment path for every dependency |
-| 1. Site contracts | Complete review/merge of PR contracts and prove consistency across future scene, telemetry, simulator and model bindings |
-| 2. Simulation foundation | Resolve current correctness findings, re-review/merge, define fidelity criteria and measured validation/calibration workflows |
+| 1. Site contracts | Merged; prove consistency across future scene, telemetry, simulator and model bindings |
+| 2. Simulation foundation | Merged; define fidelity criteria and measured validation/calibration workflows |
 | 3. CAD and installation workflow | Extract/review topology, capture unknown parameters and sensor mappings, generate editable scene and state-aware assets locally |
-| 4. Integrated monitoring and harness | Local API/dashboard/telemetry, tools and conversations, local model serving, RAG, memory and grounded data views |
-| 5. Prediction | Pretrained no-history route, historical-data adaptation, chronological backtests, baselines and uncertainty |
+| 4. Integrated monitoring and harness | Local API/dashboard/telemetry, tools and conversations, local model serving, RAG, memory and grounded data views. A fixture-based UI prototype and a local knowledge/memory service are on `main` (merged 2026-10-14, pushed 2026-10-16 without a PR), pending stage 4 authorization and validation |
+| 5. Prediction | Backend authorized on `feat/prediction`, no code merged on main. Pretrained no-history route, historical-data adaptation, chronological backtests, baselines and uncertainty |
 | 6. Simulation pilot | Anomaly/issue lifecycle, grounded investigations, validated corrections, measured outcomes and matched controller comparisons |
 | 7. Domain LLM specialization | Curated data/feedback, domain evaluations, fine-tuning, RLHF then RLAIF, artifact provenance and DGX resource validation |
 | 8. Standalone release acceptance | Complete installer/commissioning/lifecycle, fresh-install/restart/recovery tests and operation without internet or another compute server |
@@ -449,7 +656,7 @@ The installer and service manager do not exist yet.
 
 ## 12. Open decisions and evidence still needed
 
-- API transport, harness framework and tool protocol. (Dashboard framework decided 2026-10-04: React 19 + TypeScript + Vite.)
+- Dashboard framework, API transport, harness framework and tool protocol.
 - Local LLM/image/embedding model families, serving runtimes, sizes and scheduling.
 - Databases, telemetry history, vector retrieval, memory stores and retention policy.
 - Supported CAD formats and engineering review/commissioning UX.
@@ -515,19 +722,24 @@ that can be shared. Never reproduce session credentials in PRs, logs, or handoff
 - [README.md](README.md) and module READMEs: branch-specific setup and responsibilities.
 - [Dashboard engineering handoff](apps/dashboard/README.md): every UI folder/brief,
   common design requirements and assignment acceptance.
+- [Version A record](apps/dashboard/VERSION_A.md) and
+  [design](apps/dashboard/DESIGN.md) for the dashboard prototype's milestones,
+  decisions and evidence.
 - [Prediction backend handoff](src/hvac_agent/prediction/README.md),
   [prediction UI handoff](apps/dashboard/src/features/prediction/README.md) and
   [prediction API handoff](apps/api/routes/prediction/README.md): the exact connection
   from local model to full page and monitoring summary.
 - [UI/data contract proposal](docs/ui-data-contracts.md): draft wire semantics;
   endpoints and schemas have not been implemented.
-- [PR #2](https://github.com/yxiao986/hvac-agent/pull/2): implementation and review state.
-- [Simulation guide at the reviewed commit](https://github.com/yxiao986/hvac-agent/blob/3d5663d8b9eaea7d0bfe9e0dbfecf7a6515858d1/docs/simulation.md): current foundation and limitations.
-- [Engine provenance at the reviewed commit](https://github.com/yxiao986/hvac-agent/blob/3d5663d8b9eaea7d0bfe9e0dbfecf7a6515858d1/src/hvac_agent/integrations/phyvac/vendor/UPSTREAM.md): baseline, patches, license and known defects.
+- [docs/simulation.md](docs/simulation.md): the merged simulation foundation, its
+  supported topology and limitations.
+- [Engine provenance](src/hvac_agent/integrations/phyvac/vendor/UPSTREAM.md): baseline,
+  patches, license and known defects.
+- [PR #2](https://github.com/yxiao986/hvac-agent/pull/2): simulation implementation and
+  full review history.
 
-The commit-pinned links document this snapshot, not future PR heads. Prefer the
-latest verified source for current behavior while preserving older evidence with
-its original commit identity. Local review scratch files are not a portable source
+Prefer the latest verified source for current behavior while preserving older
+evidence with its original commit identity. Local review scratch files are not a portable source
 of truth and may be absent on another machine.
 
 ## 15. Mandatory context-maintenance protocol
@@ -572,62 +784,123 @@ Do not claim durable memory or a file update that did not happen.
 
 ### Latest handoff
 
-- **2026-10-04 — Version A M5: scripted AI assistant (awaiting owner review).**
-  Assistant drawer (own shell column, plant refits), `/agent` page with history and
-  tool list, streamed turns with visible simulated tool calls and typed views, and
-  navigation from answers to equipment, plant, issues, KPI panels and the exact
-  forecast. No language model: keyword-matched scripted investigations whose
-  figures come from simulated tools over the synthetic data; clearly labeled; no
-  recommendations or equipment control. An `AgentClient` interface and event/view
-  contract (`apps/dashboard/src/lib/contracts/agent.ts`) are the replacement seam for
-  a local-LLM harness and M6 simulation tools. Validation (Windows 11 workstation):
-  typecheck and build pass; 41 unit and 84 browser tests pass on five consecutive
-  runs. Not done: DGX validation, any real model or harness. Local commits only.
-- **2026-10-04 — Version A M3.1 (KPI details) and M4 (awaiting owner review).**
-  All nine monitoring KPI cards open an indicator details panel (shared side column
-  with the equipment inspector) showing reported inputs, quality, trend and related
-  equipment; Open issues shows the scenario's issues with evidence and Locate/Inspect
-  actions; demand/delivered panels show shortfall periods against running capacity.
-  M4 added `/prediction` (capabilities-driven controls, provenance, readiness,
-  earlier-forecast comparison, pinned forecast links, honest unavailable/stale
-  states; the forecast is a labeled demo baseline, not a trained model) and
-  `/equipment/:id?` (filters, shared inspector, locate on plant). Fixed a cold-load
-  bug where the schematic could stay undrawn. Validation (Windows 11 workstation,
-  Node 24.19, Playwright 1.63 Chromium): typecheck and build pass; 28 unit and 70
-  browser tests pass on three consecutive runs. Not done: DGX validation, live API
-  or model integration, M5–M8. Commits are local only.
-- **2026-10-04 — Version A Milestones 2–3 (awaiting owner review of M3).** Owner
-  approved the M1 artwork and recorded eight M3 acceptance requirements (fit to
-  screen, zoom controls, wheel/drag, clickable equipment, selection highlight and
-  inspector, no cropping when panels open, preserved artwork, multi-resolution
-  reachability); they are listed with test evidence in `apps/dashboard/VERSION_A.md`.
-  M2 added zod boundary contracts, seven deterministic synthetic scenarios, a fixture
-  `DataClient` with failure injection, and a seasonal-profile forecast baseline that
-  provably uses no post-cutoff data and is labeled as a demo baseline. M3 added the
-  interactive monitoring screen, shared equipment inspector, playback, KPI strip,
-  issues and forecast summary. Validation (Windows 11 workstation, Node 24.19,
-  Playwright 1.63 Chromium): typecheck passes; 23 unit tests and 32 browser tests
-  pass, including fit at 1280×720–2560×1440 and pan/click reachability of all 16
-  equipment items. Not done: DGX build/test, touch pinch-zoom, M4–M8 screens. Still
-  fixture-only; no API, PHYVAC, model or equipment connection.
-- **2026-10-04 — Version A dashboard prototype, Milestones 0–1 (awaiting owner
-  approval of M1).** Owner authorized a fixture-only frontend prototype within
-  `apps/dashboard/`. On local branch `feat/dashboard-version-a` (from `main`
-  `85093f8`; not pushed, no PR): Vite/React/TS setup, tokens, shell with all routes
-  (later screens are temporary "in development" stand-ins), English string catalog,
-  draft topology contract, a synthetic 3-chiller/4-tower/4+4-pump demo plant in the
-  `water_cooled_chiller_plant_v1` family with PR #2-style evidence (inferred pairings,
-  unknown standby links), original SVG equipment artwork (chiller, pump, cooling tower,
-  data-hall terminal) with running/stopped/fault/no-data/stale/selected states, pipes
-  with flow animation, valves, sensors and measurement tags, a static monitoring
-  scene preview and a dev-only asset sheet. Not connected to any backend or PHYVAC.
-  Validation (Windows 11 workstation, Node 24.19, Chromium via Playwright 1.63):
-  typecheck and production/demo builds pass; 9 browser tests pass (navigation/focus,
-  narrow drawer, bundled font and tabular figures, axe serious/critical on `/` and
-  one stand-in route, scene IDs/states, animation only for running equipment,
-  reduced motion). Not done: DGX build/test, pytest (unavailable locally; no Python
-  changed), interaction/zoom/playback/forecast and other screens (M2–M8). The
-  2026-10-01 briefs and this file remain uncommitted working-tree changes.
+- **2026-10-23 — fork brought level with `main`.** At the user's request ("update their
+  version with my version … both of them are equal"), chose to add one commit on the
+  fork rather than force-push over its history. Pushed this context update to `main`
+  and a commit to the fork's `main` whose tree is identical. No PR; no new code, so no
+  new test run; browser tests and DGX validation still outstanding. Next dependency: the
+  collaborators should pull the fork's `main` before further work, and later fork
+  updates still need replaying here because the histories differ.
+- **2026-10-19 — pushed `main` with the fork update, without a PR.** At the user's
+  instruction ("push to main"): fetched `origin` (remote `main` unchanged at `ae9c139`),
+  committed this update and pushed `main` as a fast-forward. Bypasses the `AGENTS.md` PR
+  and DGX-validation rule at the user's direction. Checks as in the entry below; browser
+  tests not run; no DGX validation. Next dependency: a Playwright run, stage 3 and 4
+  authorization in `AGENTS.md`, and DGX validation.
+- **2026-10-19 — integrated the fork's 2026-10-17 commits locally.** Replayed the RAG
+  Graph redesign (M7.2, M7.3) and the fixture-only CAD Studio onto `main` at `ae9c139` on
+  `feat/fork-update-2026-10-17`, authors kept; resolved three overlap conflicts without
+  changing the owner's 2026-10-15 behaviour; fixed a leftover "Analytics" test link.
+  Typecheck, 198 unit tests, build and `pytest` (554 passed, 4 xfailed) pass locally.
+  Local `main` fast-forwarded (pushed the same day, entry above); no PR, browser tests
+  not run, no DGX validation. Next dependency: the push decision, a Playwright run, stage 3 and 4
+  authorization in `AGENTS.md`, and DGX validation.
+- **2026-10-16 — pushed `main` to `origin` without a PR.** At the user's instruction
+  ("push to main"): fetched `origin` (remote `main` unchanged at `6b9fa28`), fast-forwarded
+  the local `main` to `feat/prediction-vs-actual` (`a8b610a`), committed this update and
+  pushed `main`. This bypasses the `AGENTS.md` PR and DGX-validation rule at the user's
+  direction. Before pushing: `pytest` 553 passed, 4 xfailed; dashboard typecheck, 192
+  unit tests and build pass; no outgoing commit carries an AI co-author trailer.
+  Browser tests not run; no DGX validation. Next dependency: Playwright run, stage 4
+  authorization in `AGENTS.md`, and DGX validation including the dashboard build and tests.
+- **2026-10-16 — dashboard owner changes committed on `feat/prediction-vs-actual`.** At
+  the user's requests: prediction-against-actual page, Prediction tab, plant running only
+  while played, Run simulation on the deck, simulation/replay mutual exclusion, AI Pilot
+  starting the simulation, and the AI display with the `show_on_display` tool (section 6).
+  Typecheck, 192 unit tests and the build pass locally; browser tests not run; not pushed,
+  no PR, no DGX validation. An incidental `package-lock.json` change from the local npm
+  (dropped `libc` markers) was discarded. Next dependency: running the Playwright suite,
+  stage 4 authorization in `AGENTS.md`, the push/PR decision for local `main` and this
+  branch (pushed to `main` the same day, entry above), and DGX validation.
+- **2026-10-14 — dashboard merge fast-forwarded into local `main`.** At the user's
+  instruction ("merge it to main"), fast-forwarded the local `main` from `6b9fa28` to the
+  merge commit `404ee4d` without a pull request, then committed this context update. This
+  bypasses the `AGENTS.md` PR and DGX-validation rule at the user's direction. Not pushed
+  when this entry was written; no DGX or dashboard `npm` validation. Next dependency: the
+  push decision, `AGENTS.md` authorization for the stage 4 work, and DGX validation
+  including the dashboard build and tests.
+- **2026-10-14 — merged the Version A dashboard fork on `feat/dashboard-ui`.** At the
+  user's request, created `feat/dashboard-ui` from `main` at `6b9fa28` and merged a
+  cleaned copy of gabjaswilliam-del's fork (section 6): AI co-author trailers and
+  workstation-specific tooling files removed from its seven commits, authorship kept.
+  Resolved twelve documentation conflicts, updated dashboard and product status lines,
+  and committed this file including the previously uncommitted 2026-10-12 reconciliation.
+  `pytest` on the merged tree on the user's macOS workstation: 553 passed, 4 xfailed.
+  Not pushed, no PR, no DGX or dashboard `npm` validation. Next dependency: owner review
+  of the stage 4 scope and `AGENTS.md` authorization, then push, PR, and DGX validation
+  including the dashboard build and tests.
+- **2026-10-12 — pulled latest main and preserved local context.** Pulled from
+  `e7b29be` to `6b9fa28` using fast-forward only. Incoming changes are documentation:
+  prediction-backend scope/status and an optional forecast `requested_mode`, with
+  automatic selection excluding baselines and explicit mode selection advertised
+  through capabilities. Resolved the autostash conflict in this file by retaining
+  upstream decisions and the saved independent review evidence/handoffs. Verified
+  matching local/remote commits, Markdown links and no unresolved conflict markers.
+  This reconciliation remains uncommitted. No runtime tests, implementation,
+  prediction-branch review or deployment were performed during the pull.
+- **2026-10-11 — PR #2 merged; prediction backend authorized.** GitHub shows PR #2
+  approved at `ac0697e` on 2026-10-10, with the third-review fix verified on the DGX,
+  and merged as `e7b29be`. The owner authorized the stage 5 prediction backend only,
+  confined to `src/hvac_agent/prediction/`, `tests/` and prediction documentation;
+  `feat/prediction` was created from `e7b29be`. Updated `AGENTS.md`, this file
+  (status, compressed review history, roadmap, source map), `README.md` and two
+  dashboard READMEs that still described the simulation code as unmerged. Committed
+  directly to `main` without a PR at the owner's instruction. Documentation only; no tests were
+  rerun. Next dependency: fast-forward `feat/prediction` to this commit, then agree
+  the prediction contracts and build the input preparation and baseline.
+- **2026-10-10 — PR #2 merged and local main updated.** Owner explicitly requested
+  the merge and local update. Merged the approved head `ac0697e` using a merge
+  commit, verified PR #2 merged at `e7b29be`, and fast-forwarded the local `main`
+  branch to that same commit. Saved the pending review-context edit before the
+  update and reconciled it with the merged implementation context, preserving
+  independent and author-run evidence. Confirmed the merge tree is identical to
+  the DGX-tested PR head; no runtime changes or new runtime tests were introduced.
+  Main CI passed, local/remote commits match, and context links/whitespace were checked.
+  This context refresh remains local and uncommitted. No deployment was performed.
+- **2026-10-10 — fourth simulation review, approved.** Reviewed PR #2 at `ac0697e`
+  and verified fix `1b3e1c3`. Independently ran 491 passed/4 xfailed on the designated
+  DGX in a fresh environment. Original zero-condenser-flow, symmetric starvation,
+  recovery, trickle-envelope and 78 branch-balance checks passed. Submitted approval
+  with no remaining blocker in the reviewed changes. Updated this context locally;
+  At the review handoff PR #2 was unmerged; it was subsequently merged at the
+  owner's request as recorded above. Measured fidelity, calibration and standalone
+  release acceptance remain separate work.
+- **2026-10-06 — author's third-review fix.** Candidate fix `1b3e1c3` added the
+  two-sided water-flow guard, per-chiller outlet envelope checks and two regression
+  tests, documented in `ac0697e`. Author-run validation and the unchanged reference
+  comparison are retained in section 8. The candidate was independently verified
+  and approved on 2026-10-10.
+- **2026-10-05 — third simulation review submitted, changes requested.** Reviewed
+  PR #2 at `b0d90c9`, including its merge of main `d21c5e5`. Independently reproduced
+  489 passed/4 xfailed on the designated DGX in an isolated environment, verified
+  all four second-review fixes, and checked 240 further unequal-speed hydraulic
+  cases. Reproduced one P1 blocker: zero condenser flow still permits chiller
+  cooling and impossible good-quality outlet temperature. Submitted the linked
+  third review with exact commands, observations and required regression coverage.
+  Updated this context locally; no implementation, merge or deployment is included.
+  At that time the next dependency was the zero-condenser-flow fix, now verified
+  resolved in the fourth review recorded in section 8.
+- **2026-10-05 — author's second-review fixes and merge of main into PR #2.**
+  Candidate fixes `2f7b479`, `62055f0`, `9fcd6a2` and `e32d2dc`, documented in
+  `e217136`, passed author-run validation. Main `d21c5e5` was incorporated into
+  the simulation branch at `b0d90c9`, retaining both sides of the AGENTS and module
+  README changes. These fixes were independently verified in the third review.
+- **2026-10-04 — documentation published to main.** The owner authorized a direct
+  push. Published `d21c5e5` from main base `85093f8`, including the living context
+  prompt and UI/prediction handoffs, and verified remote main and a clean worktree.
+  PR #2 remained separate at `3d5663d` with changes requested at publication time.
+  Documentation links, structure, Git inclusion and whitespace passed checks;
+  runtime code was unchanged, so DGX/runtime tests were not rerun for that revision.
 - **2026-10-01 — UI and prediction engineer briefs added.** Added screen/shared UI
   ownership folders and READMEs, backend prediction subfolder briefs, prediction API
   routes brief, and a common contract proposal. Updated product descriptions,
@@ -644,5 +917,5 @@ Do not claim durable memory or a file update that did not happen.
   simulation fixes, new feature implementation, merge or deployment were performed.
   Local document links, Markdown structure and whitespace were checked; no runtime
   tests were rerun for this documentation task.
-  The next simulation dependency remains resolution and verification of the four
-  active findings in section 8.
+  At that time the next dependency was resolution of the four second-review
+  findings, now verified resolved as recorded in section 8.

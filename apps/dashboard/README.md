@@ -2,10 +2,13 @@
 
 This is the junior-engineer handoff for the operator application. **Status: the
 owner approved React 19 + TypeScript + Vite on 2026-10-04 for the Version A fixture
-prototype; Milestones 0–5 (shell, artwork, fixture data layer, interactive
-monitoring with KPI details, cooling prediction and equipment pages, scripted AI
-assistant) exist on branch
-`feat/dashboard-version-a`. Nothing is connected to a
+prototype. Milestones 0 to 7.3 are in this directory: shell, artwork, fixture data
+layer, interactive monitoring with KPI details, cooling prediction and equipment pages,
+scripted AI assistant, simulation and AI pilot on labelled mock services, and the
+knowledge workspace. Everything runs on labelled demo data except the knowledge
+workspace, which can use the local knowledge and memory service in
+`apps/api/local_server.py`; nothing else is connected to a backend. CAD Studio
+(`/cad`, 2026-10-17) is a fixture-only review interface with no CAD parser or
 backend.** Milestones and acceptance evidence: [VERSION_A.md](VERSION_A.md). See
 [Running the prototype](#running-the-version-a-prototype).
 Implement your assigned surface in the folder linked below. Build one coherent
@@ -13,9 +16,10 @@ application, not separate dashboards per feature.
 
 Read [project context](../../PROJECT_CONTEXT.md), [product scope](../../PRODUCT.md),
 [architecture](../../docs/architecture.md), and the
-[shared data contract brief](../../docs/ui-data-contracts.md) first. PR #2 contains
-unmerged simulation code with outstanding review findings at the last verified
-snapshot; check its current state before integrating. Other backends are placeholders.
+[shared data contract brief](../../docs/ui-data-contracts.md) first. The simulation
+foundation from PR #2 is merged on `main`; read [docs/simulation.md](../../docs/simulation.md)
+for its supported topology and limits before integrating. Its Python objects are not
+a published HTTP API. Other backends are placeholders.
 
 ## User and design direction
 
@@ -47,7 +51,8 @@ wrappers around these feature modules; do not create a second copy of a feature.
 |---|---|---|
 | [src/app/](src/app/README.md) | Application shell, navigation, context and routing | Wraps every route |
 | [src/features/monitoring/](src/features/monitoring/README.md) | Animated 2D plant and current readings | `/` — default first screen |
-| [src/features/equipment/](src/features/equipment/README.md) | Equipment list and reusable detail inspector | `/equipment`; drawer from scene/chat/pilot |
+| [src/features/equipment/](src/features/equipment/README.md) | Reusable detail inspector and equipment records | `/equipment/:id`; `/equipment` redirects to Engineering; drawer from scene/chat/pilot |
+| [src/features/display/](src/features/display/README.md) | The AI display: what the assistant shows (`show_on_display`) | The Overview's second view (`/?view=display`) |
 | [src/features/cad-studio/](src/features/cad-studio/README.md) | Drawing review, topology correction and scene editing | `/cad` |
 | [src/features/agent/](src/features/agent/README.md) | Conversation, tools, citations and generated data views | `/agent`; contextual drawer |
 | [src/features/simulation/](src/features/simulation/README.md) | Scenario setup, lifecycle and results | `/simulation` |
@@ -143,6 +148,17 @@ npm run build       # typecheck + production build; without demo mode it shows "
 npx playwright install chromium   # once, for browser tests
 npm run e2e         # browser tests (starts the demo server)
 ```
+
+### Local Chinese CAD development
+
+The tracked product interface remains English. For local CAD Studio development,
+open `http://localhost:5173/cad?lang=zh`; an ignored
+`src/lib/i18n/zh.local.ts` overlay supplies the Chinese CAD text and falls back to
+`src/lib/i18n/en.ts` for any untranslated key. Add every new product string to the
+tracked English `cad` catalog first, then add its optional Chinese translation to
+the local overlay. The overlay is excluded by `.gitignore`, so there is no language
+file to swap or restore before committing. Other dashboard features remain English
+unless their keys are deliberately added to the local overlay.
 
 `/asset-sheet.html` (dev server only) is the equipment artwork review page. Runtime
 dependencies: `react`, `react-dom`, `react-router`, `zod`, `lucide-react` and the

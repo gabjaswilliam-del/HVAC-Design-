@@ -11,9 +11,9 @@ chosen. All product model services, storage backends, and the simulation engine
 must run locally on the DGX Spark. External site equipment connects over the LAN;
 required remote compute/database services and cloud fallback are outside this design.
 
-PHYVAC is selected; its fork and revision are not yet pinned. Keep the future
-engine adapter here and the maintained engine changes traceable to upstream.
+The modified PHYVAC engine is vendored in `phyvac/vendor/`, with its baseline,
+patches and known defects in `phyvac/vendor/UPSTREAM.md`; the adapter around it is
+`phyvac/` (builder, hydraulics, plant). Keep engine changes traceable to upstream.
 Do not copy the reference prototype's remote replay client as the simulation design.
 
-Placeholder only. No credentials, model weights, third-party engines, or physical
-control implementation belong in this scaffold.
+No credentials, model weights, or physical control implementation belong here.

@@ -817,6 +817,32 @@
 .deck__speed .select {
   width: 72px;
 }
+.deck__run {
+  flex: none;
+  white-space: nowrap;
+}
+.deck__off {
+  flex: none;
+  color: var(--text-2);
+  font-size: var(--type-caption);
+  white-space: nowrap;
+}
+@media (max-width: 1180px) {
+  .deck__off {
+    display: none;
+  }
+}
+/* Phones: the button keeps its name for assistive technology, shown as its icon only. */
+@media (max-width: 760px) {
+  .deck__run-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
 .timeline {
   flex: 1 1 220px;
   display: grid;

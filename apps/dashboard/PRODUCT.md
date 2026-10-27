@@ -67,16 +67,23 @@ Nothing below is operational at a site. Status as of 2026-10-04.
 
 **Built in the prototype, with synthetic data only:**
 
-- Overview: animated plant, status band, issue line, equipment details, playback and
-  an equipment list.
-- Analytics: cooling demand forecast page using a labelled demo baseline, not a
-  trained model.
+- Overview: animated plant (running only while the simulation plays), status band,
+  issue line, equipment details, playback and the AI display, where the assistant shows
+  what it retrieved.
+- Analytics: Predict, then the actual cooling load logged against the prediction as
+  the simulation runs, using a labelled demo baseline, not a trained model.
 - Engineering: equipment roster with filters.
 - AI assistant: a scripted demonstration. It matches questions to prepared
   investigations and calls simulated tools over the synthetic data; no language model
   is connected.
 - A right-hand workspace with Details, Assistant and Pilot. The Pilot tab is a planned
   state only.
+- A fixture-only CAD Studio with an honest local file-selection placeholder and one
+  prepared sample. Synchronized side-by-side Drawing/Compare canvases keep the complete
+  source legible beside the extracted scene; wheel zoom, viewport panning, finding-to-object location,
+  whole-equipment review colors and on-canvas connection highlighting support review.
+  A labelled draft can be previewed in the shared Overview viewport. It does not parse,
+  upload, validate, persist or activate CAD files.
 
 **Planned, not built in the dashboard:**
 
@@ -86,7 +93,7 @@ Nothing below is operational at a site. Status as of 2026-10-04.
 - Running site simulations (modified PHYVAC) from the UI; the simulation foundation
   exists on a separate branch.
 - The AI pilot.
-- CAD Studio, installation and commissioning flows.
+- CAD parsing/backend integration, installation and commissioning flows.
 - A trained or site-adapted prediction model.
 - The System and Installation screens.
 

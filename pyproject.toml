@@ -4,8 +4,30 @@ version = "0.0.0"
 description = "A standalone data-center HVAC agent system for one DGX Spark installation."
 requires-python = ">=3.11"
 
-# No runtime dependencies yet. Frameworks, models, and storage remain open choices.
-dependencies = []
+# The vendored simulation engine's dependency set, plus the site-configuration parser.
+# Frameworks, models, and storage remain open choices.
+#
+# pyyaml is the one addition we chose rather than inherited: site configuration is YAML
+# because an operator reviews the topology by reading and correcting it. tomllib would
+# have cost nothing, and is the fallback if that review workflow ever changes.
+#
+# scikit-learn and matplotlib are here because the engine imports them at module level,
+# not because this project uses them: the first serves one ground-source heat pump model
+# we do not model, the second only the engine's curve plotting, which the shim disables.
+# Making those imports lazy would drop two large dependencies, but that means patching the
+# vendored file, so it waits until there is a reason beyond tidiness.
+#
+# Unpinned deliberately. The DGX carries very recent versions and the engine has to work
+# there; pinning to what a workstation happens to have would hide that rather than fix it.
+dependencies = [
+    "matplotlib",
+    "numpy",
+    "openpyxl",
+    "pandas",
+    "pyyaml",
+    "scikit-learn",
+    "scipy",
+]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]

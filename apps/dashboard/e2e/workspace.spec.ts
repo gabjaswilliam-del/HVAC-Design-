@@ -54,7 +54,7 @@ test("the workspace stays open beside every screen and keeps its conversation", 
   await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "complete", { timeout: 15_000 });
   for (const [section, heading] of [
     ["Engineering", "Engineering"],
-    ["Analytics", "Cooling prediction"],
+    ["Prediction", "Cooling prediction"],
     ["Knowledge", "Knowledge"],
     ["Overview", "Overview"],
   ]) {

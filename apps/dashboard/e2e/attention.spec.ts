@@ -17,7 +17,7 @@ async function art(page: Page, id: string) {
 }
 
 test("a new issue takes the reserved slot without moving the plant, and is announced", async ({ page }) => {
-  await page.goto("/?scenario=tower-fault&time=13:10");
+  await page.goto("/?scenario=tower-fault&time=13:10&mode=replay");
   await expect(page.locator(".attention")).toContainText("No open issues");
   await expect(node(page, "chiller_plant_1")).toBeVisible();
   await page.waitForTimeout(300);
@@ -82,7 +82,7 @@ test("the tag opens the issues, Locate finds the equipment, and . steps through 
   await expect(node(page, "cooling_towers_4")).toHaveAttribute("aria-pressed", "true");
 
   // From any screen: "." opens the next open issue's equipment on the Overview.
-  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Analytics", exact: true }).click();
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Prediction", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Cooling prediction"); // the key acts on the screen shown
   await page.locator("body").press(".");
   await expect(page).toHaveURL(/\/\?.*equipment=cooling_towers_1/);

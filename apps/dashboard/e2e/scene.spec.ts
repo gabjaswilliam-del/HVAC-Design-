@@ -93,9 +93,30 @@ test("open issues hang on their equipment: the most severe in full, the next fol
   await expect(page.getByRole("complementary", { name: "Equipment inspector" }).getByRole("heading", { level: 2 })).toHaveText("Cooling tower 4");
 });
 
+test("the plant is off until the simulation runs, and stops again when it is paused", async ({ page }) => {
+  await page.goto("/?scenario=tower-fault");
+  const scene = viewport(page);
+  const deck = page.getByRole("contentinfo", { name: "Data source and time" });
+  await expect(scene.locator('[data-equipment-id="cooling_towers_1"]')).toHaveAttribute("aria-label", /Stopped/);
+  await expect(deck).toContainText("Plant off");
+  expect(await scene.locator(".pipe-flow").count()).toBe(0);
+  // A fault is still shown while the plant is off.
+  await expect(scene.locator('[data-equipment-id="cooling_towers_4"]')).toHaveAttribute("aria-label", /Fault/);
+
+  await deck.getByRole("button", { name: "Run simulation" }).click();
+  await expect(scene.locator('[data-equipment-id="cooling_towers_1"]')).toHaveAttribute("aria-label", /Running/);
+  expect(await scene.locator(".pipe-flow").count()).toBeGreaterThan(10);
+  await expect(deck).not.toContainText("Plant off");
+
+  await deck.getByRole("button", { name: "Pause simulation" }).click();
+  await expect(scene.locator('[data-equipment-id="cooling_towers_1"]')).toHaveAttribute("aria-label", /Stopped/);
+  expect(await scene.locator(".pipe-flow").count()).toBe(0);
+});
+
 test("only running equipment and live pipes animate", async ({ page }) => {
   await page.goto("/?scenario=tower-fault");
   const scene = viewport(page);
+  await page.getByRole("contentinfo", { name: "Data source and time" }).getByRole("button", { name: "Run simulation" }).click();
   await expect(scene.locator('[data-equipment-id="cooling_towers_4"]')).toHaveAttribute("aria-label", /Fault/);
   const anim = (sel: string) => scene.locator(sel).first().evaluate((el) => getComputedStyle(el).animationName);
   expect(await anim('[data-equipment-id="cooling_towers_1"] .eq-fan')).toBe("eq-spin");

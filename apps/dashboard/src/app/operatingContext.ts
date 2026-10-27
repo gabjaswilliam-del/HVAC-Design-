@@ -12,7 +12,8 @@ export type PlaybackMode = "live" | "replay";
 export type WorkspaceTab = "assistant" | "pilot";
 /** Readings on the drawing. Auto shows key readings below 80% zoom and all above. */
 export type ReadMode = "auto" | "key" | "all" | "off";
-export type OverviewView = "schematic" | "list";
+/** The Overview: the plant schematic, or the AI display (what the assistant shows). */
+export type OverviewView = "schematic" | "display";
 
 export interface OperatingContext {
   scenarioId: ScenarioId;
@@ -22,6 +23,9 @@ export interface OperatingContext {
   playing: boolean;
   /** Replay speed multiplier. */
   speed: number;
+  /** An AI Pilot simulation run is playing. It keeps its own clock, so the deck's pause
+   *  does not stop it; the replay waits until it is paused in AI Pilot. */
+  pilotRunning: boolean;
   selectedId: string | null;
   /** Plant indicator shown in Details; never at the same time as selected equipment. */
   kpiKey: string | null;
@@ -57,7 +61,8 @@ export interface OperatingContext {
 }
 
 export const DAY_END = DAY_START + (SAMPLES - 1) * STEP_MIN * MINUTE_MS;
-export const REPLAY_SPEEDS = [60, 300, 900];
+/** Run simulation speeds: 1× is the wall clock; the rest let a run be watched in minutes. */
+export const REPLAY_SPEEDS = [1, 60, 300, 900];
 export const WORKSPACE_MIN = 320;
 export const WORKSPACE_MAX = 560;
 export const WORKSPACE_DEFAULT = 352;
@@ -100,16 +105,17 @@ export const clampWidth = (w: number, viewport = typeof innerWidth === "number" 
   Math.round(Math.min(Math.max(w, WORKSPACE_MIN), Math.max(WORKSPACE_MIN, Math.min(WORKSPACE_MAX, viewport * 0.4))));
 
 const openByDefault = typeof matchMedia !== "undefined" && matchMedia(WIDE).matches;
-const narrowAtStart = typeof matchMedia !== "undefined" && matchMedia(NARROW).matches;
 const pref = readPreference();
 const readParam = params.get("read");
 
 let state: OperatingContext = {
   scenarioId: initialScenario.id,
   cursor: initialCursor(initialScenario.defaultMinute),
-  mode: params.get("mode") === "live" ? "live" : "replay",
+  // The live demo by default; `?mode=replay` opens the replay with its timeline.
+  mode: params.get("mode") === "replay" ? "replay" : "live",
   playing: false,
-  speed: REPLAY_SPEEDS[0],
+  speed: 60,
+  pilotRunning: false,
   selectedId: null,
   kpiKey: null,
   detailsFocus: false,
@@ -119,8 +125,7 @@ let state: OperatingContext = {
   fitRequest: 0,
   readMode: readParam === "key" || readParam === "all" || readParam === "off" ? readParam : "auto",
   readEffective: "all",
-  // Phones open on the list; `?view=list` (the old /equipment roster address) does too.
-  overviewView: params.get("view") === "list" || narrowAtStart ? "list" : "schematic",
+  overviewView: params.get("view") === "display" ? "display" : "schematic",
   acknowledged: [],
   // Open beside the page on wide screens; collapsed (or hidden on phones) otherwise.
   workspace: {
@@ -168,8 +173,33 @@ export const operating = {
     set({ scenarioId: id, cursor: DAY_START + def.defaultMinute * MINUTE_MS, playing: false, highlightIds: [] });
   },
   setCursor: (t: number) => set({ cursor: clampTime(t) }),
-  setMode: (mode: PlaybackMode) => set({ mode, playing: mode === "live" }),
-  setPlaying: (playing: boolean) => set({ playing }),
+  /**
+   * The live simulation and the replay never run together: the source changes only while
+   * paused (a change asked for while one runs is refused), the replay is not chosen while
+   * an AI Pilot run plays, and the plant runs only after Run simulation or Play replay.
+   */
+  setMode(mode: PlaybackMode) {
+    if (state.playing && mode !== state.mode) return;
+    if (mode === "replay" && state.pilotRunning) return;
+    set({ mode, playing: false });
+  },
+  /** Run the live simulation: refused while a replay plays; from a paused replay it
+   *  switches to the live source first. Returns whether it is running. */
+  runSimulation(): boolean {
+    if (state.playing && state.mode === "replay") return false;
+    set({ mode: "live", playing: true });
+    return true;
+  },
+  setPlaying(playing: boolean) {
+    if (playing && state.mode === "replay" && state.pilotRunning) return;
+    set({ playing });
+  },
+  /** Published by the simulation session. A run that starts elsewhere (another tab) while
+   *  a replay plays pauses the replay, so the two still never run together. */
+  setPilotRunning(running: boolean) {
+    if (running === state.pilotRunning) return;
+    set(running && state.mode === "replay" ? { pilotRunning: true, playing: false } : { pilotRunning: running });
+  },
   setSpeed: (speed: number) => set({ speed }),
   /** Select equipment (or none); it replaces an open indicator in Details. */
   select: (id: string | null, focus = false) => setDetails({ selectedId: id, kpiKey: id ? null : state.kpiKey, detailsFocus: focus }),
@@ -233,7 +263,7 @@ export const operating = {
   /** Advance the demo clock by `wallMs` of wall time. Called by the shell's ticker. */
   tick(wallMs: number) {
     if (!state.playing) return;
-    const step = state.mode === "live" ? wallMs : wallMs * state.speed;
+    const step = wallMs * state.speed;
     const next = clampTime(state.cursor + step);
     set({ cursor: next, playing: next < DAY_END });
   },

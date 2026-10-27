@@ -16,3 +16,11 @@ UI assignment: [conversation and contextual assistant](../../../apps/dashboard/s
 Expose tool/answer progress, typed data presentations, citations and cancellation
 through the local API. The browser renders these; model execution and conversation
 memory stay here or behind adapters. Reuse prediction/simulation public interfaces.
+
+**AI display (2026-10-15).** What the assistant retrieves is shown on the Overview's AI
+display, not by moving the operator to another screen. The harness should offer it as an
+MCP tool, `show_on_display`, whose name, description and JSON input schema are defined in
+[the dashboard's display contract](../../../apps/dashboard/src/lib/contracts/display.ts)
+(line and bar charts, tables, figures, base64 images, and self-contained HTML that the
+dashboard runs sandboxed). Each call is streamed to the browser as a `display` event. The
+dashboard's demo assistant already calls it; the harness and MCP server are not built.

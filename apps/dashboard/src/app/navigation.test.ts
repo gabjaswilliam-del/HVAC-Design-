@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dataView, navTarget } from "../lib/contracts/agent";
-import { pageOf, targetPath } from "./navigation";
+import { pageOf, sectionOf, targetPath } from "./navigation";
 
 describe("typed workspace targets", () => {
   it("map to the screen that shows them: the history, and one recorded run's replay at a finding or an item", () => {
@@ -11,6 +11,8 @@ describe("typed workspace targets", () => {
     expect(pageOf("/simulation")).toBe("simulation");
     expect(pageOf("/simulation/RUN-0001")).toBe("replay");
     expect(pageOf("/pilot")).toBeUndefined(); // AI Pilot is in the workspace, not a screen
+    expect(pageOf("/cad")).toBe("cad");
+    expect(sectionOf("/cad")?.key).toBe("cad");
     expect(targetPath({ type: "equipment", id: "chiller_plant_1" })).toBe("/?equipment=chiller_plant_1&locate=1");
     expect(targetPath({ type: "monitoring_kpi", kpi: "plant:cop" })).toBe("/?kpi=plant%3Acop");
   });
