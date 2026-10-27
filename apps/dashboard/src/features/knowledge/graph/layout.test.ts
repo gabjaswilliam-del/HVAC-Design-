@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import demo from "../../../fixtures/knowledgeDemo.json";
-import { declutter, documentWeights, forceLayout, homeDocument, nearestInDirection, nodeRadius, planetaryLayout, SYSTEM_GAP, timeLayout, type LayoutNode, type PlanetaryLayout, type Point3 } from "./layout";
+import { declutter, documentWeights, forceLayout, homeDocument, nearestInDirection, nodeRadius, planetaryLayout, SYSTEM_GAP, type LayoutNode, type PlanetaryLayout, type Point3 } from "./layout";
 
 const ids = Array.from({ length: 40 }, (_, i) => `n${i}`);
 const edges = ids.slice(1).map((id, i) => ({ source: ids[Math.floor(i / 3)], target: id }));
@@ -65,24 +65,6 @@ describe("graph layouts", () => {
       const near = Math.min(...[...before.values()].map((q) => Math.hypot(q.x - p.x, q.y - p.y)));
       expect(near).toBeGreaterThan(5);
     }
-  });
-
-  it("put memory in time order, one lane per equipment item, corrections under their successor", () => {
-    const nodes = [
-      { id: "a", type: "event", occurredAt: "2026-10-01T06:00:00Z", equipment: ["chiller_plant_2"] },
-      { id: "b", type: "finding", occurredAt: "2026-10-01T09:00:00Z", equipment: ["chiller_plant_2"] },
-      { id: "b0", type: "observation", occurredAt: "2026-10-01T09:00:00Z", equipment: ["chiller_plant_2"], status: "superseded" },
-      { id: "c", type: "outcome", occurredAt: "2026-10-02T10:00:00Z", equipment: ["cooling_towers_4"], runId: "RUN-1" },
-      { id: "equipment:chiller_plant_2", type: "equipment" },
-      { id: "run:RUN-1", type: "simulation_run" },
-    ];
-    const { positions, lanes, days } = timeLayout(nodes);
-    expect(positions.get("a")!.x).toBeLessThan(positions.get("b")!.x);
-    expect(positions.get("b")!.x).toBeLessThan(positions.get("c")!.x);
-    expect(positions.get("b0")!.y).toBeGreaterThan(positions.get("b")!.y);
-    expect(lanes.map((l) => l.key)).toEqual(["runs", "chiller_plant_2", "cooling_towers_4"]);
-    expect(positions.get("run:RUN-1")!.y).toBeLessThan(positions.get("a")!.y);
-    expect(days.map((d) => d.day)).toEqual(["2026-10-01", "2026-10-02"]);
   });
 });
 

@@ -221,6 +221,19 @@ memorable thing is the bezel and its laminate tags; the rest stays quiet.
   - Nothing moves or twinkles. The stars take no events, stay put when the graph is
     dragged (a backdrop, not data) and are left out in forced-colours and more-contrast
     modes.
+- **Graph Memory's kinds** (M7.4): event `#6C7684` (graphite), observation `#2DB39B`
+  (teal), finding `#C99A2E` (ochre), decision `#8178F2` (violet), correction `#D986C0`
+  (orchid), outcome `#D6CCB8` (paper). Checked on the timeline's space (`#13161B` to
+  `#191E24`) with every pair side by side: each at least 3.6:1, worst separation ΔE 38.7 in
+  normal vision and 12.9 or more in simulated protanopia, deuteranopia and tritanopia; none
+  near the alarm red, the warning orange or the notice blue that marks simulation. A kind
+  always has its icon (Zap, Eye, ScanSearch, Gavel, Wrench, Flag) and its word too, so
+  colour never tells kinds apart alone. The icons are compact shapes that stay recognisable
+  small: an event's bolt replaced a pulse line (M7.6), which read as a squiggle on a sphere.
+  They are data categories, like chart series, and appear only in Graph Memory. Its
+  constellation (M7.5) and timeline lie in the same space as the 3D graph, the gradient and
+  the hazes: the constellation with still stars in depth, the timeline with the same still
+  sky.
 
 ## Typography
 
@@ -467,11 +480,13 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   rule, Indicator details, and the other indicators as links. Labelled Demo data and
   "Telemetry, scenario"; never a simulation.
 - **Knowledge** (`/knowledge`, the h1 is Knowledge): two systems on one page, **RAG Graph |
-  Graph Memory**, as raised-and-outlined tabs (arrow keys, Home, End; the address keeps the
+  Memory graph**, as raised-and-outlined tabs (arrow keys, Home, End; the address keeps the
   tab), with the store's provenance tag at the right: Demo library or Demo records, read
-  only, or Local knowledge or memory service. The RAG Graph is the default and its header
-  adds the count ("128 nodes, 252 relationships", a polite status); Graph Memory keeps its
-  one-line lead. Graph Memory has no dock entry of its own.
+  only, or Local knowledge or memory service. The second tab was named Graph Memory until
+  M7.6; the address stays `kn=memory`, and these notes keep "Graph Memory" for the feature.
+  The RAG Graph is the default. The header adds the open system's count as a polite status
+  ("128 nodes, 252 relationships"; "12 current records · 1 superseded version · 9 links").
+  Graph Memory has no dock entry of its own.
 - **RAG Graph** (M7.3): the knowledge graph fills the page; there are no Library, Search
   and Graph views to choose between. Over the graph, raised like the canvas's tools:
   - **Top left:** one search box, then **Library** and **Filters**, and **Clear
@@ -518,15 +533,12 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   section), and says so when its section is not in the graph view. Ranks and the fusion
   score are not probabilities. With no question yet, the column explains the search and
   offers three example questions.
-- **Graph explorers** (2D): SVG on a recessed sheet, shapes per type (graphite in the
-  memory graph, the family colours in the knowledge graph), laminate for the chosen node or
-  relationship, and what it does not relate to dimmed. Names and shapes keep their screen
-  size at any zoom. Drag pans; the wheel zooms (smooth scrolling leaves it to the canvas);
-  +, − and Fit sit in the canvas's corner. One tab stop: arrow keys move to the nearest node
-  that way, Enter inspects, Escape clears. The memory graph lays records out in time: lanes
-  by equipment, simulation runs above, day markers, the derived order dashed; simulation
-  records carry a notice eyelet; names show for the anchors, the chosen record, and
-  everything when zoomed in.
+- **Graph explorer** (2D, the knowledge graph's): SVG on a recessed sheet, shapes per type
+  in the family colours, laminate for the chosen node or relationship, and what it does not
+  relate to dimmed. Names and shapes keep their screen size at any zoom. Drag pans; the
+  wheel zooms (smooth scrolling leaves it to the canvas); +, − and Fit sit in the canvas's
+  corner. One tab stop: arrow keys move to the nearest node that way, Enter inspects,
+  Escape clears. (Graph Memory's 2D graph was replaced by its timeline in M7.4.)
 - **Knowledge graph** (M7.1): 3D by default, with **3D | 2D** (a segmented radio group in
   the address, `gv`) among the canvas's tools (M7.3). The type filters are grouped by
   family and are the legend: each type's glyph in its family colour, with "Colour shows the
@@ -587,24 +599,189 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   - **2D** is the explorer above, and is where the graph opens in high-contrast mode
     (it follows the system colours), without WebGL, or after a lost graphics context, each
     with a sentence saying why.
-- **Graph Memory**: filters (words, equipment, provenance, a time window in UTC, superseded
-  versions), kind chips, Timeline or Graph, the record inspector, and the rules (what may
-  be stored, the provenance labels with what the persistent store refuses, retention). The
-  timeline groups records by day: time, kind as an icon and a word, the provenance tag
-  (Simulation with its run, in notice; Demo hatched), the equipment and "After … on …". A
-  record's panel says when it happened and was recorded, whether it is current or until
-  when it held, its provenance in a sentence, its versions and its links in words
-  (Supported by, Resolves…). With the local service it adds Correct…, Link… and Delete…,
-  whose confirmation says what happens to the versions and links.
+- **Graph Memory** (M7.4, M7.5): three views of the same records, each filling the page as
+  the RAG Graph does, with the controls floating over it and nothing printed under it:
+  **3D**, the constellation, where it opens; **Timeline**, in 2D; and **List** (`mv=timeline`,
+  `mv=list`). It opens as the timeline in high-contrast mode (which the 2D drawing follows),
+  without WebGL, after a lost graphics context, or when the 3D view cannot start (its
+  graphics or its code fail to load), each with a sentence saying which; 3D stays a choice
+  in high-contrast mode. One column beside the view (below it on a phone) holds what was
+  chosen. Search, the filters, the column and the address are shared by the three views.
+- **Graph Memory's constellation** (3D, M7.5), in a lazy chunk shared with the RAG Graph's
+  3D view. Nothing is simulated: positions come from the timeline's layout
+  (`memory/constellation.ts`, pure and tested), the same on every visit.
+  - **Layout.** Time runs left to right on the timeline's elastic axis (the same spacing;
+    a quiet stretch shortened and marked "≈ N days" among the dates). Each equipment item is
+    a group, top to bottom in the timeline's lane order, spread so that the whole is shaped
+    like the display (its height about 0.6 of its width on a desktop, square on a phone),
+    each group at its own depth. In time order, each record sits as near its group's line as
+    it can without covering one placed before it, seen from the front (a little apart):
+    above or below what is in the way, nearest first, stepping in or out of the view, never
+    across time and never past the middle between its group and the next, so it always reads
+    as its group's (the first and last groups open outwards; on a phone, where time is drawn
+    closer together, groups stand at least 10 sphere radii apart for it). A record at the
+    same moment as another (a superseded version under the one that replaced it) sits just
+    under it and a little behind, where there is room. Where a burst leaves none, a record
+    takes the clearest height and stands behind what it covers: seen from the front the two
+    may overlap, but no two spheres ever meet. A group is named at its left with its count, a
+    simulation run above its records, and the dates (UTC, the year with the first) below
+    everything.
+  - **Spheres.** Lit spheres (a warm key light from above left, a cool rim light behind, a
+    soft ambient light) in their kind's colour, with an additive glow round the edge and a
+    soft halo. A sphere grows by a tenth for each stored link, up to half again, and never
+    with its kind: no severity is implied. A superseded version is smaller (0.72), fainter
+    and under a fine mesh. A click or a touch is taken a little beyond a sphere (more on a
+    phone), never over another sphere seen from the front.
+  - **Icons and rings** (M7.6). The kind's icon is about half the sphere across, drawn from
+    a 256 px texture, upright and facing the screen, a fifth of the radius in front of the
+    sphere's near side: far enough that a sphere at the edge of the view does not cut it.
+    It is drawn after the links, so a link crossing the sphere passes under it; a sphere in
+    front still hides it. The rings face the screen too, so they circle the sphere and never
+    cross the icon: a simulation record's dashed notice-blue ring (1.22 radii, as on the
+    timeline), the chosen record's laminate ring outside it (1.45). The camera's near plane is
+    10 units: at three.js's default (0.1) the depth buffer was about 4 units coarse where the
+    overview is seen, and icons broke up against their own spheres.
+  - **Links.** Only stored links: thin arcs, each bowed its own way (from its ID), with an
+    arrow towards the linked record; a version's link to the one it superseded has none
+    unless lit. Nothing is inferred. A choice recolours them (lit 95%, the chain 55%, the
+    rest 6%) and gives the lit ones larger arrows; it rebuilds no link or sphere, and makes
+    no arrow but the one it lights on a version's link to the one it superseded. Every arrow
+    ends at its sphere's surface as drawn, following it as it grows for a choice or under the
+    pointer.
+  - **Names** are HTML over the canvas, by importance as on the timeline, clear of each
+    other, of any sphere over 8 px and of the controls. A group's name stays inside the view;
+    the chosen record's name becomes a card with its kind and time.
+  - **Space.** The dark gradient, 1,100 still stars far away (they turn with the view; a pan
+    leaves them), a faint haze round each group and a fog that dims what is far. No grid,
+    lane or axis. The stars are left out where more contrast is asked for.
+  - **Choosing.** A click on a sphere, Enter or a search flies the camera to the record
+    (500 ms, easing in and out), centred and close enough that it is plainly the one (its
+    sphere 26 to 48 px in radius between the controls on a desktop), with the records its
+    stored links join round it in view. When those are spread too wide to keep it centred,
+    the record and all of them are framed together. The chosen sphere grows by 1.28,
+    brightens and takes a laminate ring; the records its links join light up; the chain
+    they lead on to stays readable; the rest fades to 14%. A group's name, a run's name, a
+    link or a day frames those records, no sphere larger than 26 px. Closing (Escape, the
+    close button, a click on empty space) flies back to exactly where the camera was before
+    the first choice, wherever the person had moved it, and frames again what it framed
+    then (the whole, or a day) when the window later resizes; a choice opened from the
+    address closes onto the whole constellation. A choice made on the way takes the camera on
+    from where it is. A press takes the camera over only once it moves the view 4 px (a drag,
+    the wheel on the canvas, a pinch); a drag that starts outside the view and crosses it
+    neither moves nor disturbs it. A click made while the camera flies counts for the sphere
+    that was under the pointer when it was pressed (a sphere drawn there before another's
+    click area), by the release the scene having moved on: a sphere clicked on the way back
+    is chosen, and closing it returns to the first place. A click then on empty space or on
+    the sphere being flown to, and the second click of a double click wherever it lands,
+    change nothing, and the flight goes on. A click on a faded link counts as a click on
+    empty space. The column opening or the window resizing (by 8 px
+    or more since the last framing, a slow drag included) frames the same thing again, and a
+    phone's width, which lays the records out again, frames them again.
+  - **Moving**, as the RAG Graph: left-drag pans, right-drag (or Shift-drag) turns, the wheel
+    zooms towards the pointer, and a drag never chooses; on touch one finger pans, two pinch
+    and turn. 3D | Timeline | List, +, −, Fit and Help are the canvas's tools. One tab stop,
+    the chosen record or the last one reached: Left and Right through time, Up and Down to
+    the nearest record in the next group, Home and End, Enter flies to it and opens it,
+    Escape flies back, + and − zoom, 0 fits, Shift with an arrow turns. With Ctrl, Cmd or Alt
+    a key is the browser's. Each record reached is announced and ringed; tabbed to while out
+    of sight, it is brought into view (focus coming back as a panel closes moves nothing).
+  - **Drawing.** Only while something moves. For 45 s after the last interaction the
+    spheres drift very slightly (7% of their radius), at 30 frames a second; then nothing is
+    drawn. No drift with reduced motion (the camera then jumps). Where WebGL is drawn in
+    software (no graphics processor), there is no drift either, and the scene goes without
+    multisampling, the edge shells and the hazes, which cost most of each frame there; the
+    halos still glow.
+- **Graph Memory's timeline** (2D, M7.4).
+  - **Layout.** Time runs left to right on an elastic axis, placed by the records' own
+    timestamps (nothing estimated): consecutive records are at least 70 units apart, more
+    with the time between them (70 + 40·√hours, up to 72 hours), and a stretch of more than
+    three days without records is shortened, marked "≈ N days" on a dashed line. One lane
+    per equipment item, in alternating faint bands, named at its top left with its count
+    (the name alone on a short display). Simulation runs have the lane above: each a dashed
+    notice-blue band over the time its records span, with two rows when bands would meet.
+    The date row (UTC) names each day, with hours when a day is wide, and pins the day one
+    is in at the left; only whole names show, and none overlaps another. On a short display
+    the lanes are lower and the runs' lane slimmer, so every lane stays in view.
+  - **Records** are orbs of one size (radius 17) in their kind's colour with its icon and a
+    soft glow; the chosen one has a laminate ring. Simulation records add a dashed
+    notice-blue ring. Superseded versions (shown on request) are dashed and dimmer, stacked
+    under the version that replaced them when they share a time. A record about several
+    items has a small echo on their lanes. A record whose predecessor on its lane is nearer
+    than two orbs steps up a tier. Where neither tier leaves room (a crowded stretch, or a
+    short display), it waits for zoom, counted on the nearest record shown ("+2", also in
+    its tooltip and accessible name). A click on the count zooms in until they stand apart.
+  - **Links.** Only stored links are drawn: an arc (over the records between, on one lane)
+    with an arrow towards the linked record; a version's link to the one it superseded is
+    dotted. The line along a lane is the order of that equipment's records in time, not a
+    relationship. Nothing is inferred.
+  - **Names** show by importance: the chosen record, then the hovered, focused and linked
+    ones, the chain, then findings, decisions, outcomes, corrections, observations and
+    events. Each stays clear of the other names, the orbs, the counts and the lane names.
+    The chosen record's name adds its kind and time (its name alone on a short display).
+  - **Choosing.** A click on a record inspects it in the column. Its stored links and the
+    records they join light up; the rest of the chain those links lead on to stays
+    readable; everything else fades. A click on a link opens it in the column (what it
+    joins, its phrase, when it was stored); a run's band or a lane's name shows its records;
+    a click on empty space clears. A record in sight stays where it is when chosen (unless
+    it or a record linked to it waits for zoom: the view then zooms until they stand
+    apart), and opening or closing the column moves nothing; a chosen record the narrower
+    view would leave out of sight comes to the middle. What is scrolled out of the lanes'
+    area is not drawn over the date row or the controls. A stretch asked for in search (a day, an
+    equipment item's records) is framed again if the view narrows before the camera is
+    moved, as when the panel it opens arrives.
+  - **Moving.** Left-drag pans; the wheel and a pinch zoom time towards the pointer (the
+    finger left down after a pinch pans on from there), and a sideways wheel or Shift-wheel
+    pans. Timeline | List, +, −, Fit and Help are the canvas's tools (top right; along the
+    bottom on a phone-sized display). One tab stop, the chosen record or the last one
+    travelled to: Left and Right move through the records in time, Up and Down to the
+    nearest record on the next lane, Home and End to the first and last, Enter inspects,
+    Escape clears, + and − zoom, 0 fits. With Ctrl, Cmd or Alt a key is left to the browser
+    (its zoom, Back). Each record reached is announced politely; one out of sight or
+    waiting for zoom is brought into view, readable, and so is the tab stop when tabbed to.
+  - **Forced colours.** The drawing takes the system colours: orbs, marks and the date row
+    in the text colour, lines in grey, the chosen record, its links and the focus in the
+    highlight; the glow and the sky are left out. Icons and words still tell kinds apart.
+  - **Search** (one combobox, top left) looks through every record, not only those on
+    screen or within the filters: titles, notes, equipment, kind, provenance, run and date.
+    Its choices, in order:
+    - a day ("Go to 29 Sep 2026") or a range of days ("Only 28 Sep 2026 to 1 Oct 2026", a
+      filter);
+    - an equipment item: its lane and records, brought into view;
+    - records, title matches first, then the latest: choosing one centres it, readable;
+    - a kind or a provenance (a filter);
+    - set apart, "Search all records for '…'": the service's words filter, said over the
+      timeline with Clear filters.
+  - **Filters**, which are the legend too: the six kinds with icon, colour and count;
+    equipment, provenance and the time window (UTC, or dates); Include superseded versions.
+    A dot and the button's name ("Filters (2 on)") say when any is on. **Record memory**
+    (the one primary action, laminate) shows only with the local service. **Help** holds:
+    - how to read the timeline, its axis and its keys;
+    - the search;
+    - what Graph Memory stores, the provenance labels and retention;
+    - the demo's note.
+  - **List**: the same records, latest first and grouped by day (time, kind as an icon and
+    a word, the provenance tag, the equipment and "After … on …"), scrolled inside the
+    workspace, with the same search and filters.
+  - **A record's panel** says:
+    - when it happened and was recorded, and whether it is current or until when it held;
+    - its provenance in a sentence;
+    - its versions;
+    - its links in words (Supported by, Resolves…);
+    - its linked chain in time ("Linked chain: 7 records", following stored links only).
+
+    With the local service it adds Correct…, Link… and Delete…, whose confirmation says
+    what happens to the versions and links.
 - **Knowledge motion**: a tab's content and an inspection panel's parts settle in (the
   panel's heading is there at once and takes focus when the panel was opened from the
   page, and focus goes back to what opened it when it closes); the 2D camera glides to a
   chosen node; the 3D camera travels to it (500 ms, easing in and out, because it turns and
   closes in at once; 650 ms to a whole group or the overview, a bigger change of scale)
-  while the emphasis cross-fades in 320 ms, and a drag ends in a short glide; a document
-  whose status changed draws the eye once; the timeline's entries rise in. With reduced
-  motion none of it moves: the 3D camera jumps, emphasis changes at once and a drag stops
-  where it is released. Keys never animate the camera.
+  while the emphasis cross-fades in 320 ms, and a drag ends in a short glide; the memory
+  constellation's camera travels the same way, its emphasis easing over about 250 ms; the
+  memory timeline's camera travels the same way to what search, a count or Fit asks for; a
+  document whose status changed draws the eye once; the memory list's entries rise in.
+  With reduced motion none of it moves: the cameras jump, emphasis changes at once and a
+  drag stops where it is released. Arrow keys never animate a camera.
 - **Loading**: a skeleton is a polite status that says what is loading.
 
 ## Do's and Don'ts

@@ -37,6 +37,8 @@ import { useKnowledgeStrings } from "../../../lib/i18n/knowledge";
 import { motion } from "../../../lib/motion";
 import { ShapeGlyph, hudBands, type ExtraTools, type Selection, type Shape } from "./GraphCanvas";
 import { declutter, nearestInDirection, nodeRadius, type LabelBox, type PlanetaryLayout, type ScreenRect } from "./layout";
+import { MOUSE, TOUCH, along, cross, dot, handOverPointer, len, reducedMotion, sub, touchPageXY, unit, type Camera3, type Orbit, type V3 } from "./scene3d";
+import { SKY } from "./sky";
 
 export interface Node3D {
   id: string;
@@ -53,33 +55,6 @@ export interface Edge3D {
   target: string;
 }
 
-interface V3 {
-  x: number;
-  y: number;
-  z: number;
-}
-/** The parts of three's camera and OrbitControls used here (three ships no types). */
-interface Camera3 {
-  position: V3;
-  fov: number;
-  updateProjectionMatrix: () => void;
-}
-interface Orbit {
-  target: V3;
-  enableDamping: boolean;
-  dampingFactor: number;
-  minDistance: number;
-  maxDistance: number;
-  mouseButtons: { LEFT: number; MIDDLE: number; RIGHT: number };
-  touches: { ONE: number; TWO: number };
-  screenSpacePanning: boolean;
-  zoomToCursor: boolean;
-  addEventListener: (type: string, fn: () => void) => void;
-  removeEventListener: (type: string, fn: () => void) => void;
-}
-/** three's `MOUSE` and `TOUCH` actions. */
-const MOUSE = { ROTATE: 0, DOLLY: 1, PAN: 2 } as const;
-const TOUCH = { PAN: 1, DOLLY_ROTATE: 3 } as const;
 type Mode = "overview" | "group" | "node" | "edge";
 type Rgb = readonly [number, number, number];
 interface Look {
@@ -109,19 +84,6 @@ const shorten = (s: string, n = 30) => (s.length > n ? `${s.slice(0, n - 1)}…`
 const hexRgb = (hex: string): Rgb => [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
 const rgba = (c: Rgb, a: number) => `rgba(${Math.round(c[0])}, ${Math.round(c[1])}, ${Math.round(c[2])}, ${Math.round(a * 1000) / 1000})`;
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const sub = (a: V3, b: V3) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
-const len = (v: V3) => Math.hypot(v.x, v.y, v.z) || 1;
-const dot = (a: V3, b: V3) => a.x * b.x + a.y * b.y + a.z * b.z;
-const unit = (v: V3) => {
-  const l = len(v);
-  return { x: v.x / l, y: v.y / l, z: v.z / l };
-};
-const cross = (a: V3, b: V3) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
-const along = (from: V3, dir: V3, d: number) => {
-  const l = len(dir);
-  return { x: from.x + (dir.x / l) * d, y: from.y + (dir.y / l) * d, z: from.z + (dir.z / l) * d };
-};
-const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 /** What is on screen part-way through a cross-fade. */
 function mixed(from: Looks, to: Looks, t: number): Looks {
   const each = (a: Map<string, Look>, b: Map<string, Look>) =>
@@ -133,39 +95,6 @@ function mixed(from: Looks, to: Looks, t: number): Looks {
     );
   return { node: each(from.node, to.node), link: each(from.link, to.link) };
 }
-
-/**
- * The sky behind the systems: still, faint stars, the same on every visit (a seeded
- * generator, mulberry32). Two layers whose tiles differ in size, so the pattern never visibly
- * repeats: many small dim stars, and a few brighter ones with a soft halo. All are far
- * smaller and dimmer than any node (1.35 px at most, against 4 px or more) and colourless, so
- * none reads as data.
- */
-const SKY = (() => {
-  let seed = 0x5eed;
-  const rand = () => {
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-  const halo = "<defs><radialGradient id='h'><stop offset='0' stop-color='rgba(214,224,239,0.16)'/><stop offset='1' stop-color='rgba(214,224,239,0)'/></radialGradient></defs>";
-  const layer = (w: number, h: number, count: number, bright: number) => {
-    let stars = "";
-    for (let i = 0; i < count; i++) {
-      const x = (rand() * w).toFixed(1);
-      const y = (rand() * h).toFixed(1);
-      const big = rand() < bright;
-      const r = big ? 0.9 + rand() * 0.45 : 0.5 + rand() * 0.4;
-      const alpha = (big ? 0.5 + rand() * 0.25 : 0.2 + rand() * 0.3).toFixed(2);
-      const fill = rand() < 0.15 ? `rgba(242,230,212,${alpha})` : `rgba(214,224,239,${alpha})`;
-      if (big) stars += `<circle cx='${x}' cy='${y}' r='${(r * 4).toFixed(1)}' fill='url(#h)'/>`;
-      stars += `<circle cx='${x}' cy='${y}' r='${r.toFixed(2)}' fill='${fill}'/>`;
-    }
-    return `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}'>${halo}${stars}</svg>`)}")`;
-  };
-  return `${layer(1187, 997, 190, 0)}, ${layer(1543, 1301, 55, 0.4)}`;
-})();
 
 export default function GraphCanvas3D({
   nodes,
@@ -750,36 +679,9 @@ export default function GraphCanvas3D({
   const groupName = group ? byId.get(group)?.label : undefined;
   const dim = (id: string) => (target.node.get(id)?.a ?? 1) < 0.5;
 
-  // Touch pans are measured in page coordinates, which Chromium leaves unscrolled on a touch's
-  // first event and on a handed-over press while the page is scrolled (a phone scrolls the
-  // whole page): set them from the client position, so a drag does not jump by the scroll.
-  const pageXY = (e: React.PointerEvent) => {
-    if (e.pointerType !== "touch") return;
-    const n = e.nativeEvent;
-    Object.defineProperties(n, { pageX: { value: n.clientX + window.scrollX }, pageY: { value: n.clientY + window.scrollY } });
-  };
-
-  // A press on a name is a click until the pointer moves; then it is handed to the camera
-  // controls (they capture the pointer from there), so a drag that starts on a name moves
-  // the graph like one on the canvas, and chooses nothing.
-  const handOver = (e: React.PointerEvent) => {
-    const canvas = fg.current?.renderer()?.domElement as HTMLCanvasElement | undefined;
-    if (!canvas) return;
-    const { pointerId, pointerType, isPrimary, button, buttons, clientX, clientY, shiftKey, ctrlKey, metaKey, altKey } = e;
-    const done = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", done);
-      window.removeEventListener("pointercancel", done);
-    };
-    const move = (m: PointerEvent) => {
-      if (m.pointerId !== pointerId || Math.hypot(m.clientX - clientX, m.clientY - clientY) < 4) return;
-      done();
-      canvas.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, composed: true, pointerId, pointerType, isPrimary, button, buttons, clientX, clientY, shiftKey, ctrlKey, metaKey, altKey }));
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", done);
-    window.addEventListener("pointercancel", done);
-  };
+  // Touch pans in page coordinates; a drag that starts on a name moves the graph (scene3d).
+  const pageXY = touchPageXY;
+  const handOver = (e: React.PointerEvent) => handOverPointer(e, fg.current?.renderer()?.domElement as HTMLCanvasElement | undefined);
 
   return (
     <div className="kn-3d-frame">

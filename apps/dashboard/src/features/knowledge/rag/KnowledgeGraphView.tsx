@@ -13,7 +13,7 @@
  * High-contrast mode opens in 2D, which follows the system colours; a browser without
  * WebGL, or a lost graphics context, gets 2D with a sentence saying why.
  */
-import { Component, lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 import { CircleHelp, FileSearch, Library, RotateCcw, Search, SlidersHorizontal } from "lucide-react";
 import { useKnowledgeStrings } from "../../../lib/i18n/knowledge";
@@ -25,8 +25,10 @@ import { RadioGroup } from "../../../components/RadioGroup";
 import { useDismissOutside, useEscapeLayer } from "../../../components/escape";
 import { GraphCanvas, ShapeGlyph, type PlacedNode, type Shape } from "../graph/GraphCanvas";
 import { forceLayout, planetaryLayout, type PlanetaryLayout, type Point } from "../graph/layout";
+import { ThreeGuard, canDraw3d, forcedColors } from "../graph/scene3d";
 import { useMedia } from "../../../app/useMedia";
 import { NARROW } from "../../../app/operatingContext";
+import { useFocusAway, useMenu } from "../shared";
 import type { Drawer, Inspect, RagNav } from "./RagWorkspace";
 
 const GraphCanvas3D = lazy(() => import("../graph/GraphCanvas3D"));
@@ -82,37 +84,6 @@ export function withDocuments(g: KnowledgeGraph, documents: readonly GraphNode[]
   const ids = new Set(g.nodes.map((n) => n.id));
   const more = documents.filter((d) => !ids.has(d.id)).slice(0, Math.max(0, IN_VIEW - g.nodes.length));
   return { ...g, nodes: [...g.nodes, ...more], added: more.length };
-}
-
-let webgl: boolean | undefined;
-/** Whether this browser can draw WebGL (asked once; the test context is released). */
-function canDraw3d() {
-  if (webgl === undefined) {
-    try {
-      const canvas = document.createElement("canvas");
-      const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
-      gl?.getExtension("WEBGL_lose_context")?.loseContext();
-      webgl = Boolean(gl);
-    } catch {
-      webgl = false;
-    }
-  }
-  return webgl;
-}
-const forcedColors = () => typeof matchMedia === "function" && matchMedia("(forced-colors: active)").matches;
-
-/** If the 3D view throws (a graphics context that cannot be created), show 2D instead. */
-class ThreeGuard extends Component<{ onError: () => void; children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  componentDidCatch() {
-    this.props.onError();
-  }
-  render() {
-    return this.state.failed ? null : this.props.children;
-  }
 }
 
 export function KnowledgeGraphView({
@@ -435,31 +406,6 @@ function ViewSwitch({ dims, can3d, onChange, refocus }: { dims: "2d" | "3d"; can
       />
     </div>
   );
-}
-
-/** While `open`, focus moving out of `box` (a keyboard user tabbing on) closes it. */
-function useFocusAway(open: boolean, box: React.RefObject<HTMLElement | null>, close: () => void) {
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: FocusEvent) => {
-      if (!box.current?.contains(e.target as Node)) close();
-    };
-    document.addEventListener("focusin", away);
-    return () => document.removeEventListener("focusin", away);
-  }, [open, box, close]);
-}
-
-/** A small control over the graph that opens a panel under it (filters, help): Escape, a
- *  press elsewhere or focus moving on closes it. */
-function useMenu() {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  const id = useId();
-  const close = useCallback(() => setOpen(false), []);
-  useEscapeLayer(open, close);
-  useDismissOutside(open, box, close);
-  useFocusAway(open, box, close);
-  return { open, setOpen, box, id };
 }
 
 /** The filters and the legend; a dot on the button while some types are hidden. */

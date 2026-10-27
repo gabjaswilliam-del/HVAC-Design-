@@ -22,9 +22,6 @@
   box-shadow: inset 0 -1px 0 var(--hairline);
   padding-bottom: var(--space-2);
 }
-.knowledge__lead {
-  max-width: 100ch;
-}
 .knowledge__panel {
   display: grid;
   gap: var(--space-3);
@@ -65,52 +62,12 @@
   color: var(--text-1);
 }
 
-.kn-viewbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-}
-
-/* Content beside one inspection panel; the panel stays in view while the page scrolls. */
-.kn-split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-4) var(--space-5);
-  align-items: start;
-}
-.kn-split--open {
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 410px);
-}
-.kn-main,
-.kn-side {
-  display: grid;
-  gap: var(--space-3);
-  min-width: 0;
-}
-.kn-side {
-  position: sticky;
-  top: 0;
-  max-height: calc(100dvh - 150px);
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-@container (max-width: 900px) {
-  .kn-split--open {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .kn-side {
-    position: static;
-    order: -1;
-    max-height: none;
-  }
-}
-
-/* RAG Graph: the graph fills the display ------------------------------------------------- */
-/* One slim header, then the graph to the display's edges with no page scroll. What is
-   browsed or inspected opens in one column beside it (below it on a narrow display), and
-   the graph resizes to the room left. */
-.page.knowledge--rag {
+/* Both systems fill the display ---------------------------------------------------------- */
+/* One slim header, then the RAG Graph or Graph Memory's timeline to the display's edges with
+   no page scroll. What is browsed or inspected opens in one column beside it (below it on a
+   narrow display), and the graph resizes to the room left. */
+.page.knowledge--rag,
+.page.knowledge--memory {
   height: 100%;
   min-height: 440px;
   max-width: none;
@@ -119,35 +76,40 @@
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4) var(--space-4);
 }
-.main[data-float] .knowledge--rag {
+.main[data-float] .knowledge--rag,
+.main[data-float] .knowledge--memory {
   padding-right: calc(var(--float-w) + var(--space-4));
 }
 .knowledge__head .kn-count {
   margin-right: auto;
   font-variant-numeric: tabular-nums;
 }
-.knowledge--rag .knowledge__panel {
+.knowledge--rag .knowledge__panel,
+.knowledge--memory .knowledge__panel {
   grid-template-rows: minmax(0, 1fr);
   min-height: 0;
 }
 @media (max-width: 760px) {
   /* A phone's display sits between the top bar and the deck: the graph fills it. */
-  .main:has(.knowledge--rag) .main__view {
+  .main:has(.knowledge--rag, .knowledge--memory) .main__view {
     position: absolute;
     inset: 0;
     overflow: auto;
   }
-  .page.knowledge--rag {
+  .page.knowledge--rag,
+  .page.knowledge--memory {
     padding: var(--space-2) var(--space-3) var(--space-3);
   }
 }
-.kn-rag {
+.kn-rag,
+.kn-work {
   display: flex;
   gap: var(--space-3);
   min-height: 0;
 }
 /* The graph's box: the controls over it size themselves to it (cqw, cqh). */
-.kn-rag__stage {
+.kn-rag__stage,
+.kn-work__stage {
   container: kn-stage / size;
   flex: 1 1 0;
   min-width: 0;
@@ -176,11 +138,13 @@
   font-size: var(--type-caption);
 }
 @container (max-width: 720px) {
-  .kn-rag {
+  .kn-rag,
+  .kn-work {
     flex-direction: column;
     gap: var(--space-2);
   }
-  .kn-rag__stage {
+  .kn-rag__stage,
+  .kn-work__stage {
     min-height: 200px;
   }
   .kn-column {
@@ -502,16 +466,6 @@
 }
 
 /* Sections and text --------------------------------------------------------------- */
-.kn-section__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-3);
-}
-.kn-section__head h2 {
-  font-size: var(--type-section);
-  font-weight: 600;
-}
 .kn-section__action {
   margin-left: auto;
 }
@@ -684,6 +638,10 @@ mark {
 .kn-field > span {
   color: var(--text-3);
   font-size: var(--type-caption);
+}
+.kn-field select {
+  width: 100%;
+  min-width: 0;
 }
 .kn-field input,
 .kn-field textarea {
@@ -1468,50 +1426,7 @@ button.kn-3d__crumb:hover {
 .kn-arrow--on {
   fill: var(--laminate);
 }
-.kn-lane__rule {
-  stroke: var(--hairline);
-  stroke-dasharray: 2 6;
-  vector-effect: non-scaling-stroke;
-}
-.kn-lane__label {
-  fill: var(--text-3);
-  font: 500 calc(11.5px / var(--k, 1)) var(--font-sans);
-}
-.kn-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px var(--space-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  color: var(--text-3);
-  font-size: var(--type-caption);
-}
-.kn-legend li {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.kn-legend__dash {
-  width: 18px;
-  border-top: 1.5px dashed var(--text-3);
-}
-
 /* Graph Memory ------------------------------------------------------------------------------ */
-.kn-memory {
-  display: grid;
-  gap: var(--space-3);
-  min-width: 0;
-}
-.kn-mfilters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--space-2) var(--space-3);
-}
-.kn-mfilters .select {
-  min-width: 140px;
-}
 .kn-kind {
   display: inline-flex;
   align-items: center;
@@ -1591,35 +1506,500 @@ button.kn-3d__crumb:hover {
     grid-column: 1;
   }
 }
-.kn-mgraph {
+/* Graph Memory's timeline -------------------------------------------------------------------- */
+/* The same quiet space as the RAG Graph's, lanes in faint bands, records as orbs in their
+   kind's colour with a soft glow, stored links as arcs. Graphite throughout; laminate only for
+   the chosen record and the links that touch it; the notice blue only for simulation. */
+.mm-frame {
   display: grid;
-  gap: var(--space-2);
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
 }
-.kn-rulesbox {
-  display: grid;
-  gap: var(--space-2);
-  padding-top: var(--space-3);
-  box-shadow: inset 0 1px 0 var(--hairline);
-  color: var(--text-2);
-  font-size: var(--type-body);
+.mm-canvas {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-container);
+  background:
+    radial-gradient(ellipse 44% 36% at 86% 14%, rgb(98 86 168 / 0.05), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 10% 90%, rgb(44 112 124 / 0.045), transparent 70%),
+    radial-gradient(ellipse 62% 52% at 50% 46%, rgb(70 96 126 / 0.07), transparent 72%),
+    radial-gradient(ellipse 140% 115% at 50% 0%, #181b21 0%, #13161b 55%, #0b0d10 100%);
+  box-shadow:
+    inset 0 0 0 1px var(--hairline),
+    inset 0 2px 8px rgb(0 0 0 / 0.35);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
-.kn-rulesbox summary {
-  font-weight: 600;
+.mm-canvas:active {
+  cursor: grabbing;
+}
+.mm-canvas__sky {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+@media (forced-colors: active), (prefers-contrast: more) {
+  .mm-canvas__sky {
+    display: none;
+  }
+}
+.mm-svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+.mm-svg:focus {
+  outline: none;
+}
+
+/* Lanes, days, quiet stretches */
+.mm-lane__band {
+  fill: transparent;
+}
+.mm-lane__band--alt {
+  fill: rgb(255 255 255 / 0.018);
+}
+.mm-lane--runs .mm-lane__band {
+  fill: rgb(91 147 255 / 0.03);
+}
+.mm-lane--on .mm-lane__band {
+  fill: rgb(255 255 255 / 0.045);
+}
+.mm-lane__rule {
+  stroke: rgb(255 255 255 / 0.05);
+}
+/* The order of the records about one equipment item (derived from their times). */
+.mm-lane__track {
+  stroke: rgb(255 255 255 / 0.16);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.mm-day {
+  stroke: rgb(255 255 255 / 0.065);
+}
+.mm-hour {
+  stroke: rgb(255 255 255 / 0.03);
+}
+.mm-break {
+  stroke: rgb(255 255 255 / 0.16);
+  stroke-dasharray: 2 5;
+}
+.mm-axis__day {
+  fill: var(--text-2);
+  font: 600 12px var(--font-sans);
+}
+.mm-axis__day--stuck {
+  fill: var(--text-1);
+}
+.mm-axis__hour,
+.mm-axis__quiet {
+  fill: var(--text-3);
+  font: 500 11px var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Simulation runs */
+.mm-run {
+  transition: opacity var(--motion-panel) var(--ease);
+}
+.mm-run__band {
+  fill: rgb(91 147 255 / 0.12);
+  stroke: rgb(91 147 255 / 0.5);
+  stroke-dasharray: 4 3;
   cursor: pointer;
 }
-.kn-rulesbox ul {
+.mm-run--on .mm-run__band {
+  fill: rgb(91 147 255 / 0.22);
+  stroke: var(--notice);
+  stroke-dasharray: none;
+}
+.mm-run__name {
+  fill: #c9d9ff;
+  font: 600 11.5px var(--font-sans);
+}
+.mm-run__thread {
+  stroke: rgb(91 147 255 / 0.45);
+  stroke-dasharray: 3 3;
+}
+
+/* Stored links */
+.mm-link {
+  transition: opacity var(--motion-panel) var(--ease);
+}
+.mm-link__line {
+  fill: none;
+  stroke: rgb(179 185 192 / 0.38);
+  stroke-width: 1.5;
+}
+.mm-link__hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  cursor: pointer;
+}
+.mm-link--supersedes .mm-link__line {
+  stroke: rgb(179 185 192 / 0.45);
+  stroke-dasharray: 3 4;
+}
+.mm-link--chain .mm-link__line {
+  stroke: rgb(214 220 228 / 0.6);
+}
+.mm-link:hover .mm-link__line {
+  stroke: var(--text-1);
+}
+.mm-link--lit .mm-link__line {
+  stroke: var(--laminate);
+  stroke-width: 2.2;
+}
+.mm-arrow {
+  fill: rgb(179 185 192 / 0.6);
+}
+.mm-arrow--on {
+  fill: var(--laminate);
+}
+.mm-echo__dot {
+  fill: #14171c;
+  stroke-width: 1.5;
+}
+.mm-echo__thread {
+  stroke: rgb(255 255 255 / 0.25);
+  stroke-dasharray: 2 4;
+}
+
+/* Records */
+.mm-node {
+  cursor: pointer;
+  transition: opacity var(--motion-panel) var(--ease);
+}
+.mm-node:focus {
+  outline: none;
+}
+/* The glow takes no clicks (a link passing close by does); the ring's disc does, a 44 px target. */
+.mm-node__halo {
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity var(--motion-panel) var(--ease);
+}
+.mm-node__orb {
+  fill: #171b21;
+  stroke: var(--mm-c);
+  stroke-width: 2;
+  transition: fill var(--motion-fast) var(--ease);
+}
+.mm-node__icon {
+  color: var(--mm-c);
+  pointer-events: none;
+}
+.mm-node__ring {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 2;
+  pointer-events: all;
+}
+.mm-node__sim {
+  fill: none;
+  stroke: var(--notice);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+/* The records waiting for zoom near this one ("+2"): a click zooms in until they stand apart. */
+.mm-node__more {
+  cursor: zoom-in;
+}
+.mm-node__more rect {
+  fill: #262b33;
+  stroke: rgb(255 255 255 / 0.24);
+}
+.mm-node__more text {
+  fill: var(--text-1);
+  font: 600 10.5px var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.mm-node__more:hover rect {
+  fill: #323843;
+}
+.mm-node:hover .mm-node__halo,
+.mm-node--linked .mm-node__halo {
+  opacity: 0.9;
+}
+.mm-node:hover .mm-node__orb {
+  fill: #1f242b;
+}
+.mm-node--on .mm-node__halo {
+  opacity: 1;
+}
+.mm-node--on .mm-node__orb {
+  fill: #252b35;
+  stroke-width: 2.5;
+}
+.mm-node--on .mm-node__ring {
+  stroke: var(--laminate);
+}
+.mm-node:focus-visible .mm-node__ring {
+  stroke: var(--focus);
+  stroke-dasharray: 3 2;
+}
+.mm-node--old .mm-node__orb {
+  fill: #12151a;
+  stroke-dasharray: 3 3;
+}
+.mm-node--old .mm-node__halo {
+  opacity: 0.2;
+}
+.mm-node--chain {
+  opacity: 0.88;
+}
+.mm-node--dim,
+.mm-dim {
+  opacity: 0.22;
+}
+
+/* Names over the drawing, and the lanes' names pinned at the left */
+.mm-labels,
+.mm-lanes {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.mm-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  gap: 1px;
+  padding: 2px 8px;
+  border-radius: var(--radius-chip);
+  background: rgb(20 23 27 / 0.82);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07);
+  color: var(--text-2);
+  font: 500 12px / 1.4 var(--font-sans);
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+  transition:
+    opacity var(--motion-panel) var(--ease),
+    color var(--motion-fast) var(--ease);
+}
+.mm-label__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mm-label:hover,
+.mm-label--linked,
+.mm-label--chain {
+  color: var(--text-1);
+}
+.mm-label--on {
+  padding: 4px 9px;
+  background: rgb(28 32 38 / 0.95);
+  box-shadow: inset 0 0 0 1px var(--laminate);
+  color: var(--text-1);
+}
+.mm-label--on .mm-label__title {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.mm-label__meta {
+  color: var(--text-3);
+  font-size: 11px;
+}
+.mm-label--dim {
+  opacity: 0.35;
+}
+.mm-lane__name {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  max-width: 230px;
+  padding: 2px 9px;
+  border: 0;
+  border-radius: var(--radius-chip);
+  background: rgb(20 23 27 / 0.72);
+  color: var(--text-2);
+  font: 600 12px / 1.5 var(--font-sans);
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease),
+    color var(--motion-fast) var(--ease);
+}
+.mm-lane__name:hover,
+.mm-lane__name--on {
+  background: rgb(36 40 45 / 0.92);
+  color: var(--text-1);
+}
+.mm-lane__name--on {
+  box-shadow: inset 0 0 0 1px var(--control-border);
+}
+.mm-lane__name--static {
+  background: transparent;
+  color: #a9c1f5;
+  cursor: default;
+}
+.mm-lane__count {
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 500;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mm-label {
+    transition: none;
+  }
+}
+
+/* The same records as a list, scrolled inside the workspace under the controls. */
+.mm-list {
+  grid-area: 1 / 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 64px var(--space-4) var(--space-4);
+}
+/* A day gone to from search comes to rest under the controls. */
+.mm-list .kn-day__title {
+  scroll-margin-top: 60px;
+}
+
+/* Recording a memory: the one primary action over the timeline. */
+.kn-hud__button--primary {
+  background: var(--laminate);
+  color: var(--laminate-ink);
+}
+.kn-hud__button--primary:hover {
+  background: #ffffff;
+  color: var(--laminate-ink);
+}
+.kn-hud__button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.kn-search__icon {
+  display: inline-flex;
+  flex: none;
+}
+.mm-filters__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px var(--space-3);
+}
+.mm-filters__clear {
+  justify-self: start;
+}
+.mm-help ul {
   display: grid;
   gap: 4px;
   margin: 0;
   padding-left: 18px;
 }
-.kn-rulesbox h4 {
-  margin-top: var(--space-2);
+.mm-help h4 {
+  margin-top: var(--space-1);
+  color: var(--text-1);
   font-size: var(--type-caption);
   font-weight: 600;
 }
-.kn-rulesbox p {
-  margin: 0;
+.mm-help__provenance {
+  list-style: none;
+  padding-left: 0;
+}
+.mm-chain li svg {
+  flex: none;
+  align-self: center;
+}
+.mm-chain li[aria-current="true"] .kn-rowlink {
+  color: var(--text-1);
+}
+.mm-link-phrase {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Graph Memory's constellation (3D) ------------------------------------------------------------ */
+/* Names over the canvas in the RAG Graph's look, each with its kind's icon in its colour; the
+   chosen record's name is a laminate card with its kind and time. Groups are named at their
+   left, runs above their records in the notice blue, the dates below as quiet marks. */
+.mm3-label__icon {
+  flex: none;
+  color: var(--kn-c);
+}
+.kn-3d__label--on .mm3-label__icon {
+  color: var(--laminate-ink);
+}
+.mm3-label--linked,
+.mm3-label--chain {
+  color: var(--text-1);
+}
+.mm3-label--old {
+  color: var(--text-3);
+}
+.mm3-label__card {
+  display: grid;
+  gap: 1px;
+  padding: 1px 2px;
+}
+.mm3-label__title {
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+.mm3-label__meta {
+  color: var(--laminate-ink-2);
+  font-size: var(--type-micro);
+  font-weight: 500;
+}
+.mm3-lane {
+  gap: 7px;
+  padding: 3px 10px;
+  background: rgb(20 23 27 / 0.7);
+  color: var(--text-1);
+  font: 600 var(--type-caption) / 1.35 var(--font-sans);
+}
+.mm3-lane__count {
+  color: var(--text-3);
+  font-size: var(--type-micro);
+  font-weight: 500;
+}
+.mm3-lane:hover,
+.mm3-lane--on {
+  background: rgb(36 40 45 / 0.92);
+}
+.mm3-lane--on {
+  box-shadow: inset 0 0 0 1px var(--control-border);
+}
+.mm3-lane--static {
+  cursor: default;
+}
+.mm3-run {
+  background: rgb(91 147 255 / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(91 147 255 / 0.45);
+  color: #c9d9ff;
+  font-size: var(--type-micro);
+  font-weight: 600;
+}
+.mm3-run:hover,
+.mm3-run--on {
+  background: rgb(91 147 255 / 0.24);
+}
+.mm3-run--on {
+  box-shadow: inset 0 0 0 1px var(--notice);
+}
+.mm3-day {
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-3);
+  font: 600 var(--type-micro) / 1.35 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+.kn-3d__label.mm3-day[data-show] {
+  pointer-events: none;
+}
+.mm3-day--quiet {
+  font-weight: 500;
 }
 
 @media (forced-colors: active) {
@@ -1652,5 +2032,69 @@ button.kn-3d__crumb:hover {
   .kn-hud__button[data-active]::after {
     forced-color-adjust: none;
     background: Highlight;
+  }
+  /* The timeline: a chosen record and its links in the highlight, names and lanes edged. */
+  .mm-node--on .mm-node__ring,
+  .mm-link--lit .mm-link__line {
+    stroke: Highlight;
+  }
+  .mm-node__more rect {
+    fill: Canvas;
+    stroke: CanvasText;
+  }
+  .mm-node__more text {
+    fill: CanvasText;
+  }
+  /* The rest of the drawing follows the system colours too (SVG fills and strokes are not
+     forced): marks in the text colour, lines in grey, the glow gone. */
+  .mm-node__halo {
+    display: none;
+  }
+  .mm-svg .mm-node .mm-node__orb,
+  .mm-svg .mm-run__band,
+  .mm-svg .mm-echo__dot {
+    fill: Canvas;
+  }
+  .mm-svg .mm-node .mm-node__orb,
+  .mm-svg .mm-node__sim,
+  .mm-svg .mm-run__band {
+    stroke: CanvasText;
+  }
+  .mm-svg .mm-echo__dot {
+    stroke: CanvasText !important; /* over the kind's colour, set inline */
+  }
+  .mm-svg .mm-run--on .mm-run__band {
+    stroke: Highlight;
+  }
+  .mm-svg .mm-axis__day,
+  .mm-svg .mm-axis__hour,
+  .mm-svg .mm-axis__quiet,
+  .mm-svg .mm-run__name {
+    fill: CanvasText;
+  }
+  .mm-svg .mm-day,
+  .mm-svg .mm-break,
+  .mm-svg .mm-hour,
+  .mm-svg .mm-lane__rule,
+  .mm-svg .mm-lane__track,
+  .mm-svg .mm-run__thread,
+  .mm-svg .mm-link__line {
+    stroke: GrayText;
+  }
+  .mm-svg .mm-link--lit .mm-link__line,
+  .mm-svg .mm-node:focus-visible .mm-node__ring {
+    stroke: Highlight;
+  }
+  .mm-arrow {
+    fill: GrayText;
+  }
+  .mm-arrow--on {
+    fill: Highlight;
+  }
+  .mm-label,
+  .mm-lane__name,
+  .mm3-lane,
+  .mm3-run {
+    border: 1px solid CanvasText;
   }
 }

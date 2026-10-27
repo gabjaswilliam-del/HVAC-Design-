@@ -1344,3 +1344,708 @@ Not validated:
 - touch on a real device;
 - a real screen reader;
 - a library large enough to cut the overview short.
+
+## M7.4: Graph Memory as a full-page timeline (2026-10-17)
+
+The owner's M7.4 specification (the redesign prompt, then two prompts to resume it after
+interruptions):
+- make Graph Memory a full-page, cinematic memory timeline, as M7.3 made the RAG Graph a
+  full-page graph;
+- the graph is the workspace: no paragraphs, instructions, permanent filter form, legend or
+  key list under it; compact floating search and filters, contextual panels, minimal zoom,
+  Fit and Help;
+- a deterministic timeline: time across, equipment lanes, records placed by their
+  timestamps, a distinct look for each kind, existing relationships only, simulation runs
+  recognisable;
+- never invent chronological or causal relationships or chain stages; keep timestamps,
+  provenance, superseded versions and relationships;
+- search across titles, equipment, kinds, dates and ranges, and provenance, not only what is
+  on screen;
+- a dark gradient, a faint still sky, soft glow and restrained accents, with no continuous
+  animation: an industrial operations interface, not a game;
+- drag, the wheel towards the pointer, click, Fit, keyboard, reduced motion and touch;
+- keep the filters, runs, details and evidence; change neither the RAG Graph nor the memory
+  service;
+- verify at 1440 and 390 px, compare before and after, and update the documents.
+
+Uncommitted, awaiting the owner's review. No dependency was added. The memory service, its
+API and contracts, the demo records and their provenance are unchanged.
+
+**Before** (M7.3's Graph Memory, 1440x900, the workspace docked):
+- The tab opened on a lead paragraph, the count, the demo's note, a form of filters (Words,
+  Equipment, Provenance, Time, Include superseded versions, Apply), six kind chips and
+  Timeline | Graph.
+- Timeline was a list of entries by day: its section was 1,529 px tall and the display
+  scrolled 907 px.
+- Graph started about 410 px down the display: small grey shapes (17 nodes, with equipment
+  and run nodes; 32 relationships, with the derived "occurred before" order), names for the
+  anchors only.
+- On a 390 px phone the page scrolled 2,025 px, and the records took 20% of the display.
+
+**What changed:**
+- **The timeline fills the display**, as the RAG Graph does: 87% of it at 1440x900 (1000 x
+  718 px; 58% with a record's panel beside it) and 70% on a 390 px phone (366 x 387 px; 200
+  px with a panel below it). Nothing scrolls, page or display, and nothing overflows sideways
+  in any state checked.
+- **Header.** Both tabs' headers now hold the count ("12 current records · 1 superseded
+  version · 9 links", with correct plurals). The lead paragraph, the demo's note and the
+  rules moved into Help.
+- **Layout** (`memory/timeline.ts`, pure and tested):
+  - Time runs left to right on an elastic axis, by the records' own timestamps: consecutive
+    records are at least 70 units apart, more with the time between them (70 + 40·√hours,
+    up to 72 hours). More than three days without records is shortened and marked "≈ N
+    days".
+  - One lane per equipment item, named with its count; simulation runs have the lane above,
+    a dashed notice-blue band over the time each run's records span.
+  - Records at the same moment on one lane stack (a superseded version under its
+    successor); a record about several items echoes on their lanes.
+- **Records** are orbs of one size with their kind's icon and colour (six validated
+  colours, `memory/kinds.tsx`), a soft glow, a dashed notice-blue ring for simulation, and
+  dashed and dimmer when superseded. A record too near the one before it on its lane steps
+  up a tier; where no tier is free, it waits for zoom, counted on the nearest record shown
+  ("+2"), whose click zooms in until they stand apart.
+- **Links.** Only stored links are drawn, as arcs with an arrow towards the linked record.
+  The memory graph's derived "occurred before" edges are gone. The line along a lane is only
+  the order in time, and Help says so.
+- **Names** come in by importance (the chosen record, hovered, focused, linked, the chain,
+  then by kind), each clear of the others, the orbs, the counts and the lane names; the
+  chosen record's adds its kind and time. On the demo at 1440 px nine names show at once,
+  none overlapping.
+- **Choosing.** A record's stored links and the records they join light up; the chain they
+  lead on to stays readable; the rest fades. The panel adds the linked chain in time
+  ("Linked chain: 7 records"), and a link opens its own panel (what it joins, its phrase,
+  when it was stored, "none is inferred"). A run's band or a lane's name shows its records;
+  a click on empty space clears.
+- **Search** is one combobox over every record (titles, notes, equipment, kind, provenance,
+  run, date), not only those shown. It offers a day (the timeline goes there), a range of
+  days (a filter), equipment (its lane and records, brought into view), records (choosing
+  one centres it), a kind or a provenance (filters), and the service's words filter, which
+  is said over the timeline with Clear filters.
+- **Filters** are a popover and the legend: kinds with icon, colour and count, equipment,
+  provenance, time window, Include superseded versions, Clear filters; the button says how
+  many are on. **Record memory** (the local service only) is the one primary action.
+- **Moving.** Left-drag pans; the wheel and a pinch zoom towards the pointer; Shift or a
+  sideways wheel pans. Timeline | List, +, −, Fit and Help are the canvas's tools. One tab
+  stop: Left and Right through time, Up and Down across lanes, Home, End, Enter, Escape, +,
+  − and 0, each record announced. With reduced motion the camera jumps.
+- **The list** keeps the old timeline's entries, in the workspace, with the same search and
+  filters (`?mv=list`). The old `?mv=graph` opens the timeline.
+- **Removed**: the memory graph's time layout (`timeLayout`) and its test, Graph Memory's
+  old page rules and strings. Shared without change: `useFocusAway` and `useMenu` (to
+  `shared.tsx`) and the star sky (to `graph/sky.ts`).
+
+**Recovery.** The session was interrupted twice (API errors). Each time the work was
+recovered from the repository: the files were intact, the dev server was still running, and
+the scratchpad held the scripts and screenshots. Nothing was redone or reverted.
+
+**Fixed while verifying** (found in the browser checks and the new tests):
+- **Major: a click zoomed the camera.** Choosing a record zoomed in until its neighbours
+  stood clear, losing the overview. Now only search, the keyboard or a count zoom; a record
+  in sight stays where it is.
+- **Major: a refit used the previous filters' records.** The timeline refitted as the
+  filters changed, before their records arrived. After "Only decisions" and Clear filters it
+  stayed zoomed on two records. It now refits once the new records are there, and not after
+  an edit.
+- **Major: closing the panel moved the timeline by half the panel's width.** A finished
+  camera move was compared with its target exactly; rounding left it "in progress", and the
+  resize replayed it. Now compared within a tolerance. Also, opening or closing a panel now
+  moves nothing (before, the middle time was kept and everything shifted); a chosen record
+  the narrower view would leave out of sight comes to the middle.
+- **Minor:**
+  - A record's panel took the focus again when its data arrived. Someone typing in the
+    search box right after choosing a record lost the focus and the list closed.
+  - A record's glow took clicks meant for links passing near it. Now the ring's 44 px disc
+    takes them.
+  - A store with one or two records was fitted at the maximum zoom, so the next record
+    landed far off screen. Fit now zooms in at most ×2.
+  - An equipment item chosen in search was not brought into view.
+  - On a phone: the filters' selects overflowed the popover; day names ran into each other;
+    the two run bands overlapped; crowded records were dots touching the orbs; the last
+    lane lay under the tools; a "+2" lay under a lane's name; the chosen record could fall
+    below the stage when the panel opened under it; a day's name was cut at the right edge.
+- **Tests.** The phone's overflow test and the accessibility test were first extended for
+  Graph Memory, and then ran past their time limits under the full suite's load. Their new
+  checks now have two tests of their own; the originals are as they were.
+
+**Independent review (2026-10-17).** A separate review of the M7.4 code (read only, with
+its own browser checks against the dev server) reported eight findings. Each was checked
+against the code and is fixed, with a test that fails without the fix:
+- **Major: camera decisions read the last frame drawn, not the camera just set or on its
+  way.**
+  - Opening a record's address (`?kn=memory&mem=…`) ran the fit and "show this record" in
+    one pass. The second saw the unfitted camera, so the timeline opened zoomed in.
+  - A refit cut short by a choice ended at the old zoom.
+  - Two quick presses of Zoom in reached ×1.48 instead of ×1.96.
+  - Fixed: every decision starts from where the camera is going, else where it was set.
+  - Found while testing the fix: a record 40 px from the edge, where a fit leaves the
+    first, counted as out of sight. "In sight" now means its orb is whole.
+- **Major: after a pinch, the finger left down panned from the camera before the pinch**,
+  undoing the zoom. It now pans on from where the pinch left the view.
+- **Major: a stretch of time framed while a panel opened kept the zoom worked out for the
+  old width.** Choosing an equipment item in search left its first and last records out of
+  frame. The framing is redone for the new width, also when the panel arrives after the
+  camera does. Widening (closing a panel) still moves nothing.
+- **Minor:**
+  - Tabbing into the timeline could focus a record out of sight. It now comes into view.
+    The tab stop also follows a new choice: it was the last record travelled to, even
+    after another was chosen by search.
+  - Keys with Ctrl, Cmd or Alt were taken. That included the browser's zoom (Ctrl with +,
+    − or 0, which text resizing relies on) and Alt+Left (Back). They are the browser's
+    again.
+  - Up and Down stopped at a lane holding only echoes of records on other lanes. They now
+    pass over it.
+  - "Go to …" a day did nothing in the list. The list now scrolls to that day, or the
+    nearest earlier one.
+  - In forced colours, the date row and the run names kept the dark theme's colours,
+    about 2:1 on a light system background, because SVG fills are not forced. The
+    timeline now sets system colours itself: text and orbs, grey lines, the highlight for
+    the choice and the focus.
+- **Found while checking these fixes** (a phone, a record chosen by its address):
+  - The chosen record's linked records had been waiting for zoom. The choice draws them,
+    so with no zoom on choosing they lay on top of one another. Choosing now zooms until
+    they stand apart, if the chosen record or one linked to it waits; the check uses the
+    zoom the camera is going to. On a desktop nothing waits, so a click still moves
+    nothing.
+  - On a short display the lanes scroll; the run bands above them were drawn over the date
+    row. The drawing is now clipped to the lanes' area.
+- **Checked and sound** (the review's words, verified):
+  - Only stored links are drawn. The chain follows stored links only, never supersession.
+  - The lane's line joins only its current records.
+  - No backend, contract or fixture changed.
+  - The RAG Graph only lost the helpers that moved, unchanged.
+  - Records waiting for zoom get no links, names, echoes or run threads.
+  - No NaN in empty, single-record, superseded-only or no-equipment layouts.
+  - Per-frame work is acceptable at the 120-record cap: tiers and counts are O(n²), and
+    `declutter` makes about 170,000 comparisons.
+  - With reduced motion the camera jumps.
+
+**Full-suite runs, in order.** Every failure was read and either fixed or traced:
+1. 236 passed, 3 failed.
+   - Two were the extended tests running past their time limits; their new checks were
+     split out.
+   - One was Escape not closing the equipment inspector. That is the intermittent Escape
+     failure under load recorded since M7.2 (decision 20); it passed 3 of 3 alone.
+2. 240 passed, 1 failed: the shell's accessibility check found no heading on
+   `/equipment/chiller_plant_2` in 5 s under load; 66 of 66 alone.
+3. 242 passed, 1 failed: after the review fixes, the local spec's restart test, at the
+   library row after the service restarted (before its memory step); 30 of 30 alone.
+4. 243 passed, 1 failed: the phone overflow test (six pages, four of them drawing in 3D)
+   passed its 30 s budget. It is now `test.slow()`; 3 of 3.
+5. and 6. 242 passed with 2 failed, then 239 with 5, across unrelated pages. The dev
+   server's module graph had gone stale after many hot reloads ("Failed to fetch
+   dynamically imported module"). Touching `vite.config.ts` restarted it in place, with
+   no change to its content.
+7. 243 passed, 1 failed: the new pinch test read its zoom while the last moves were still
+   arriving. It now waits for the pinch's own result; 6 of 6.
+8. 243 passed, 1 failed: Escape on a KPI's details panel, the same intermittent as run 1;
+   48 of 48 alone.
+9. and 10. On the final code: **244 passed, 0 failed, 6 opt-in captures skipped, twice.**
+
+| Check | Result (Windows 11, Node 24.19, Python 3.14.7, Playwright 1.63 Chromium with SwiftShader WebGL) |
+|---|---|
+| `npm run typecheck` | Pass |
+| `npm test` (Vitest) | 187 passed (18 files). New: `timeline.test.ts` (7). Removed: the memory graph's time layout test (1) |
+| `python -m unittest discover -s tests` | 63 passed (no backend change) |
+| Knowledge tests | 41 in the knowledge spec: 29 before, the memory graph's test replaced by 13 (the display at 1440 and 390 px, the timeline, choosing and the chain, a link, search, the keyboard, the list, a phone, the phone's overflow, accessibility, a record's address, touch, forced colours). 10 in the local spec, its memory test on the timeline. Both specs: 51 of 51 on the final code |
+| `npm run e2e` (Playwright) | 250 tests. Final code: 244 passed and 6 skipped, twice (above) |
+| `npm run build`, `npm run build:demo` | Pass. Against M7.3: Knowledge chunk 154.48 kB (47.76 kB gzip), 37.70 kB more; its CSS 32.28 kB, 5.41 kB more; 3D chunk 806.28 kB, 0.81 kB less (the sky now shared); main JS 930.61 and 936.02 kB, 0.01 kB more (one address parameter); main CSS 107.26 kB, unchanged |
+
+Browser checks (a scratchpad script) at 1440x900 and 390x844, in these states:
+- the timeline, and the old `mv=graph` address;
+- a record chosen;
+- a superseded record, outside the filters;
+- typing in search;
+- Filters and Help;
+- a "+n" count clicked.
+
+In none of them: page or display scroll, overflow sideways, a control over another, names
+over one another, or console errors. On the demo at 1440 px, nine names show at once. The
+screenshots before and after are in the session's scratchpad (`m74/before/`, `m74/a9/`,
+`m74/a10/`).
+
+Not validated:
+- a real touch device (the pinch is tested with synthetic touches);
+- a real screen reader;
+- other browsers;
+- a hardware GPU;
+- a memory store with hundreds of records.
+
+## M7.5: Graph Memory as a constellation in 3D (2026-10-17; reviewed and finished 2026-10-26)
+
+The owner's M7.5 specification ("Immersive 3D Graph Memory Redesign", 2026-10-17), after
+finding M7.4's timeline "too basic, flat, and small":
+- an immersive 3D memory constellation filling the Knowledge workspace, comparable to the RAG
+  Graph; a visual and interaction redesign, not a change to the memory data model; every M7.4
+  function kept;
+- no empty space: frame the actual records, spread the equipment groups through the height,
+  centre them, frame again when the view or the details panel changes, no page scroll;
+- no grid (no time lines, lane lines or chart structure): a dark spatial background, soft
+  light, sparse stars, depth cues, curved links; chronology and grouping still readable, with
+  compact date markers;
+- 3D spheres with shading, glowing edges, a colour per kind, hover and selection, a gentle idle
+  motion and readable labels; simulation records and superseded versions told apart; restrained
+  differences that imply no severity the data does not hold; non-colour cues;
+- deterministic positions (time left to right, groups by equipment, stored links only, stable
+  across reloads, nothing fabricated);
+- cinematic focus: a click flies to the sphere, emphasises it and its stored links, keeps
+  linked records in view, fades the rest and opens the panel; closing flies back to exactly the
+  previous camera; rapid clicks and interrupted flights without glitches;
+- left-drag pans, right-drag turns, the wheel zooms to the pointer, Fit, Escape, search flies;
+  touch, keyboard and reduced motion;
+- reuse the RAG Graph's 3D stack with a layout of its own, no new dependency, the RAG Graph
+  unchanged; responsive, no needless scene rebuilds, a WebGL fallback, usable on a phone;
+- verification at 1440x900 and 390 px with screenshots of seven states.
+
+Four prompts resumed it after interruptions (one on 2026-10-25, three on 2026-10-26). They added:
+recover the state from the repository, never restart; a fresh independent review; investigate
+the WebGL fallback and the workspace timeout (raised from 5 to 15 s by an earlier session);
+investigate whether a choice rebuilds the links and arrows in three-forcegraph, fix it through
+public APIs only and measure; assess the bundle-size warning; run the full suite twice on the
+same final code.
+
+Uncommitted, awaiting the owner's review. No dependency was added (three.js is imported directly
+but installed through react-force-graph-3d: decision 29). The memory service, its contracts,
+records and provenance are unchanged; the RAG Graph only takes helpers moved to a shared file.
+
+**Before** (M7.4's timeline, measured on the same build, `?kn=memory&mv=timeline`): orbs of one
+size on lane rules under a date row. At 1440x900 its records span 95% of the stage's width and
+64% of its height. At 1920x1080 the lanes keep their height, so the records take 46% of the
+height with 32% empty below: the owner's "concentrated in the upper half". On a 390 px phone it
+draws 6 of the 12 records; the others wait for zoom.
+
+**What changed** (`DESIGN.md` describes the constellation in full):
+- **Graph Memory opens in 3D** (`memory/MemoryConstellation.tsx`, a lazy chunk sharing the RAG
+  Graph's 3D library chunk). The timeline (`mv=timeline`) and the list (`mv=list`) stay as
+  views; the old `mv=graph` and `mv=3d` open the constellation. Search, filters, the column
+  and the address are shared by the three views.
+- **Layout** (`memory/constellation.ts`, pure and tested): time runs left to right on the
+  timeline's elastic axis, each equipment item is a group spread down the view to the
+  display's shape (0.6 as tall as wide on a desktop, square on a phone) at its own depth. Each
+  record sits as near its group's line as it can without covering an earlier one from the
+  front, never past the middle between groups; same-moment records stack under one another;
+  no two spheres ever meet. Dates below, group names at the left, run names above their
+  records, quiet stretches marked "≈ N days".
+- **Spheres**: lit spheres in their kind's colour with its icon, an additive edge glow and a
+  halo; a sphere grows a tenth for each stored link (up to half again), never with its kind;
+  a notice-blue ring for simulation records; a smaller ghost under a fine mesh for a superseded
+  version.
+- **Links**: stored links only, as arcs each bowed its own way, with an arrow towards the
+  linked record. Choosing recolours them (lit, chain, faded) and enlarges the lit arrows.
+- **Space**: the dark gradient, 1,100 still stars far away, a faint haze round each group, a
+  fog for depth. No grid, lane or axis.
+- **Choosing** flies the camera (500 ms, 650 ms to or from the whole) to the record and what
+  its links join; the chosen sphere grows and takes a ring, the rest fades to 14%. Closing
+  flies back to exactly where the camera was before the first choice, framing what it framed
+  then. Groups, runs, links and days frame their records.
+- **Drawing on demand**: nothing is drawn while no one is about. For 45 s after the last
+  interaction the spheres drift very slightly at 30 frames a second, on a graphics processor
+  only (not with reduced motion, not in software rendering).
+- **Fallbacks**: without WebGL, after a lost graphics context, or when the 3D view cannot start
+  (its context or its code fails), Graph Memory shows the timeline with a sentence saying which;
+  in high-contrast mode it opens on the timeline, 3D staying a choice.
+- **Shared, unchanged in behaviour**: the RAG Graph's vector helpers, camera types, `canDraw3d`,
+  `ThreeGuard` and pointer helpers moved to `graph/scene3d.tsx` (new: `drawsInSoftware`);
+  `graph/three.d.ts` types the parts of three.js used directly.
+
+**After** (`?kn=memory`, the same build, a hardware GPU): the same 1000x718 stage (87% of the
+display at 1440x900). The spheres span 71% of its width and 62% of its height, with the group
+names to their left and the dates below them. The framing keeps room for both and is bound by the
+height at this shape. At 1920x1080 the spheres take 63% of the height (the 21% below holds the
+dates and the controls' band). On a phone all 12 records are drawn, spanning 56% x 61%. In no
+state checked does the page or the display scroll, does anything overflow sideways, or do names
+overlap.
+
+### Rendering: what a choice rebuilt, and the fix
+
+Read in the installed `node_modules/three-forcegraph/dist/three-forcegraph.mjs` (1.43.6, under
+react-force-graph-3d 1.29.2, 3d-force-graph 1.80.1, three-render-objects 1.43.0 and three
+0.186.1) and measured in the browser. The scene is captured through three.js's devtools hook;
+the library tags its objects (`__graphObjType`, `__linkThreeObjType`).
+1. **What a choice changed.** Before the fix: `linkWidth` (wider lit links), `linkColor`,
+   `linkDirectionalArrowLength` (no arrow on faded links) and `linkDirectionalArrowColor`, each
+   a new accessor on every choice (and, between the second and third reviews, `nodeVal`). Now:
+   `linkColor`, `linkDirectionalArrowColor`, `linkDirectionalArrowLength` and
+   `showPointerCursor`. `linkWidth` is a constant 0 and `nodeVal` a constant accessor;
+   `graphData` never changes on a choice.
+2. **What invalidates the link mapper.** A changed `linkThreeObject`, `linkThreeObjectExtend` or
+   `linkWidth` clears it (line 901), compared by identity, so a new width accessor rebuilds
+   every link object. Node objects are cleared only by `nodeThreeObject` or
+   `nodeThreeObjectExtend` (line 831).
+3. **Arrows.** The arrow mapper digests the links whose arrow length is not 0. A length that
+   went to 0 and back removed and re-made the arrow; colours are set on the arrow's own material
+   in place. A changed length replaces the arrow's cone geometry and disposes the old one (line
+   1017).
+4. **Particles** are not enabled (`linkDirectionalParticles` unset); their digest (line 1026)
+   does not run.
+5. **Allocations.** Each link update builds its colour-material cache afresh. A recolour
+   therefore makes one `LineBasicMaterial` per distinct colour and disposes each link's previous
+   material (line 990). Arrow cones are made per changed length.
+6. **Shared resources.** A disposed link material shared by other links is re-initialised by
+   three.js on its next use: harmless. When nodes are removed (a new set of records), the
+   library's `deallocate` also disposes the geometries and textures the spheres share (the
+   unit sphere, the glow, the ring, the kinds' icons); three.js uploads them again. That is rare
+   and is recorded as a limit.
+7. **Is rendering the bottleneck?** Not on a graphics processor. In headless Chromium on this
+   machine's AMD Radeon 860M (ANGLE D3D11, vsync off), the constellation drew 794 frames a second
+   at 1000x718 (485 at device pixel ratio 2), the RAG Graph's 3D view 678 (394). In software
+   (SwiftShader, as the test suite runs), a constellation frame cost 274-278 ms of the GPU
+   process's processor time; each effect was measured by leaving it out:
+   - multisampling, 54%;
+   - the edge shells, about 30%;
+   - the hazes, about 14%.
+
+   Several workers drawing continuously starved the machine. The owner's preliminary 17-22
+   frames a second come from that setting.
+8. **Public APIs only**: the accessors above, `rendererConfig` (multisampling off in software),
+   custom node objects whose materials the app changes in place, `pauseAnimation` /
+   `resumeAnimation`, and `renderer()`, `scene()`, `camera()`, `controls()`. Nothing in
+   `node_modules` was edited and no private state is read.
+
+**The fix.**
+- Every link keeps one width (a line) and keeps its arrow. A choice only recolours them, and the
+  lit arrows grow from 5 to 10. A version's link to the one it superseded has an arrow only
+  while lit: the one arrow that still comes and goes, when superseded versions are shown.
+- `nodeVal` reads each sphere's live animated scale. Arrows end at the surface as drawn, growing
+  with a choice or under the pointer, and a choice no longer re-digests the nodes.
+- Where WebGL is drawn in software, the scene goes without multisampling, the edge shells, the
+  hazes and the drift.
+
+Measured over ten choices and ten clearings at 1440x900 (`churn.mjs` in the scratchpad):
+
+| | Before | After |
+|---|---|---|
+| Link objects made (choices / clearings) | 90 / 90 | 0 / 0 |
+| Arrow objects made | 0 / 48 | 0 / 0 |
+| Sphere objects made | 0 / 0 | 0 / 0 |
+| Link and arrow geometries made | 132 / 180 | 22 / 22 |
+| Link and arrow materials made | 26 / 58 | 26 / 10 |
+| Click to arrival, GPU (ms) | 606-799 | 590-795 (two runs) |
+| Longest frame in a flight, GPU (ms) | 17-183 | 17-50 |
+| Click to arrival, software (ms) | 877-1142 | 713-937 |
+| Longest frame in a flight, software (ms) | 67-117 | 33-67 |
+| Processor time per frame, software (ms) | 274-278 | 96 |
+
+"After" is the final drawing code; the fourth review's fixes, made later, change only how a
+press is read. The same fix measured earlier in the day gave 580-628 ms and 17-33 ms on the GPU:
+timings vary by about 50 ms between runs on this shared machine, while the object counts are the
+same in every run.
+
+The remaining geometries are the lit arrows' cones (5 to 10 and back), and the materials come
+from the library's per-update colour cache; each replaced one is disposed. Click to arrival runs
+from the press to the end of the flight, which is 500 ms itself. Idle on the GPU: 30 frames a
+second while drifting, then none 45 s after the last interaction; with reduced motion none at
+all. These numbers come from one integrated GPU and from SwiftShader in headless Chromium. No
+discrete GPU, phone or other browser was measured.
+
+### The WebGL fallback and the workspace timeout
+
+- **The stall.** The earlier no-WebGL failure (the Knowledge heading shown, "Loading Knowledge…"
+  past 5 s) was the whole machine starved, not a loading defect. The test itself draws no 3D,
+  but other workers drew in SwiftShader continuously (the drift, at 274-278 ms of processor time
+  a frame), and the dev server's module transforms and the page waited.
+  - Measured with `loadtime.mjs`: alone, the workspace appeared 0.64-0.85 s after navigation,
+    with WebGL or without.
+  - With six pages loading at once while others drew, it took 23-39 s, with or without WebGL.
+    A 15 s limit would not have covered that, and would have hidden a workspace that never came.
+  - After the software-rendering changes above, nothing draws in software while no one is about.
+    The suite then ran with no workspace timeout at 5 s, and `open()` is back to its original
+    5 s, as at HEAD.
+- **Verified** (`fallback.mjs`, final code), each reaching the timeline with its own sentence,
+  with search, choosing a record, its panel and the list working:
+
+| Case | Timeline shown after | Says |
+|---|---|---|
+| No WebGL | 907 ms | WebGL is unavailable (3D disabled in the switch) |
+| WebGL passes the probe, the renderer's context fails | 1,354 ms | the 3D view could not start |
+| The 3D chunk fails to load | 1,430 ms | the 3D view could not start |
+| Graphics context lost while shown | 1,709 ms | the 3D view stopped |
+
+- Before, a failure to start said "lost its graphics context". The two notes are now told apart
+  (`failedStart`). Two e2e tests cover them: without WebGL (with search, a choice and the list),
+  and a lost context, a failed chunk and a failed context.
+
+### Bundle size
+
+The over-500 kB warning predates M7.5: the main bundle has exceeded the limit since M6, the 3D
+chunk since M7.1. M7.5 added nothing to the main bundle and nothing loaded eagerly:
+- main JS 930.61 kB (production) and 936.02 kB (demo), the same as after M7.4;
+- the shared 3D chunk (three.js with react-force-graph-3d) 801.70 kB (209.75 kB gzip), 4.58 kB
+  less;
+- the constellation's own chunk 30.10 kB (11.88 kB gzip). It imports three.js from the shared
+  chunk (no copy), and is requested only when the 3D view renders (`lazy`), so not without WebGL
+  or for the timeline and the list;
+- the Knowledge chunk 159.27 kB (49.21 kB gzip), 4.79 kB more; its CSS 33.53 kB, 1.25 kB more;
+  main CSS 107.26 kB, unchanged.
+
+No restructuring was made for the warning.
+
+### Independent reviews
+
+Four separate reviews, read only, each with its own probes. Every finding was checked against
+the code; each confirmed one is fixed and, where it could regress, tested.
+
+**First review (2026-10-25)**, of the code as built on 2026-10-17:
+- **Major: records close in time stepped out without limit** and landed in another group's
+  space (four hourly records: the fourth nearer the next group's line).
+  - Fixed: a new placement (each record as near its line as it can without covering an earlier
+    one, within the middle between groups).
+  - Tests: bursts and 300 crowded random sets.
+- **Major: after the first close, a resize never framed again** (the restored placement was an
+  unknown "home"). Fixed: the placement is saved with the camera and restored with it. Test:
+  resize after a close.
+- **Minor:**
+  - A click on empty space during a flight called `showChoice()`: a double click to close left
+    the camera part way. Rewritten (see the second and third reviews).
+  - Stacked records ignored their links' size. Fixed and tested.
+  - A ring's turn was invisible (it turned about its own axis). Removed.
+  - Every choice rebuilt every link (above). Fixed and tested.
+  - The drift worked out every look at 60 frames a second while drawing 30. Skipped on undrawn
+    frames.
+- **Gaps closed:** a lost context and a failed start had no test, nor a resize after a close or
+  a click during Fit; `VERSION_A.md` lacked this section.
+
+**Second review (2026-10-26)**, after those fixes:
+- **Major: a press counted as moving the view.** OrbitControls says "start" for every press.
+  After a sphere click, the restored placement was "free" and the overview never re-framed.
+  Fixed: only a pointer that moves more than 3 px (or the wheel on the canvas) takes the camera
+  over.
+- **Major: a flight's own camera moves were read as the person's**. On a sleeping GSAP ticker,
+  a press during a flight then cleared the flight's destination. Fixed by the same change: the
+  controls' events no longer decide anything.
+- **Minor:**
+  - In bursts the fallback height could still overlap in 3D on phones (4.5% of random sets).
+    Fixed: a record stands behind whatever it covers, far enough that no two spheres meet. Phone
+    groups are at least 10 radii apart. Test: 300 random sets.
+  - A slow window drag (under 8 px per frame) never re-framed. Fixed: the size is compared with
+    the size at the last framing.
+  - Arrows hid inside a chosen sphere that grew. Fixed: arrows end at the grown surface.
+  - Faded links took clicks. Fixed: a click on one is a click on empty space.
+  - Stale comments. Fixed.
+
+**Third review (2026-10-26)**, of the press rework:
+- **Medium: a click during a flight was resolved when the button came up.** The library takes
+  its click target from a look under the pointer at most every 50 ms and fires it a frame after
+  the release; the scene had moved on. In its model of the demo, a press of 50-100 ms on a
+  sphere mid-flight found nothing in up to two thirds of cases (67 of 99 on the way to
+  mem_demo004) and another record in a few (6 of 99). A second click on the chosen sphere
+  restarted the flight from rest.
+  - Fixed: the press takes the record under the pointer in the last frame drawn (`recordAt`, a
+    pick by projected centre, reach and depth). A click made while flying counts for that, or
+    for nothing: the flight goes on, and is not restarted by its own record.
+  - Test: a press held 200 ms on the fastest-moving sphere, a second click on the chosen one,
+    with the page's clock held. It fails on the old handling, as checked by putting the old code
+    back for a run.
+- **Low:**
+  - The press was kept after the release, for any pointer. A drag starting outside the view
+    (selecting the panel's text) took the camera over, and a second finger replaced the first.
+    Fixed: each pointer is tracked from its press to its release or cancel, wherever that is.
+    Tested, and checked to fail without it.
+  - The double-click test could not fail. It is now a real double click on a running flight.
+  - The slow-resize test could merge its steps into one. It now waits two frames between them,
+    and fails with the old comparison.
+  - Untested: right-drag, the wheel over a name, a drag from a name, and nodes in the rebuild
+    count. New test: the constellation moves like a map, and a drag or the wheel stops a
+    flight. The rebuild test counts spheres too.
+- **Nits, fixed:** a stale comment; the links' key did not change for an equipment choice with
+  no records shown, so the links did not fade; arrows jumped ahead of a growing sphere and hid
+  under a hovered one (now `nodeVal` reads the live scale).
+
+**Fourth review (2026-10-26)**, of the third review's fixes. It found fixes 2 to 4 sound (press
+tracking, the links' key, the live `nodeVal`), confirmed the new tests fail for the reasons they
+state, and found:
+- **Medium: a double click on a sphere could end on another record.** The second press lands
+  100-200 ms into the flight the first click started, where another sphere may have moved under
+  the pointer. In the demo, a double click on mem_demo001 ended on mem_demo007, and one on
+  mem_demo003 on mem_demo009. This was not new: the library's own pick found the same.
+  - Fixed: a press within 500 ms of the last and within 6 px of it (30 px for touch) chooses
+    nothing new while the camera flies.
+  - Test: the double click is checked on mem_demo020, mem_demo001 and mem_demo003. Without the
+    fix, mem_demo001 ends on mem_demo007.
+- **Low: the in-flight pick let a nearer record's click area win over the sphere drawn under
+  the pointer.** At close range a record's reach can lie over a grown chosen sphere; early in a
+  flight to mem_demo004, a press on its drawn sphere chose mem_demo003.
+  - Fixed: `pickAt` (`constellation.ts`) takes a sphere drawn under the point first, then a
+    click area, nearest first.
+  - Unit test added.
+- **Low, from the library: after a drag that starts outside the view and crosses it, the next
+  click was lost and nothing showed under the pointer.** three-render-objects marks any move
+  with a button held over its canvas as its own drag, and clears that only for a press that
+  began there.
+  - Fixed: moves of a pointer pressed elsewhere are kept from the library.
+  - Test: after such a drag, a sphere under the pointer says so and a click chooses it; without
+    the fix, nothing shows under the pointer.
+  - The RAG Graph's 3D view still behaves this way (decision 32).
+- **Nit, fixed:** a press took the camera over at 3 px but a drag from a name began at 4 px. A
+  3-4 px slip on the chosen record's name stopped its flight for nothing; both are now 4 px.
+
+### Results
+
+**Full-suite runs, in order.** Every failure was read and traced:
+1. 2026-10-26, before the third review's fixes: 248 passed, 2 failed, 9 did not run, 6 skipped.
+   - The local spec's "real mode shows the local service" expects "PDF not configured", but
+     pypdf 6.21.2 was installed on this machine on 2026-10-25, not by this work (decision 31).
+     The spec's serial mode then skipped its nine other tests. They pass when that test is left
+     out, 9 of 9.
+   - Escape on a KPI's details panel: the intermittent under load recorded since M7.2
+     (decision 20); 3 of 3 alone.
+2. The knowledge spec after the third review's fixes: 57 of 58, then 58 of 58.
+   - The one failure: the phone overflow test's six navigations. In one, the app's own heading
+     did not render within 5 s while the other workers drew 3D in software; it passed 3 of 3
+     alone.
+   - Found while making the new tests: they read the camera as "back" before a flight had
+     begun, or pressed a sphere that the move was not carrying. Fixed in the tests (wait for
+     the camera to leave, pick the fastest sphere). The app was checked separately, with and
+     without load, and returned exactly.
+3. On the final code, after the fourth review's fixes, twice:
+   - 251 passed, 1 failed, 9 did not run, 6 opt-in captures skipped. The failure is the pypdf
+     test (decision 31); the local spec's serial mode then skips its nine others, which pass 9
+     of 9 without it.
+   - 249 passed, 3 failed, 9 did not run, 6 skipped: the pypdf test again, and two failures
+     under load in code M7.5 did not change, each 5 of 5 alone.
+     - The RAG Graph's keyboard test: Escape pressed as its panel appeared was not seen, the
+       recorded race in the shared `useEscapeLayer` (decision 20).
+     - AI Pilot's reload test: 5 s after its link was clicked, the Engineering page had not
+       loaded and the Overview was still shown. The phone test's heading was slow in the same
+       way in run 2.
+
+| Check | Result (Windows 11, Node 24.19, Python 3.14.7, Playwright 1.63 Chromium with SwiftShader WebGL) |
+|---|---|
+| `npm run typecheck` | Pass |
+| `npm test` (Vitest) | 198 passed (19 files). New: `constellation.test.ts` (11) |
+| `python -m unittest discover -s tests` | 63 passed (no backend change) |
+| Knowledge tests | 58 in the knowledge spec: 41 before, 17 new for the constellation. On the final code, 58 of 58 in the first full run and 57 of 58 in the second (the RAG Graph's Escape race, above). 10 in the local spec: 9 of 9 without the pypdf test |
+| `npm run e2e` (Playwright) | 267 tests. Final code, twice: 251 passed and 1 failed (pypdf), then 249 passed and 3 failed (pypdf, and two failures under load that pass 5 of 5 alone); each time 9 did not run (the local spec's serial mode) and 6 opt-in captures were skipped |
+| `npm run build`, `npm run build:demo` | Pass, with the existing over-500 kB warning; sizes above |
+
+Browser checks on the final code at 1440x900 and 390x844 (`shots.mjs`, a hardware GPU), in
+these states:
+- the overview;
+- a sphere under the pointer;
+- a record whose links span the constellation (mem_demo004) and one with near links
+  (mem_demo016);
+- the linked chain (mem_demo007, from its address);
+- a search result ("fan fault");
+- a record closed, and the camera restored;
+- a group (Cooling tower 4);
+- superseded versions shown;
+- the timeline, Filters and Help.
+
+The overview, a choice and the restored camera were checked again in software.
+
+In none of them: page or display scroll, names over one another, or console errors. The camera
+after closing matched the camera before the choice exactly, on both sizes and in software. On a
+phone with a record chosen, its ring touches the search box (a recorded limit). The screenshots
+and the measurements (`shots.log`) are in this session's scratchpad, which is temporary:
+`C:\Users\Crusher1\AppData\Local\Temp\claude\c--Users-Crusher1-Documents-HVAC-hvac-agent\d74a6fd3-c96b-4b98-997e-b2273c6f041e\scratchpad\m75r\`,
+folders `final3-gpu\` and `final3-software\`, with `cover-final.log` for the before and after.
+
+Not validated:
+- a discrete or mobile graphics processor (only this integrated one) or software rendering
+  outside headless Chromium;
+- a real touch device (touches are synthetic), a real screen reader, other browsers;
+- a memory store with hundreds of records (the layout and the pick reach are O(n²), fine at the
+  120-record cap).
+
+Known limits are listed in `M6_HANDOFF.md` section 9b. Open decisions 28-32 are there too:
+approving the constellation; declaring three.js; the drift; the pypdf test; the RAG Graph's drag
+from outside.
+
+## M7.6: the memory graph's name, and its icons in 3D (2026-10-26)
+
+The owner's M7.6 request, after looking at the constellation:
+- show "Graph Memory" as "memory graph" in the interface: the tab, headings, labels, help. Keep
+  `kn=memory`, the memory API and contracts, module names and the test setup;
+- investigate why some icons on the 3D spheres look tiny, distorted or awkwardly placed:
+  crossed by an outlined ellipse on a simulation record, competing with links, and an event's
+  icon like a compressed waveform. Fix the cause, keep every M7.5 interaction, leave the RAG
+  Graph unchanged.
+
+Uncommitted, awaiting the owner's review. No dependency was added.
+
+**The name.** The tab reads "Memory graph": the words asked for, in the sentence case
+`DESIGN.md` prescribes ("Sentence case everywhere"). Mid-sentence it is "the memory graph".
+- Changed: the tab; the view switch's label ("Memory graph view"); the high-contrast note;
+  Help's title ("Reading the memory graph") and its heading "What the memory graph stores".
+- Unchanged: `kn=memory` and every address, the memory API and contracts, module and
+  component names. Code comments and test titles keep "Graph Memory" as identifiers, and so
+  do these notes for the feature's history.
+- A test checks the tab's text, and that "Graph Memory" appears nowhere on the page.
+
+**What was wrong with the icons, and why.** Investigated in the browser on a hardware GPU, the
+scene read through three.js's devtools hook; the before and after shots are listed below.
+1. **The ellipse through the simulation records' icons** was the simulation ring. It was a
+   torus of 1.62 radii tilted about 68° (rotation 1.18, 0.32, 0), so its near half passed
+   between the camera and the icon. Hiding the scene's two torus meshes removed the ellipse
+   and nothing else: it was not a selection ring, a link or an arrow.
+2. **Icons broken, eaten or sheared in the overview, and flickering**, came from two depth
+   problems. The icons were where they should be: measured within 0.1° of the line from
+   their sphere to the camera.
+   - The library's camera keeps three.js's default near plane, 0.1 (three-render-objects sets
+     only the far plane, 125,000). The depth buffer has 24 bits; at the overview's distance
+     (about 2,660 units) it resolves about 4 units (z² / (near · 2²⁴)). Each icon sat 0.04
+     radii (1.6 units) in front of its sphere, so they fought for depth. As the drift moved
+     the spheres, the lost pixels changed frame by frame: one eye, every 500 ms for 6 s, was
+     broken in 6 of 13 frames (a crescent, a "C", a cut side). Close up (600-900 units) the
+     depth was fine, which is why a chosen record looked right.
+   - An icon faces the screen, not its sphere. On a sphere away from the middle of the view,
+     the icon's far side dipped into the sphere and was cut, for the same small lead.
+3. **Small icons:** an icon took about 30-40% of its sphere's width (a sprite of 1.1 radii, the
+   icon in 72% of a 128 px texture, thin strokes). The 128 px textures, the chosen ring's
+   included, blurred close up.
+4. **The event's "compressed waveform"** is lucide's Activity, a pulse line, mapped as intended
+   and not a fallback. On a sphere its long baseline and narrow spikes read as a squiggle.
+5. **Links over icons:** icons were drawn before links (render order 2 against the library's
+   10), so a link crossing a sphere crossed its icon.
+
+**What changed** (`MemoryConstellation.tsx`; `kinds.tsx`; the strings):
+- The camera's near plane is 10. Depth then resolves 0.04 units at the overview and 2.4 at
+  the farthest zoom; nothing nearer than 10 units to the camera is drawn.
+- An icon sits 0.2 radii in front of its sphere, enough for a sphere at the corner of the view.
+- An icon is about half its sphere across: a 1.5-radius sprite, the icon in 200 of 256 px,
+  stroke 2.4.
+- Icons are drawn after the links (render order 20). A link crossing a sphere passes under its
+  icon; a sphere in front still hides it.
+- The rings face the screen, so they circle the sphere and never cross its icon. Both come
+  from 256 px textures.
+  - A simulation record's ring is a dashed notice-blue circle at 1.22 radii, as on the timeline.
+  - The chosen record's laminate ring is at 1.45 radii, outside it.
+  - The torus is gone; the 3D chunk is 1.07 kB smaller.
+- An event's icon is a bolt (Zap), in every view: 3D, timeline, list, filters and the panel.
+- Help says "A dashed blue ring…".
+
+**Verified on the final code:**
+- The same eye, over the same 6 s: whole in 13 of 13 frames.
+- Every icon is whole, upright and centred in the overview at 1440x900 (checked at full
+  resolution) and on a 390 px phone.
+- The ellipse is gone, and the rings are concentric with their spheres.
+- The chosen, linked-chain and search states look right in 3D, and the bolt reads in the
+  timeline and the Filters legend.
+- No console errors.
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | Pass |
+| `npm test` (Vitest) | 198 passed (19 files) |
+| Knowledge spec | 58 of 58 |
+| `npm run e2e` (Playwright) | 267 tests, twice: 251 passed and 1 failed each time, the pypdf test (decision 31); 9 did not run (the local spec's serial mode) and 6 opt-in captures were skipped. The local spec without the pypdf test: 9 of 9 |
+| `npm run build`, `npm run build:demo` | Pass, with the existing over-500 kB warning. The 3D chunk is 800.63 kB, 1.07 kB less; the constellation's chunk is 30.22 kB; the Knowledge chunk is 159.51 kB, 0.24 kB more (the bolt) |
+
+Before and after, in this session's scratchpad (temporary):
+`C:\Users\Crusher1\AppData\Local\Temp\claude\c--Users-Crusher1-Documents-HVAC-hvac-agent\d74a6fd3-c96b-4b98-997e-b2273c6f041e\scratchpad\m76\`.
+- `before\` and `after\` hold the same shots from `icons.mjs`, at 1440x900 with 2x pixels:
+  - `overview.png`, the initial constellation, cropped at full resolution in `crop-*.png`;
+  - the simulation records `overview-009.png` and `overview-016.png`;
+  - a normal record, `overview-004.png`, and every other record;
+  - chosen records, `chosen-016.png` (simulation), `chosen-004.png` and `chosen-009.png`;
+  - the linked chain, `chain-007.png`;
+  - `phone-overview.png`, and the icon textures, `texture-*.png`.
+- `before\chosen-016-without-torus.png` is the proof of what the ellipse was.
+- `align-sheet.png` and `align2-sheet.png` show the eye over 6 s, before and after the depth fix.
+- `after-2d\` holds the timeline and Filters with the bolt.
+
+Limits:
+- Seen very close, an icon looks larger against its sphere, being nearer the camera. At 200
+  units from a chosen sphere, about 1.4 times as large as from afar.
+- The RAG Graph's 3D view also keeps three.js's default near plane. It was not changed or
+  checked for the same breakup (decision 34).
+- Real devices, other browsers and a discrete GPU were not checked.

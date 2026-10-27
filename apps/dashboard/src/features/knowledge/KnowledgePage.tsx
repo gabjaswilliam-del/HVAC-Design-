@@ -1,10 +1,10 @@
 /**
- * Knowledge: two separate systems on one page. The RAG Graph (the default) holds technical
- * documents, their passages and the relationships their text supports, as a graph filling
- * the page; Graph Memory holds what happened at the plant and what was decided, over time.
- * Separate services, contracts and stores; neither reads the other. One slim header: the
- * two systems, the RAG Graph's count, and where its data comes from. Typed address:
- * `/knowledge?kn=rag|memory`.
+ * Knowledge: two separate systems on one page, each filling it. The RAG Graph (the default)
+ * holds technical documents, their passages and the relationships their text supports, as
+ * a graph; Graph Memory holds what happened at the plant and what was decided, as a
+ * timeline. Separate services, contracts and stores; neither reads the other. One slim
+ * header: the two systems, the open one's count, and where its data comes from. Typed
+ * address: `/knowledge?kn=rag|memory`.
  */
 import { use, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { BookOpenText, History } from "lucide-react";
@@ -82,16 +82,15 @@ export function KnowledgePage() {
             </button>
           ))}
         </div>
-        {tab === "rag" && count && (
+        {count && (
           <span className="kn-count" role="status">
             {count}
           </span>
         )}
         <SourceTag system={tab === "rag" ? "knowledge" : "memory"} />
       </div>
-      {tab === "memory" && <p className="page__sub knowledge__lead">{s.lead.memory}</p>}
       <div ref={panel} id="kn-panel" role="tabpanel" aria-labelledby={`kn-tab-${tab}`} className="knowledge__panel">
-        {tab === "rag" ? <RagWorkspace key="rag" client={clients.knowledge} onCount={setCount} /> : <MemoryWorkspace key="memory" client={clients.memory} />}
+        {tab === "rag" ? <RagWorkspace key="rag" client={clients.knowledge} onCount={setCount} /> : <MemoryWorkspace key="memory" client={clients.memory} onCount={setCount} />}
       </div>
     </div>
   );

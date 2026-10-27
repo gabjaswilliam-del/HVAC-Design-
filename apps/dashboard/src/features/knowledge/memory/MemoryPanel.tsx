@@ -6,15 +6,24 @@
  * run lists the records about it.
  */
 import { useState } from "react";
-import { TriangleAlert, Unlink } from "lucide-react";
+import { MoveRight, TriangleAlert, Unlink } from "lucide-react";
 import { useKnowledgeStrings } from "../../../lib/i18n/knowledge";
 import { useResource } from "../../../lib/api/useResource";
 import type { MemoryClient } from "../../../lib/api/memory";
-import type { LinkType, MemoryDeleted, MemoryDetail, MemoryRecord, MemoryStatus } from "../../../lib/contracts/memory";
+import type { LinkType, MemoryDeleted, MemoryDetail, MemoryKind, MemoryRecord, MemoryStatus } from "../../../lib/contracts/memory";
 import { Notice } from "../../../components/Notice";
 import { Confirm, SidePanel, equipmentName, formatUtc } from "../shared";
-import { KindLabel, ProvenanceTag } from "./MemoryWorkspace";
+import { KIND_COLOURS, KIND_ICONS, KindLabel, ProvenanceTag } from "./kinds";
 import { CorrectionForm, LinkForm } from "./MemoryForms";
+import type { TimelineLink } from "./timeline";
+
+/** A record as the chain and a link show it. */
+export interface RecordRef {
+  id: string;
+  kind: MemoryKind;
+  title: string;
+  occurredAt: string;
+}
 
 export function MemoryPanel({
   client,
@@ -23,6 +32,7 @@ export function MemoryPanel({
   records,
   equipment,
   status,
+  chain,
   onInspect,
   onChanged,
   onClose,
@@ -33,13 +43,15 @@ export function MemoryPanel({
   records: MemoryRecord[];
   equipment: string[];
   status?: MemoryStatus;
+  /** The records joined to this one through stored links, in time order (it included). */
+  chain?: RecordRef[];
   onInspect: (id: string) => void;
   onChanged: (select?: string | null) => void;
   onClose: () => void;
 }) {
   if (id.startsWith("equipment:") || id.startsWith("run:")) return <AnchorPanel key={id} client={client} id={id} revision={revision} onInspect={onInspect} onClose={onClose} />;
   // Keyed: a different record starts with fresh state (no carried-over delete summary or form).
-  return <RecordPanel key={id} client={client} id={id} revision={revision} records={records} equipment={equipment} status={status} onInspect={onInspect} onChanged={onChanged} onClose={onClose} />;
+  return <RecordPanel key={id} client={client} id={id} revision={revision} records={records} equipment={equipment} status={status} chain={chain} onInspect={onInspect} onChanged={onChanged} onClose={onClose} />;
 }
 
 function RecordPanel({
@@ -49,6 +61,7 @@ function RecordPanel({
   records,
   equipment,
   status,
+  chain,
   onInspect,
   onChanged,
   onClose,
@@ -59,6 +72,7 @@ function RecordPanel({
   records: MemoryRecord[];
   equipment: string[];
   status?: MemoryStatus;
+  chain?: RecordRef[];
   onInspect: (id: string) => void;
   onChanged: (select?: string | null) => void;
   onClose: () => void;
@@ -93,8 +107,10 @@ function RecordPanel({
     );
   }
   if (!r.data) {
+    // The same subject as when it has loaded: arriving does not take the focus a second time
+    // (someone may be typing in the search box by then).
     return (
-      <SidePanel title={s.panel.loadingTitle} subject={`loading:${id}`} onClose={onClose} labelledBy="kn-mem-title">
+      <SidePanel title={s.panel.loadingTitle} subject={id} onClose={onClose} labelledBy="kn-mem-title">
         <p className="kn-loading" role="status">
           {s.panel.loading}
         </p>
@@ -244,6 +260,29 @@ function RecordPanel({
         </ul>
       </section>
 
+      {chain && chain.length > 2 && (
+        <section className="kn-panel__section" aria-labelledby="kn-chain-title">
+          <h4 id="kn-chain-title">{s.chain(chain.length)}</h4>
+          <p className="kn-meta">{s.chainNote}</p>
+          <ol className="kn-history mm-chain">
+            {chain.map((c) => {
+              const Icon = KIND_ICONS[c.kind];
+              return (
+                <li key={c.id} aria-current={c.id === m.id || undefined}>
+                  <Icon size={14} aria-hidden="true" style={{ color: KIND_COLOURS[c.kind] }} />
+                  <button type="button" className="kn-rowlink" onClick={() => onInspect(c.id)} disabled={c.id === m.id}>
+                    {c.title}
+                  </button>
+                  <span className="kn-meta">
+                    {s.kinds[c.kind]} · {formatUtc(c.occurredAt)}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      )}
+
       {local && m.status === "current" && mode === "view" && (
         <div className="kn-panel__actions">
           <button type="button" className="button button--small" onClick={() => setMode("correct")}>
@@ -309,6 +348,72 @@ function RecordPanel({
           <TriangleAlert size={15} aria-hidden="true" />
           {error}
         </p>
+      )}
+    </SidePanel>
+  );
+}
+
+/** A stored link chosen on the timeline: what it joins, which way, and when it was made (the
+ *  source record's own account of it). */
+export function LinkPanel({
+  client,
+  id,
+  link,
+  records,
+  revision,
+  onInspect,
+  onClose,
+}: {
+  client: MemoryClient;
+  id: string;
+  link?: TimelineLink;
+  records: Map<string, RecordRef>;
+  revision: number;
+  onInspect: (id: string) => void;
+  onClose: () => void;
+}) {
+  const s = useKnowledgeStrings().memory;
+  const r = useResource(link ? `mlink:${link.source}:${revision}` : null, `mlink:${id}`, (signal) => client.inspectMemory(link!.source, { signal }));
+  const stored = r.data?.links.find((l) => l.id === id);
+  const from = link ? records.get(link.source) : undefined;
+  const to = link ? records.get(link.target) : undefined;
+  const type = link && link.type !== "SUPERSEDES" ? (link.type as LinkType) : null;
+  const end = (rec: RecordRef | undefined, fallback: string) =>
+    rec ? (
+      <button type="button" className="kn-rowlink" onClick={() => onInspect(rec.id)}>
+        {rec.title}
+        <span className="kn-meta">
+          {s.kinds[rec.kind]} · {formatUtc(rec.occurredAt)}
+        </span>
+      </button>
+    ) : (
+      <span className="kn-meta">{fallback}</span>
+    );
+  return (
+    <SidePanel title={type ? s.linkPhrases.out[type] : s.edgeTypes.SUPERSEDES} subject={`link:${id}`} onClose={onClose} labelledBy="kn-link-title">
+      {!link || !type ? (
+        <p className="kn-meta">{s.link.gone}</p>
+      ) : (
+        <>
+          <dl className="kn-facts">
+            <dt>{s.link.from}</dt>
+            <dd>{end(from, link.source)}</dd>
+            <dt aria-hidden="true" />
+            <dd className="kn-meta mm-link-phrase">
+              <MoveRight size={14} aria-hidden="true" /> {s.edgeTypes[type]}
+            </dd>
+            <dt>{s.link.to}</dt>
+            <dd>{end(to, link.target)}</dd>
+          </dl>
+          {stored && <p className="kn-meta">{s.link.stored(formatUtc(stored.createdAt))}</p>}
+          {!r.data && !r.error && (
+            <p className="kn-loading" role="status">
+              {s.link.loading}
+            </p>
+          )}
+          {r.error && <Notice tone="warning">{r.error.message}</Notice>}
+          <p className="kn-note">{s.link.note}</p>
+        </>
       )}
     </SidePanel>
   );

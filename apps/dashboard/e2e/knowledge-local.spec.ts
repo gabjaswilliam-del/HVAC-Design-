@@ -223,7 +223,7 @@ test("the graph's relationships show the uploaded text that supports them", asyn
 });
 
 test("memory: what may be stored, recording, linking, correcting with history, and deleting", async ({ page }) => {
-  await open(page, "&kn=memory");
+  await open(page, "&kn=memory&mv=timeline");
   await expect(page.getByText("Local memory service", { exact: true })).toBeVisible();
   await expect(page.getByText("No memory record matches these filters.")).toBeVisible();
   await page.getByRole("button", { name: "Record memory" }).click();
@@ -258,8 +258,15 @@ test("memory: what may be stored, recording, linking, correcting with history, a
   await expect(panel(page).getByRole("heading", { name: "Condenser fouling suspected on Chiller 2" })).toBeVisible();
   await expect(panel(page).locator(".kn-rels")).toContainText("Supported by");
 
+  // On the timeline, the two records and the link between them; the same in 3D.
+  await expect(page.getByRole("group", { name: "Memory timeline, 2 records and 1 link" })).toBeVisible();
+  await page.getByRole("radio", { name: "3D" }).click();
+  await expect(page.getByRole("application", { name: "Memory constellation in 3D, 2 records and 1 link" })).toBeVisible();
+  await expect(page.locator(".mm3-label[data-sx]")).toHaveCount(2);
+  await page.getByRole("radio", { name: "Timeline" }).click();
+  await expect(page.getByRole("group", { name: "Memory timeline, 2 records and 1 link" })).toBeVisible();
   // Correct the observation: a new version; the old one stays as history.
-  await page.locator(".kn-entry", { hasText: "Chiller 2 condenser approach 4.8 K" }).click();
+  await page.getByRole("button", { name: /^Observation: Chiller 2 condenser approach 4\.8 K,/ }).click();
   await panel(page).getByRole("button", { name: "Correct…" }).click();
   await panel(page).getByLabel("Reason").fill("Sensor read 0.6 K low");
   await panel(page).getByLabel("Title").fill("Chiller 2 condenser approach 4.2 K");
@@ -267,8 +274,10 @@ test("memory: what may be stored, recording, linking, correcting with history, a
   await expect(panel(page).getByRole("heading", { name: "Chiller 2 condenser approach 4.2 K" })).toBeVisible();
   await expect(panel(page).locator(".kn-history li")).toHaveCount(2);
   await expect(panel(page)).toContainText("Reason: Sensor read 0.6 K low");
+  await page.getByRole("button", { name: /^Filters/ }).click();
   await page.getByRole("checkbox", { name: "Include superseded versions" }).check();
-  await expect(page.locator(".kn-entry--old")).toContainText("Chiller 2 condenser approach 4.8 K");
+  await page.getByRole("button", { name: /^Filters/ }).click();
+  await expect(page.getByRole("button", { name: /^Observation: Chiller 2 condenser approach 4\.8 K,.*, superseded$/ })).toBeVisible();
 
   // Delete the correction: confirmed first; the version it corrected is current again.
   await panel(page).getByRole("button", { name: "Delete…" }).click();
@@ -293,6 +302,9 @@ test("a removed document takes its passages, keyword entries and relationships w
 });
 
 test("documents and memory survive a reload and a restart of the service", async ({ page }) => {
+  // An upload with its indexing, two reloads and a restart of the service: slow under the full
+  // suite's load.
+  test.slow();
   await open(page, "&kv=library");
   await upload(page, "chiller-2-notes.md", NOTES);
   await expect(panel(page).locator(".kn-status")).toHaveText("Indexed", { timeout: 15_000 });
@@ -303,8 +315,8 @@ test("documents and memory survive a reload and a restart of the service", async
   await page.reload();
   await expect(page.locator(".kn-docs tr", { hasText: "Chiller 2 field notes" })).toContainText("Indexed");
   await expect(page.locator(".kn-docs tr", { hasText: "Drawing register" })).toContainText("Failed");
-  await page.goto("/knowledge?knowledge=local&kn=memory");
-  await expect(page.locator(".kn-entry", { hasText: "Condenser fouling suspected on Chiller 2" })).toBeVisible();
+  await page.goto("/knowledge?knowledge=local&kn=memory&mv=timeline");
+  await expect(page.getByRole("button", { name: /^Finding: Condenser fouling suspected on Chiller 2,/ })).toBeVisible();
 });
 
 test("with the service stopped, real mode says so and never shows demo data", async ({ page }) => {

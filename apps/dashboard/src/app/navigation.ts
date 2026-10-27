@@ -86,7 +86,7 @@ export function targetPath(target: RouteTarget): string {
 }
 
 /** The Knowledge page's own address: its tab, views and what is open in them. */
-export const KNOWLEDGE_PARAMS = ["kn", "kv", "doc", "passage", "node", "edge", "q", "mem", "mv", "gv"];
+export const KNOWLEDGE_PARAMS = ["kn", "kv", "doc", "passage", "node", "edge", "q", "mem", "mlink", "mv", "gv"];
 
 /** Navigation keeps the demo context (scenario, time, `knowledge=local`) but drops a
  *  page's own selection: the Overview's and the Knowledge page's. */

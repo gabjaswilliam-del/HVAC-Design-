@@ -2,11 +2,11 @@
  * Pieces both Knowledge tabs use. Retrieved passages and memory text are untrusted data:
  * they are rendered as text nodes only (React escapes them), never as markup.
  */
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { useKnowledgeStrings } from "../../lib/i18n/knowledge";
 import { motion } from "../../lib/motion";
-import { useEscapeLayer } from "../../components/escape";
+import { useDismissOutside, useEscapeLayer } from "../../components/escape";
 import { knowledgeMode } from "../../app/dataClient";
 
 /** Text with highlighted ranges, as plain text and <mark> elements. */
@@ -51,6 +51,31 @@ export function SourceTag({ system }: { system: "knowledge" | "memory" }) {
       {s.demo(system)}
     </span>
   );
+}
+
+/** While `open`, focus moving out of `box` (a keyboard user tabbing on) closes it. */
+export function useFocusAway(open: boolean, box: React.RefObject<HTMLElement | null>, close: () => void) {
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: FocusEvent) => {
+      if (!box.current?.contains(e.target as Node)) close();
+    };
+    document.addEventListener("focusin", away);
+    return () => document.removeEventListener("focusin", away);
+  }, [open, box, close]);
+}
+
+/** A small control over a graph that opens a panel under it (filters, help): Escape, a
+ *  press elsewhere or focus moving on closes it. */
+export function useMenu() {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const id = useId();
+  const close = useCallback(() => setOpen(false), []);
+  useEscapeLayer(open, close);
+  useDismissOutside(open, box, close);
+  useFocusAway(open, box, close);
+  return { open, setOpen, box, id };
 }
 
 /**

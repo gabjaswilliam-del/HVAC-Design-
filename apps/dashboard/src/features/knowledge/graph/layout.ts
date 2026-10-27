@@ -7,10 +7,6 @@
  *   Fruchterman-Reingold steps from hash-seeded starts. Nodes kept from the previous
  *   view stay exactly where they were and only new ones settle around them, so
  *   expanding a node never reshuffles the picture.
- * - `timeLayout` for the memory graph: records in order of occurrence left to right (one
- *   step per distinct time, so events close in time do not collide; day markers show where
- *   each day begins), one lane per equipment item, simulation runs above, superseded
- *   versions under their successor.
  * - `planetaryLayout` for the knowledge graph in 3D: one planetary system per document
  *   (`documentWeights` says which), the document at the centre and what it describes on
  *   orbits round it, systems apart in rows. Placed, not simulated.
@@ -119,75 +115,6 @@ export function forceLayout(
   }
   ids.forEach((id, i) => out.set(id, { x: Math.round(xs[i] * 10) / 10, y: Math.round(ys[i] * 10) / 10 }));
   return out;
-}
-
-export interface TimedNode {
-  id: string;
-  type: string;
-  occurredAt?: string;
-  equipment?: readonly string[];
-  runId?: string | null;
-  status?: string;
-}
-
-export const LANE = 96;
-const STEP = 130;
-
-/**
- * Occurrence order left to right; lanes by the first equipment item a record is about
- * (records about nothing share a last lane); simulation runs in a lane above at their first
- * record's place; anchors (the equipment) at the lane's start. Records at one place on one
- * lane are staggered vertically so none overlap.
- */
-export function timeLayout(nodes: readonly TimedNode[]): {
-  positions: Map<string, Point>;
-  lanes: { key: string; y: number }[];
-  days: { x: number; day: string }[];
-  width: number;
-} {
-  const records = nodes.filter((n) => n.occurredAt);
-  const times = [...new Set(records.map((n) => n.occurredAt!))].sort();
-  const xOf = (t: string) => 160 + times.indexOf(t) * STEP;
-  const days: { x: number; day: string }[] = [];
-  for (const t of times) if (days.at(-1)?.day !== t.slice(0, 10)) days.push({ x: xOf(t) - STEP / 2, day: t.slice(0, 10) });
-  const laneKeys: string[] = [];
-  const hasRuns = records.some((r) => r.runId);
-  if (hasRuns) laneKeys.push("runs");
-  for (const r of records.toSorted((a, b) => a.occurredAt!.localeCompare(b.occurredAt!) || a.id.localeCompare(b.id))) {
-    const key = r.equipment?.[0] ?? "none";
-    if (!laneKeys.includes(key)) laneKeys.push(key);
-  }
-  for (const n of nodes) if (n.type === "equipment" && !laneKeys.includes(n.id.slice("equipment:".length))) laneKeys.push(n.id.slice("equipment:".length));
-  const laneY = new Map(laneKeys.map((key, i) => [key, i * LANE]));
-  const positions = new Map<string, Point>();
-  const placed: { lane: string; x: number; y: number }[] = [];
-  const free = (lane: string, x: number, y: number) => {
-    // Step away from neighbours on the same lane: +22, -22, +44 …
-    for (let i = 0; i < 12; i++) {
-      const dy = (i % 2 ? -1 : 1) * Math.ceil(i / 2) * 22;
-      if (!placed.some((p) => p.lane === lane && Math.abs(p.x - x) < 70 && Math.abs(p.y - (y + dy)) < 20)) return y + dy;
-    }
-    return y;
-  };
-  const ordered = records.toSorted((a, b) => (a.status === "superseded" ? 1 : 0) - (b.status === "superseded" ? 1 : 0) || a.occurredAt!.localeCompare(b.occurredAt!) || a.id.localeCompare(b.id));
-  for (const r of ordered) {
-    const lane = r.equipment?.[0] ?? "none";
-    const x = xOf(r.occurredAt!);
-    const base = laneY.get(lane)! + (r.status === "superseded" ? 30 : 0);
-    const y = free(lane, x, base);
-    placed.push({ lane, x, y });
-    positions.set(r.id, { x: Math.round(x), y });
-  }
-  for (const n of nodes) {
-    if (n.type === "equipment") positions.set(n.id, { x: 40, y: laneY.get(n.id.slice("equipment:".length)) ?? 0 });
-    if (n.type === "simulation_run") {
-      const first = records.filter((r) => `run:${r.runId}` === n.id).map((r) => r.occurredAt!).sort()[0];
-      const x = first ? xOf(first) : 160;
-      positions.set(n.id, { x: Math.round(x), y: free("runs", x, laneY.get("runs") ?? 0) });
-      placed.push({ lane: "runs", x, y: positions.get(n.id)!.y });
-    }
-  }
-  return { positions, lanes: laneKeys.map((key) => ({ key, y: laneY.get(key)! })), days, width: 160 + Math.max(times.length - 1, 0) * STEP + 80 };
 }
 
 export interface Point3 {

@@ -23,11 +23,22 @@ real local service (Python standard library, SQLite) and keeps a read-only demo.
 (2026-10-09) draws the knowledge graph in 3D**, with react-force-graph-3d (installed by the
 owner), keeping the 2D view.
 
-**M7.2 (2026-10-16), uncommitted, redraws the 3D graph as planetary systems**, one per
-document, with group focus. **M7.3 (2026-10-16/17), uncommitted, makes the RAG Graph (the
-renamed Graph RAG) a full-page workspace**: Knowledge opens on the graph, with the search
-and the library inside it. Section 9b records M7 to M7.3. Nothing of M7.2 or M7.3 is staged,
-committed or pushed.
+**M7.2 (2026-10-16) redraws the 3D graph as planetary systems**, one per document, with
+group focus. **M7.3 (2026-10-16/17) makes the RAG Graph (the renamed Graph RAG) a full-page
+workspace**: Knowledge opens on the graph, with the search and the library inside it. **The
+owner committed M7.2 and M7.3 as `d960455`** ("Complete M7.2 and M7.3 RAG Graph redesign",
+2026-10-17).
+
+**M7.4 (2026-10-17), uncommitted, makes Graph Memory a full-page timeline**: time across,
+one lane per equipment item, the records by their own timestamps, the stored links as arcs,
+with one search box, Filters, Help and the list over it. **M7.5 (built 2026-10-17, reviewed
+and finished 2026-10-26), uncommitted, adds Graph Memory's constellation in 3D**, where Graph
+Memory now opens: lit spheres by time and equipment group, the camera flying to a chosen
+record and back to exactly where it was; the timeline and the list stay as views. **M7.6
+(2026-10-26), uncommitted, shows Graph Memory as "Memory graph"** (the tab and the visible
+text; `kn=memory` and every identifier unchanged) **and repairs the constellation's icons and
+rings**. Section 9b records M7 to M7.6. Nothing of M7.4 to M7.6 is staged, committed or
+pushed.
 
 This is a current-state handoff, not a history. Git and the current files are
 authoritative: verify every statement here against them before relying on it, and say
@@ -39,10 +50,10 @@ so when they disagree.
 |---|---|
 | Repository | `C:\Users\Crusher1\Documents\HVAC\hvac-agent`. Remotes: `origin` `github.com/yxiao986/hvac-agent`, and `personal` `github.com/gabjaswilliam-del/HVAC-Design-` (the owner's) |
 | Branch | `feat/dashboard-version-a`, tracking `personal/main` |
-| HEAD | `cd94b78` "Complete HVAC Agent development M1 through M7.1" (the owner, 2026-10-10), the same as `personal/main` at the last fetch |
-| Commits on the branch | `origin/main` `85093f8`, then `4376230` M0–M1, `b7c525f` M2–M3, `90abc0a` M3.1, `bb234a4` M4, `709e642` M5, `3088be6` Treatment A and the Assistant, and `cd94b78` (M6, M7, M7.1 and everything then in the checkout) |
+| HEAD | `d960455` "Complete M7.2 and M7.3 RAG Graph redesign" (the owner, 2026-10-17) |
+| Commits on the branch | `origin/main` `85093f8`, then `4376230` M0–M1, `b7c525f` M2–M3, `90abc0a` M3.1, `bb234a4` M4, `709e642` M5, `3088be6` Treatment A and the Assistant, `cd94b78` (M6, M7, M7.1 and everything then in the checkout), and `d960455` (M7.2, M7.3) |
 | Staged | Nothing |
-| Uncommitted | M7.2 and M7.3 (section 9b) |
+| Uncommitted | M7.4 and M7.5 (section 9b) |
 
 **The checkpoint commit** (2026-10-06, local, not pushed) holds the work after M5:
 
@@ -97,7 +108,7 @@ It is still theirs: never edit or revert it.** As listed before that commit:
 | Source | Purpose | Status |
 |---|---|---|
 | `CLAUDE.md` (root, untracked) | Durable instructions for Claude Code: where to start, safety rules, Graphify rules | Current. Created by Claude at the owner's request; the start-here section was added 2026-10-06 |
-| `apps/dashboard/M6_HANDOFF.md` | This file: current state, requirements and next steps | Current as of 2026-10-17 (M7 to M7.3) |
+| `apps/dashboard/M6_HANDOFF.md` | This file: current state, requirements and next steps | Current as of 2026-10-26 (M7 to M7.6) |
 | `apps/dashboard/DESIGN.md` | The approved Treatment A design system (visual language, layout, components) | Current; matches the code |
 | `apps/dashboard/VERSION_A.md` | Milestone log, owner decisions (F10), acceptance evidence | Current. Chronological: later sections supersede earlier ones (M5's "drawer" became the Treatment A workspace; the M6 consolidated revision supersedes the first M6 section's screens and Assistant) |
 | `apps/dashboard/PRODUCT.md` | Users, tone and design principles for UI work | Current (2026-10-04) |
@@ -546,7 +557,7 @@ Retrieved text and memory are untrusted data: never instructions, never control 
     the 2D view carry its content;
   - only SwiftShader has drawn it (no hardware GPU or the DGX Spark yet).
 
-**M7.2, the 3D graph as planetary systems (uncommitted, 2026-10-16).** `VERSION_A.md`
+**M7.2, the 3D graph as planetary systems (2026-10-16; committed in `d960455`).** `VERSION_A.md`
 records the causes, the measurements and the results.
 
 | Path | Role |
@@ -578,7 +589,7 @@ records the causes, the measurements and the results.
   - the full end-to-end suite has an unexplained intermittent Escape failure under load
     (`VERSION_A.md`, M7.2).
 
-**M7.3, the RAG Graph as a full-page workspace (uncommitted, 2026-10-16/17).**
+**M7.3, the RAG Graph as a full-page workspace (2026-10-16/17; committed in `d960455`).**
 `VERSION_A.md` records the measurements, the review and the results. Knowledge opens on the
 graph. The Library, Search and Graph views are gone, and their content lives in the graph's
 workspace.
@@ -615,6 +626,109 @@ workspace.
     did before M7.3.
   - Not validated: a real touch device, a real screen reader, other browsers, a hardware
     GPU.
+
+**M7.4, Graph Memory as a full-page timeline (uncommitted, 2026-10-17).** `VERSION_A.md`
+records the before and after, the review and the results. The memory service, its contracts,
+records and provenance are unchanged; no dependency was added.
+
+| Path | Role |
+|---|---|
+| `src/features/knowledge/memory/timeline.ts` (new) | Pure layout: the elastic time axis (`span`, `xAt`, quiet stretches over 72 h shortened), lanes per equipment item with the runs' lane above, stacked same-moment records, echoes, run spans, the stored links plus supersession between records shown, day ticks; `linkedTo`, `chainOf` (stored links only) and `parseDays` (dates and ranges typed in search). Tested in `timeline.test.ts` (new, 7 tests) |
+| `src/features/knowledge/memory/MemoryTimeline.tsx` (new) | The canvas, drawn in screen space from a camera (time scale and two offsets): lanes, the date row, run bands, link arcs, orbs, names (`declutter`), lane names, the "+n" counts, pointer, wheel, pinch, keyboard and announcements |
+| `src/features/knowledge/memory/MemoryControls.tsx` (new) | `MemorySearch` (the combobox over every record), `MemoryFiltersMenu` (filters and legend), `MemoryHelp`, `ViewSwitch` (Timeline \| List) |
+| `src/features/knowledge/memory/kinds.tsx` (new) | The six kinds' icons and colours; `KindLabel`, `ProvenanceTag` (moved from the workspace) |
+| `src/features/knowledge/memory/MemoryWorkspace.tsx` | Rewritten: the timeline filling the stage with the controls over it, the list (`mv=list`), the column (a record, a link, an equipment item's or a run's records, the form), the notes over the timeline, search choices, refitting once another filter's records have arrived |
+| `src/features/knowledge/memory/MemoryPanel.tsx` | The linked chain section; `LinkPanel` (new, `mlink=`); the loading panel keeps the record's subject, so arriving data does not take focus twice |
+| `src/features/knowledge/KnowledgePage.tsx` | Both tabs' headers hold the count; Graph Memory's lead moved into Help |
+| `src/features/knowledge/shared.tsx`, `rag/KnowledgeGraphView.tsx` | `useFocusAway` and `useMenu` moved to `shared.tsx`, unchanged, for both systems |
+| `src/features/knowledge/graph/sky.ts` (new), `graph/GraphCanvas3D.tsx` | The star sky moved out of the 3D view, unchanged, so the timeline shares it |
+| `src/features/knowledge/graph/layout.ts`, `layout.test.ts` | The memory graph's time layout (`timeLayout`) and its test removed: nothing uses them |
+| `src/features/knowledge/knowledge.css` | The timeline (`.mm-*`), the controls and popovers shared by both systems' full pages; Graph Memory's old page rules removed; forced colours for the timeline |
+| `src/lib/i18n/knowledge.ts` | The timeline, search, notes, help, link and chain strings; the count's plurals; old view strings removed |
+| `src/app/navigation.ts` | `mlink` joins the Knowledge page's own address, dropped when leaving the page |
+| `e2e/knowledge.spec.ts`, `e2e/knowledge-local.spec.ts` | Graph Memory's tests rewritten for the timeline, with no assertion dropped (the list's checks moved to the list test); new tests below |
+
+- Addresses: `?kn=memory&mem=` (a record, `equipment:<id>` or `run:<id>`), `&mlink=` (a
+  stored link), `&mv=list` (the list). `mv=graph` (the old memory graph) opens the timeline.
+- Limits:
+  - Search looks through the records the service lists for it (`listMemories`, at most
+    200, superseded versions included); a larger store would need the service to search.
+  - The timeline draws at most the service's 120 latest records for the filters (said
+    over it when cut short), as the memory graph did.
+  - On a phone with the column open, the timeline keeps 200 px (as the RAG Graph does,
+    decision 23): a chosen record shows with its lane's name, and its name card only where
+    it fits.
+  - Not validated: a real touch device (the pinch is tested with synthetic touches only), a
+    real screen reader, other browsers, a store with hundreds of records.
+
+**M7.5, Graph Memory's constellation in 3D (uncommitted; built 2026-10-17, reviewed and finished 2026-10-26).** `VERSION_A.md`
+records the before and after, the review and the results. The memory service, its contracts,
+records and provenance are unchanged, and so is the RAG Graph's behaviour. No dependency was
+added, but see decision 29.
+
+| Path | Role |
+|---|---|
+| `src/features/knowledge/memory/constellation.ts` (new) | Pure layout, from the timeline's: positions in 3D (time across, equipment groups down and in depth; each record as near its group's line as it can be without covering an earlier one from the front, never past the middle between groups; same-moment records just under one another), sizes by stored links, how far each record takes a click, where group names, run names, dates and quiet stretches go, echoes. `hash01`; `pickAt`, which record a press on screen is for. Tested in `constellation.test.ts` (new, 11 tests) |
+| `src/features/knowledge/memory/MemoryConstellation.tsx` (new, lazy) | The 3D view: spheres, simulation rings and superseded ghosts (three.js objects through react-force-graph-3d), links (lines of one width, recoloured by a choice, never rebuilt; arrows ending at each sphere's surface as drawn), lights, stars, hazes and fog; the camera (framing, flights, focus, the exact return with what it framed; a press takes it over only once it moves the view, and a click during a flight counts for the sphere pressed); names over the canvas; drawing on demand and the drift; a lighter scene in software rendering; pointer, touch and keys; announcements |
+| `src/features/knowledge/graph/scene3d.tsx` (new) | What both 3D views share, moved unchanged from `GraphCanvas3D.tsx` and `KnowledgeGraphView.tsx`: vector helpers, the camera and controls types, `canDraw3d`, `forcedColors`, `ThreeGuard` and the pointer helpers. New: `drawsInSoftware` (the same probe also reads the renderer's name) |
+| `src/features/knowledge/graph/three.d.ts` (new) | Minimal types for the parts of three.js used directly |
+| `src/features/knowledge/graph/GraphCanvas3D.tsx`, `rag/KnowledgeGraphView.tsx` | Import the moved helpers; no behaviour change |
+| `src/features/knowledge/memory/MemoryWorkspace.tsx` | Chooses the view. 3D by default (`mv` absent, `graph` or `3d`), lazy and behind `ThreeGuard`. The timeline with `mv=timeline`, and also in high-contrast mode, without WebGL, after a lost graphics context or when the 3D view cannot start, each with its own note. The list |
+| `src/features/knowledge/memory/MemoryControls.tsx` | `ViewSwitch`: 3D \| Timeline \| List (3D disabled without WebGL); `MemoryHelp` reads the view it is over |
+| `src/lib/i18n/knowledge.ts` | `memory.constellation` (label, hint, keys, reading, the notes `noWebgl`, `forcedColors`, `failed`, `failedStart`), `views.three`; search's help no longer says "on the timeline" |
+| `src/features/knowledge/knowledge.css` | The constellation's names, group and run names and dates (`.mm3-*`); forced colours for them |
+| `e2e/knowledge.spec.ts`, `e2e/knowledge-local.spec.ts` | The timeline's tests now open it by its address (`mv=timeline`), with no assertion dropped. New tests for the constellation (`VERSION_A.md`) |
+
+- Addresses: `?kn=memory` opens the constellation; `&mv=timeline` the timeline, `&mv=list` the
+  list; the old `mv=graph` and `mv=3d` open the constellation. `&mem=` and `&mlink=` as before.
+- Limits:
+  - three.js is imported directly by `MemoryConstellation.tsx`. It is installed only as a
+    dependency of react-force-graph-3d (decision 29).
+  - The 3D chunk both views share is 802 kB (210 kB gzip); the constellation's own chunk is
+    30 kB (12 kB gzip). Both load only when a 3D view is shown; the build's over-500 kB
+    warning predates M7.5 (`VERSION_A.md`).
+  - On a phone with the column open the constellation keeps 200 px (decision 23); the
+    chosen sphere's ring can touch the search box.
+  - Where WebGL is drawn in software (no GPU) the constellation goes without the drift,
+    multisampling, the edge shells and the hazes: in SwiftShader a frame cost 274-278 ms of
+    processor time before, 96 ms after. On this machine's integrated GPU (AMD Radeon 860M)
+    it renders at hundreds of frames a second with every effect, and drifts as designed.
+  - The library takes a click's target from its last look under the pointer, made at most
+    every 50 ms. A tap shorter than that, straight after another gesture, can miss. A finger
+    stays down longer, and the tests tap for 80 ms.
+  - Escape within a frame of a panel opening is not seen (decision 20).
+  - A burst of records with no free height in its group's band overlaps the records it
+    covers when seen from the front; no two spheres ever meet in 3D. In 2,000 random sets
+    (2-5 groups, 4-17 records within a week) per kind, 0-3.3% of phone layouts had such an
+    overlap (the most with superseded versions and links), 0.2-0.25% of desktop layouts.
+  - A change of the records shown (filters, superseded versions) rebuilds every sphere: the
+    library binds objects to data objects, which a new layout replaces. Its disposal also
+    frees the textures and geometries the spheres share; three.js uploads them again. Rare,
+    and a few milliseconds at the 120-record cap.
+  - With the camera still, a click is picked by the library. Close to a chosen sphere (grown
+    1.28 times), a nearer record's click area can lie over about 1% of its drawn points: 32
+    of 2,841 in the fourth review's measurement. A click made while flying is picked by
+    `pickAt`, which prefers the sphere drawn.
+  - The RAG Graph's 3D view keeps a library behaviour the constellation now avoids: after a
+    drag that starts outside the view and crosses it (selecting the panel's text), nothing
+    shows under the pointer and the next click is lost (decision 32).
+  - Not validated: a discrete or mobile GPU (only this integrated one), a real touch device,
+    a real screen reader, other browsers, a store with hundreds of records (the layout and
+    the pick reach are O(n²), fine at the 120-record cap).
+
+**M7.6, the memory graph's name and its icons in 3D (uncommitted, 2026-10-26).** `VERSION_A.md`
+records the causes, the changes, the before and after and the results.
+
+| Path | Change |
+|---|---|
+| `src/lib/i18n/knowledge.ts` | The tab "Memory graph", the view switch's label, the high-contrast note, Help's title and rules heading; "A dashed blue ring…" |
+| `src/features/knowledge/memory/MemoryConstellation.tsx` | The camera's near plane 10 (`NEAR`); icons 0.2 radii in front (`ICON_LEAD`), half the sphere across, 256 px, drawn after the links; the simulation ring a dashed sprite facing the camera (1.22 radii), the chosen ring at 1.45 radii, 256 px (`ringSprite`); no torus |
+| `src/features/knowledge/memory/kinds.tsx` | An event's icon is a bolt (`Zap`), in every view |
+| `src/features/knowledge/graph/scene3d.tsx`, `graph/three.d.ts` | `Camera3.near`; `TorusGeometry` no longer typed (unused) |
+| `e2e/knowledge.spec.ts` | The tabs by their new name (exact); the tab's text and no "Graph Memory" on the page; Help's new title and the dashed ring's sentence |
+
+- The view stays `kn=memory`; components, modules, the memory API and test titles keep their
+  names.
 
 ## 10. Simulation backend status
 
@@ -683,7 +797,9 @@ Useful URL parameters:
   `?fail=knowledge:unavailable|empty`, `?fail=memory:unavailable|empty` (demo).
 - The RAG Graph's own address (M7.3): `?kv=library` (the library beside the graph),
   `?kv=search&q=…` (the passages), `?doc=`, `?passage=`, `?node=`, `?edge=` (the
-  inspection), `?gv=2d|3d`; `?kn=memory` is Graph Memory.
+  inspection), `?gv=2d|3d`; `?kn=memory` is Graph Memory (its constellation in 3D), with
+  `&mem=` (a record, `equipment:<id>` or `run:<id>`), `&mlink=` (a stored link) and
+  `&mv=timeline` or `&mv=list` (M7.4, M7.5).
 
 The local knowledge and memory service, from the repository root:
 
@@ -705,8 +821,9 @@ architecture questions; it is not memory, and Git is authoritative.
 unchanged): 863 nodes, 2,483 edges. It predates the M6 revisions: it still has
 `PilotPanel`, the AI Pilot page and History's record view, and lacks `PilotConsole`, the
 replay (`SimulationView`), `motion.ts` and `smoothScroll.ts`. It also predates M7 to
-M7.3: no Knowledge workspace, none of the Python knowledge or memory services, no 3D graph
-and none of the RAG Graph's workspace. It does not model CSS.
+M7.5: no Knowledge workspace, none of the Python knowledge or memory services, no 3D graph,
+none of the RAG Graph's workspace, no memory timeline and no constellation. It does not
+model CSS.
 
 Refresh again only with the owner's approval, using `CLAUDE.md`'s out-of-repo command. Record `git status` before and after. Never run
 `graphify update`, `watch`, `hook install`, `claude install` or any extraction without
@@ -771,6 +888,44 @@ Refresh again only with the owner's approval, using `CLAUDE.md`'s out-of-repo co
     graph as a sheet?
 24. The search box finds node names among the nodes in view (as the old find box did).
     Should it also find names anywhere in the index? That needs a new query to the service.
+25. M7.4 review: approve Graph Memory's full-page timeline (lanes by equipment, the elastic
+    axis, stored links only, "+n" for records waiting for zoom, one search box over every
+    record, Filters as the legend, the list), or ask for changes.
+26. M7.4 replaced the memory graph (records with equipment and run nodes and the derived
+    "occurred before" edges) with the timeline, which shows the same records, runs and
+    stored links in time; the list stays as the second view. Keep the graph's removal?
+27. Graph Memory's search reads up to 200 records from the service and searches them in the
+    browser. Past that it needs a search query in the memory service (a backend change).
+28. M7.5 review: approve Graph Memory's constellation in 3D as the view it opens on (the
+    timeline and the list kept as views), or ask for changes.
+29. `three` is imported directly by the constellation but is installed only as
+    react-force-graph-3d's dependency (0.186.1, which `three.d.ts` types in part). Declare it
+    in `package.json` at that version? That changes `package.json` and the lockfile, and
+    downloads nothing new. Or keep relying on the transitive install, which a change in
+    react-force-graph-3d's dependencies could break.
+30. The constellation's idle drift runs for 45 s after the last interaction, at 30 frames a
+    second, on a hardware GPU only (off with reduced motion and in software rendering). Keep
+    it, shorten it, or leave the scene still?
+31. pypdf 6.21.2 was installed into this machine's Python on 2026-10-25 (not by this work).
+    The local service now reads PDF, so `knowledge-local.spec.ts`'s "real mode shows the
+    local service" test, which expects "PDF not configured", fails here. Should the test
+    read the service's reported capability, or should the test environment run without
+    pypdf?
+32. three-render-objects takes any move with a button held over its canvas for its own drag,
+    and clears that only for a press that began on the canvas. In the RAG Graph's 3D view,
+    after a drag that starts outside the view and crosses it (selecting the panel's text),
+    nothing shows under the pointer and the next click is lost. The constellation now keeps
+    such moves from the library (`MemoryConstellation.tsx`, `onPointerMoveCapture`, tested).
+    Apply the same few lines to the RAG Graph? That changes its behaviour, which M7.5 was not
+    to do.
+33. M7.6 review: the second tab reads "Memory graph", the words asked for in the sentence
+    case `DESIGN.md` prescribes. If "memory graph" in lower case is wanted as written, it is
+    one string (`tabs.memory`). An event's icon is now a bolt in every view; the pulse line
+    it replaced is one line in `kinds.tsx`. Approve both, or ask for changes.
+34. The RAG Graph's 3D view also keeps three.js's default near plane (0.1). The constellation
+    needed 10, because its icons sat just in front of their spheres and broke up at a
+    distance. Whether anything in the RAG Graph is drawn that close to another surface was
+    not checked. Check it, and if so give it the same near plane (a change to the RAG Graph)?
 
 ## 15. Recovery order for a fresh session
 
@@ -792,7 +947,7 @@ Refresh again only with the owner's approval, using `CLAUDE.md`'s out-of-repo co
 8. Reconcile the documents against the code; list every contradiction.
 9. Report the recovered understanding, contradictions and risks to the owner.
 10. Stop.
-11. Wait for the owner's confirmation before changing M6 to M7.3, or starting another
+11. Wait for the owner's confirmation before changing M6 to M7.6, or starting another
     milestone.
 
 Never assume a document is correct when Git or the code contradicts it.

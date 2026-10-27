@@ -1,67 +1,35 @@
 /**
- * Graph Memory: what happened at the plant and what was decided, in time. A timeline and
- * a memory graph over the same filters (words, kind, provenance, equipment, a time
- * window, superseded versions), one record inspector beside them, and recording,
- * correcting, linking and deleting through the local memory service. Typed address:
- * `/knowledge?kn=memory&mv=graph&mem=mem_…`.
+ * Graph Memory: what happened at the plant and what was decided, in time. The view fills the
+ * page: the constellation in 3D (`MemoryConstellation`, where it opens), the timeline in 2D
+ * (`MemoryTimeline`; also in high-contrast mode, without WebGL, or when 3D stops or cannot
+ * start, saying which) or the same records as a list. Its controls float over it: one search
+ * box over every record, the filters (kind, equipment, provenance, a time window, superseded
+ * versions, which are the legend too), recording a memory with the local service, and the
+ * view switch with zoom, Fit and help. One column beside it holds what was chosen: a record
+ * with its versions, links and linked chain, a stored link, an equipment item's or a run's
+ * records, or the form for a new record. Recording, correcting, linking and deleting go
+ * through the local memory service. Typed address: `/knowledge?kn=memory&mem=mem_…`,
+ * `&mlink=…` (a link), `&mv=timeline` or `&mv=list` (the other views).
  */
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Activity, Eye, Flag, Gavel, ScanSearch, Wrench, type LucideIcon } from "lucide-react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Plus } from "lucide-react";
 import { useSearchParams } from "react-router";
 import { useKnowledgeStrings } from "../../../lib/i18n/knowledge";
 import { motion } from "../../../lib/motion";
 import { useResource } from "../../../lib/api/useResource";
 import type { MemoryClient } from "../../../lib/api/memory";
-import {
-  MEMORY_KINDS,
-  PROVENANCE,
-  type MemoryFilters,
-  type MemoryGraph,
-  type MemoryKind,
-  type MemoryNodeType,
-  type MemoryStatus,
-  type MemoryTimeline,
-  type Provenance,
-} from "../../../lib/contracts/memory";
-import { RadioGroup } from "../../../components/RadioGroup";
+import type { MemoryFilters, MemoryKind, MemoryTimeline as MemoryTimelineData } from "../../../lib/contracts/memory";
 import { Notice } from "../../../components/Notice";
-import { GraphCanvas, ShapeGlyph, type Shape } from "../graph/GraphCanvas";
-import { LANE, timeLayout } from "../graph/layout";
 import { equipmentName, formatUtc } from "../shared";
-import { MemoryPanel } from "./MemoryPanel";
+import { KindLabel, ProvenanceTag } from "./kinds";
+import { LinkPanel, MemoryPanel, type RecordRef } from "./MemoryPanel";
 import { MemoryForm } from "./MemoryForms";
+import { MemoryTimeline } from "./MemoryTimeline";
+import { MemoryFiltersMenu, MemoryHelp, MemorySearch, NONE, ViewSwitch, type Filters, type SearchChoice, type View } from "./MemoryControls";
+import { chainOf, memoryTimelineLayout, type TimelineRecord } from "./timeline";
+import { ThreeGuard, canDraw3d, forcedColors } from "../graph/scene3d";
 
-export const KIND_ICONS: Record<MemoryKind, LucideIcon> = {
-  event: Activity,
-  observation: Eye,
-  finding: ScanSearch,
-  decision: Gavel,
-  correction: Wrench,
-  outcome: Flag,
-};
-export const MEMORY_SHAPES: Record<MemoryNodeType, Shape> = {
-  event: "circle",
-  observation: "ring",
-  finding: "diamond",
-  decision: "square",
-  correction: "chevron",
-  outcome: "triangle",
-  equipment: "hexagon",
-  simulation_run: "pill",
-};
-
-type Window = "all" | "7d" | "30d" | "custom";
-interface Filters {
-  query: string;
-  kinds: MemoryKind[];
-  provenance: Provenance | "";
-  equipment: string;
-  window: Window;
-  from: string;
-  to: string;
-  includeSuperseded: boolean;
-}
-const NONE: Filters = { query: "", kinds: [], provenance: "", equipment: "", window: "all", from: "", to: "", includeSuperseded: false };
+const MemoryConstellation = lazy(() => import("./MemoryConstellation"));
 
 /** The filters as the service takes them (times in UTC). */
 function toQuery(f: Filters, now: number): MemoryFilters {
@@ -77,48 +45,56 @@ function toQuery(f: Filters, now: number): MemoryFilters {
   };
 }
 
-export function KindLabel({ kind }: { kind: MemoryKind }) {
-  const s = useKnowledgeStrings().memory;
-  const Icon = KIND_ICONS[kind];
-  return (
-    <span className="kn-kind">
-      <Icon size={14} aria-hidden="true" />
-      {s.kinds[kind]}
-    </span>
-  );
-}
-
-export function ProvenanceTag({ provenance, runId }: { provenance: Provenance; runId?: string | null }) {
-  const s = useKnowledgeStrings().memory.provenance;
-  const tone = provenance === "simulation" ? " tag-chip--notice" : provenance === "demo" ? " tag-chip--demo" : "";
-  return (
-    <span className={`tag-chip${tone}`} title={s.explain[provenance]}>
-      {s.labels[provenance]}
-      {provenance === "simulation" && runId ? ` · ${runId}` : ""}
-    </span>
-  );
-}
-
-export function MemoryWorkspace({ client }: { client: MemoryClient }) {
+export function MemoryWorkspace({ client, onCount }: { client: MemoryClient; onCount: (text: string | null) => void }) {
   const t = useKnowledgeStrings();
   const s = t.memory;
   const [params, setParams] = useSearchParams();
-  const view = params.get("mv") === "graph" ? "graph" : "timeline";
+  // 3D where the browser can draw it, the timeline in 2D otherwise (and in high-contrast mode,
+  // which the 2D drawing follows), or the list; the address holds a choice that differs from
+  // that default. `mv=graph`, the old memory graph's address, is the 3D view.
+  const can3d = useMemo(canDraw3d, []);
+  const forced = useMemo(forcedColors, []);
+  // The 3D view lost its graphics context, or could not start (no context, or its chunk did
+  // not load): the timeline instead, saying which.
+  const [failed, setFailed] = useState<"lost" | "start" | null>(null);
+  const lost = useCallback(() => setFailed("lost"), []);
+  const broke = useCallback(() => setFailed((f) => f ?? "start"), []);
+  const asked = params.get("mv");
+  const wants3d = asked === "3d" || asked === "graph" || (!asked && !forced);
+  const view: View = asked === "list" ? "list" : asked === "timeline" || !wants3d || !can3d || failed ? "timeline" : "3d";
+  const preferred: View = forced ? "timeline" : "3d";
   const selected = params.get("mem");
+  const link = params.get("mlink");
   const [filters, setFilters] = useState<Filters>(NONE);
-  const [draftQuery, setDraftQuery] = useState("");
   const [revision, setRevision] = useState(0);
   const [creating, setCreating] = useState(false);
   const [now] = useState(() => Date.now());
   const query = useMemo(() => toQuery(filters, now), [filters, now]);
   const key = `${JSON.stringify(query)}:${revision}`;
   const status = useResource(`mstatus:${revision}`, "mstatus", (signal) => client.status({ signal }));
-  const timeline = useResource(view === "timeline" ? `mt:${key}` : null, "mtimeline", (signal) => client.getMemoryTimeline(query, { signal }));
-  const graph = useResource(view === "graph" ? `mg:${key}` : null, "mgraph", (signal) => client.getMemoryGraph({ ...query, limit: 120 }, { signal }));
-  // Every equipment item the records name, for the filter (and the form's suggestions).
+  const graph = useResource(view !== "list" ? `mg:${key}` : null, "mgraph", (signal) => client.getMemoryGraph({ ...query, limit: 120 }, { signal }));
+  const timeline = useResource(view === "list" ? `mt:${key}` : null, "mtimeline", (signal) => client.getMemoryTimeline(query, { signal }));
+  // Every record (superseded versions too): what search looks through, the equipment the
+  // filter offers and the forms' choices.
   const all = useResource(`mall:${revision}`, "mall", (signal) => client.listMemories({ includeSuperseded: true, limit: 200 }, { signal }));
-  const equipment = useMemo(() => [...new Set((all.data?.memories ?? []).flatMap((m) => m.equipment))].sort(), [all.data]);
+  const records = useMemo(() => all.data?.memories ?? [], [all.data]);
+  const equipment = useMemo(() => [...new Set(records.flatMap((m) => m.equipment))].sort(), [records]);
+  const counts = useMemo(() => {
+    const c = new Map<MemoryKind, number>();
+    for (const m of records) if (m.status === "current") c.set(m.kind, (c.get(m.kind) ?? 0) + 1);
+    return c;
+  }, [records]);
   const local = client.mode === "local";
+  const layout = useMemo(() => (graph.data ? memoryTimelineLayout(graph.data.nodes, graph.data.edges) : null), [graph.data]);
+  // The filters the records shown answer: the timeline is fitted again when other filters'
+  // records have arrived (not while the last ones are still shown, nor after an edit).
+  const queryKey = JSON.stringify(query);
+  const [shownKey, setShownKey] = useState(queryKey);
+  if (view !== "list" && graph.data && !graph.loading && shownKey !== queryKey) setShownKey(queryKey);
+
+  const count = status.data ? s.count(status.data.totals.current ?? 0, status.data.totals.superseded ?? 0, status.data.totals.links ?? 0) : null;
+  useEffect(() => onCount(count), [count, onCount]);
+  useEffect(() => () => onCount(null), [onCount]);
 
   const set = (patch: Record<string, string | null>) =>
     setParams((p) => {
@@ -126,170 +102,229 @@ export function MemoryWorkspace({ client }: { client: MemoryClient }) {
       for (const [k, v] of Object.entries(patch)) v === null ? next.delete(k) : next.set(k, v);
       return next;
     });
-  const inspect = (id: string | null) => set({ mem: id });
+  const inspect = (id: string | null) => set({ mem: id, mlink: null });
   const changed = (id?: string | null) => {
     setRevision((r) => r + 1);
     if (id !== undefined) inspect(id);
   };
 
+  // Bring what was chosen into view: centred when found by search, otherwise only if it is
+  // out of sight.
+  const [focus, setFocus] = useState<{ id: string; n: number; centre: boolean } | null>(null);
+  const [goTo, setGoTo] = useState<{ from: number; to: number; n: number; lane?: string } | null>(null);
+  const centre = useRef(false);
+  useEffect(() => {
+    if (!selected || selected.includes(":")) return;
+    setFocus((f) => ({ id: selected, n: (f?.n ?? 0) + 1, centre: centre.current }));
+    centre.current = false;
+  }, [selected, layout]);
+  const choose = (c: SearchChoice) => {
+    if (c.kind === "record") {
+      centre.current = true;
+      if (c.id === selected) setFocus((f) => ({ id: c.id, n: (f?.n ?? 0) + 1, centre: true }));
+      inspect(c.id);
+    } else if (c.kind === "equipment") {
+      // Its records shown: the time they span, on its lane.
+      inspect(`equipment:${c.id}`);
+      const times = (layout?.records ?? []).filter((r) => r.lane === c.id || r.echoes.includes(c.id)).map((r) => r.t);
+      if (times.length) setGoTo((g) => ({ from: Math.min(...times), to: Math.max(...times), n: (g?.n ?? 0) + 1, lane: c.id }));
+    } else if (c.kind === "kind") setFilters((f) => ({ ...f, kinds: [c.value] }));
+    else if (c.kind === "provenance") setFilters((f) => ({ ...f, provenance: c.value }));
+    else if (c.kind === "range") setFilters((f) => ({ ...f, window: "custom", from: c.from, to: c.to }));
+    else if (c.kind === "words") setFilters((f) => ({ ...f, query: c.q }));
+    else if (c.kind === "day" && view === "list") {
+      // The list goes to that day, or the nearest earlier one (it runs latest first).
+      const days = [...document.querySelectorAll<HTMLElement>(".mm-list .kn-day__title")];
+      (days.find((d) => d.id.slice("kn-day-".length) <= c.from) ?? days.at(-1))?.scrollIntoView({ block: "start" });
+    } else if (c.kind === "day") setGoTo((g) => ({ from: Date.parse(`${c.from}T00:00:00Z`), to: Date.parse(`${c.to}T23:59:59Z`), n: (g?.n ?? 0) + 1 }));
+  };
+
+  // The view: 3D, the timeline or the list. Switching replaces the tools, focus moves with it.
+  const refocus = useRef(false);
+  const setView = (v: View) => {
+    if (v === view) return;
+    refocus.current = true;
+    set({ mv: v === preferred ? null : v });
+  };
+  const tools = {
+    before: <ViewSwitch view={view} can3d={can3d && !failed} onChange={setView} refocus={refocus} />,
+    after: <MemoryHelp status={status.data} demo={!local} view={view} />,
+  };
+
+  // Said plainly over the drawing: why it is in 2D, a cut-short view, the words searched, a
+  // chosen record the filters leave out (with the way to show it).
+  const chosenRecord = selected && !selected.includes(":") ? records.find((m) => m.id === selected) : undefined;
+  const outside = view !== "list" && layout && chosenRecord && !layout.records.some((r) => r.id === chosenRecord.id);
+  const why = view === "timeline" && asked !== "timeline" ? (failed ? null : wants3d && !can3d ? s.constellation.noWebgl : forced && !asked ? s.constellation.forcedColors : null) : null;
+  const byRef = useMemo(() => {
+    const map = new Map<string, RecordRef>();
+    for (const m of records) map.set(m.id, { id: m.id, kind: m.kind, title: m.title, occurredAt: m.occurredAt });
+    for (const r of layout?.records ?? []) if (!map.has(r.id)) map.set(r.id, { id: r.id, kind: r.kind, title: r.title, occurredAt: r.occurredAt });
+    return map;
+  }, [records, layout]);
+  const chain = useMemo(() => {
+    if (!layout || !selected || !layout.records.some((r) => r.id === selected)) return undefined;
+    const ids = chainOf(selected, layout.links);
+    return layout.records.filter((r) => ids.has(r.id)).map((r) => byRef.get(r.id)!);
+  }, [layout, selected, byRef]);
+
+  const describe = useCallback(
+    (r: TimelineRecord) => s.nodeLabel(s.kinds[r.kind], r.title, formatUtc(r.occurredAt), r.provenance ? s.provenance.labels[r.provenance] : "", r.superseded),
+    [s],
+  );
+
+  const column = creating && status.data ? (
+    <MemoryForm
+      client={client}
+      status={status.data}
+      equipment={equipment}
+      records={records.filter((m) => m.status === "current")}
+      onDone={(id) => {
+        setCreating(false);
+        if (id) changed(id);
+      }}
+    />
+  ) : link ? (
+    <LinkPanel client={client} id={link} link={layout?.links.find((l) => l.id === link)} records={byRef} revision={revision} onInspect={inspect} onClose={() => set({ mlink: null })} />
+  ) : selected ? (
+    <MemoryPanel
+      client={client}
+      id={selected}
+      revision={revision}
+      records={records.filter((m) => m.status === "current")}
+      equipment={equipment}
+      status={status.data}
+      chain={chain}
+      onInspect={inspect}
+      onChanged={changed}
+      onClose={() => inspect(null)}
+    />
+  ) : null;
+
+  const stateTools = (
+    <div className="kn-canvas__tools" data-band>
+      {tools.before}
+      {tools.after}
+    </div>
+  );
+
   return (
-    <div className="kn-memory">
-      <div className="kn-section__head">
-        <h2 className="visually-hidden">{s.title}</h2>
-        {status.data && <span className="kn-count">{s.count(status.data.totals.current ?? 0, status.data.totals.superseded ?? 0, status.data.totals.links ?? 0)}</span>}
-        {local && !creating && (
-          <button type="button" className="button button--primary kn-section__action" onClick={() => setCreating(true)}>
-            {s.record}
-          </button>
-        )}
-      </div>
-      {!local && <p className="kn-note">{s.demoNote}</p>}
-      {status.error && !status.data && <Notice tone="critical">{s.statusFailed(status.error.message)}</Notice>}
-      {creating && status.data && (
-        <MemoryForm
-          client={client}
-          status={status.data}
-          equipment={equipment}
-          records={(all.data?.memories ?? []).filter((m) => m.status === "current")}
-          onDone={(id) => {
-            setCreating(false);
-            if (id) changed(id);
-          }}
-        />
-      )}
-      <form
-        className="kn-mfilters"
-        role="search"
-        aria-label={s.filters.label}
-        onSubmit={(e) => {
-          e.preventDefault();
-          setFilters((f) => ({ ...f, query: draftQuery }));
-        }}
-      >
-        <label className="kn-field kn-field--grow">
-          <span>{s.filters.words}</span>
-          <input type="search" value={draftQuery} maxLength={300} placeholder={s.filters.wordsPlaceholder} onChange={(e) => setDraftQuery(e.target.value)} />
-        </label>
-        <label className="kn-field">
-          <span>{s.filters.equipment}</span>
-          <select className="select" value={filters.equipment} onChange={(e) => setFilters((f) => ({ ...f, equipment: e.target.value }))}>
-            <option value="">{s.filters.anyEquipment}</option>
-            {equipment.map((id) => (
-              <option key={id} value={id}>
-                {equipmentName(id)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="kn-field">
-          <span>{s.filters.provenance}</span>
-          <select className="select" value={filters.provenance} onChange={(e) => setFilters((f) => ({ ...f, provenance: e.target.value as Provenance | "" }))}>
-            <option value="">{s.filters.anyProvenance}</option>
-            {PROVENANCE.map((p) => (
-              <option key={p} value={p}>
-                {s.provenance.labels[p]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="kn-field">
-          <span>{s.filters.window}</span>
-          <select className="select" value={filters.window} onChange={(e) => setFilters((f) => ({ ...f, window: e.target.value as Window }))}>
-            {(["all", "7d", "30d", "custom"] as const).map((w) => (
-              <option key={w} value={w}>
-                {s.filters.windows[w]}
-              </option>
-            ))}
-          </select>
-        </label>
-        {filters.window === "custom" && (
-          <>
-            <label className="kn-field">
-              <span>{s.filters.from}</span>
-              <input type="date" value={filters.from} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} />
-            </label>
-            <label className="kn-field">
-              <span>{s.filters.to}</span>
-              <input type="date" value={filters.to} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} />
-            </label>
-          </>
-        )}
-        <label className="check kn-check">
-          <input type="checkbox" checked={filters.includeSuperseded} onChange={(e) => setFilters((f) => ({ ...f, includeSuperseded: e.target.checked }))} />
-          {s.filters.superseded}
-        </label>
-        <button type="submit" className="button">
-          {s.filters.apply}
-        </button>
-        {JSON.stringify(filters) !== JSON.stringify(NONE) && (
-          <button
-            type="button"
-            className="button button--quiet"
-            onClick={() => {
-              setFilters(NONE);
-              setDraftQuery("");
-            }}
-          >
-            {s.filters.clear}
-          </button>
-        )}
-      </form>
-      <div className="kn-filters" role="group" aria-label={s.filters.kinds}>
-        {MEMORY_KINDS.map((k) => (
-          <button
-            key={k}
-            type="button"
-            className="kn-filter"
-            aria-pressed={filters.kinds.includes(k)}
-            onClick={() => setFilters((f) => ({ ...f, kinds: f.kinds.includes(k) ? f.kinds.filter((x) => x !== k) : [...f.kinds, k] }))}
-          >
-            <ShapeGlyph shape={MEMORY_SHAPES[k]} />
-            {s.kinds[k]}
-          </button>
-        ))}
-      </div>
-      <div className="kn-viewbar">
-        <RadioGroup
-          label={s.views.label}
-          value={view}
-          onChange={(v) => set({ mv: v === "graph" ? "graph" : null })}
-          options={[
-            { value: "timeline", label: s.views.timeline },
-            { value: "graph", label: s.views.graph },
-          ]}
-        />
-      </div>
-      <div className={`kn-split${selected ? " kn-split--open" : ""}`}>
-        <div className="kn-main">
-          {view === "timeline" ? (
-            <Timeline data={timeline.data} error={timeline.error?.message} retry={timeline.retry} selected={selected} onSelect={inspect} />
-          ) : (
-            <MemoryGraphView data={graph.data} error={graph.error?.message} retry={graph.retry} selected={selected} onSelect={inspect} />
-          )}
-        </div>
-        {selected && (
-          <div className="kn-side">
-            <MemoryPanel
-              client={client}
-              id={selected}
-              revision={revision}
-              records={(all.data?.memories ?? []).filter((m) => m.status === "current")}
-              equipment={equipment}
-              status={status.data}
-              onInspect={inspect}
-              onChanged={changed}
-              onClose={() => inspect(null)}
-            />
+    <div className="kn-work">
+      <div className="kn-work__stage">
+        <section className="kn-graphview kn-memview" aria-labelledby="kn-memview-title" data-hud>
+          <h2 id="kn-memview-title" className="visually-hidden">
+            {s.timeline.title}
+          </h2>
+          <div className="kn-hud kn-hud--top" data-band>
+            <MemorySearch records={records} equipment={equipment} words={filters.query} onChoose={choose} />
+            <MemoryFiltersMenu filters={filters} setFilters={setFilters} equipment={equipment} counts={counts} />
+            {local && (
+              <button type="button" className="kn-hud__button kn-hud__button--primary" title={s.record} onClick={() => setCreating(true)} disabled={creating}>
+                <Plus size={15} aria-hidden="true" />
+                <span className="kn-hud__label">{s.record}</span>
+              </button>
+            )}
+            {(filters.query || outside || graph.data?.truncated || (status.error && !status.data) || why || (failed && view === "timeline")) && (
+              <div className="kn-hud__notes">
+                {status.error && !status.data && <Notice tone="critical">{s.statusFailed(status.error.message)}</Notice>}
+                {failed && view === "timeline" && <Notice tone="warning">{failed === "lost" ? s.constellation.failed : s.constellation.failedStart}</Notice>}
+                {why && <p className="kn-note">{why}</p>}
+                {filters.query && (
+                  <p className="kn-note">
+                    {s.notes.words(filters.query)}{" "}
+                    <button type="button" className="text-button" onClick={() => setFilters((f) => ({ ...f, query: "" }))}>
+                      {s.notes.showAll}
+                    </button>
+                  </p>
+                )}
+                {outside && (
+                  <p className="kn-note">
+                    {s.notes.outside}{" "}
+                    <button type="button" className="text-button" onClick={() => setFilters({ ...NONE, includeSuperseded: chosenRecord!.status === "superseded" })}>
+                      {s.notes.showAll}
+                    </button>
+                  </p>
+                )}
+                {graph.data?.truncated && <p className="kn-note">{s.truncated(graph.data.limit, graph.data.total)}</p>}
+              </div>
+            )}
           </div>
-        )}
+          {view === "list" ? (
+            <>
+              <MemoryList data={timeline.data} error={timeline.error?.message} retry={timeline.retry} selected={selected} onSelect={inspect} />
+              {stateTools}
+            </>
+          ) : graph.error && !layout ? (
+            <>
+              <div className="kn-graphview__state">
+                <Notice tone="critical" action={{ label: t.rag.retry, onClick: graph.retry }}>
+                  {s.failed(graph.error.message)}
+                </Notice>
+              </div>
+              {stateTools}
+            </>
+          ) : !layout ? (
+            <>
+              <p className="kn-loading kn-graphview__state" role="status">
+                {s.loadingTimeline}
+              </p>
+              {stateTools}
+            </>
+          ) : !layout.records.length ? (
+            <>
+              <p className="kn-empty kn-graphview__state">{s.empty}</p>
+              {stateTools}
+            </>
+          ) : view === "3d" ? (
+            <ThreeGuard onError={broke}>
+              <Suspense
+                fallback={
+                  <p className="kn-loading kn-3d-loading" role="status">
+                    {s.constellation.loading}
+                  </p>
+                }
+              >
+                <MemoryConstellation
+                  layout={layout}
+                  selected={selected}
+                  link={link}
+                  onSelect={inspect}
+                  onLink={(id) => set({ mlink: id, mem: null })}
+                  focus={focus}
+                  goTo={goTo}
+                  layoutKey={shownKey}
+                  label={s.constellation.label(layout.records.length, layout.links.filter((l) => l.type !== "SUPERSEDES").length)}
+                  describe={describe}
+                  onFail={lost}
+                  tools={tools}
+                />
+              </Suspense>
+            </ThreeGuard>
+          ) : (
+            <MemoryTimeline
+              layout={layout}
+              selected={selected}
+              link={link}
+              onSelect={inspect}
+              onLink={(id) => set({ mlink: id, mem: null })}
+              focus={focus}
+              goTo={goTo}
+              layoutKey={shownKey}
+              label={s.timeline.label(layout.records.length, layout.links.filter((l) => l.type !== "SUPERSEDES").length)}
+              describe={describe}
+              tools={tools}
+            />
+          )}
+        </section>
       </div>
-      {status.data && <Rules status={status.data} />}
+      {column && <div className="kn-column">{column}</div>}
     </div>
   );
 }
 
-/** Records in time, newest first, grouped by day; each says what it followed on its equipment. */
-function Timeline({ data, error, retry, selected, onSelect }: { data?: MemoryTimeline; error?: string; retry: () => void; selected: string | null; onSelect: (id: string) => void }) {
+/** The same records as a list, newest first, grouped by day; each says what it followed on
+ *  its equipment. Scrolls inside the workspace. */
+function MemoryList({ data, error, retry, selected, onSelect }: { data?: MemoryTimelineData; error?: string; retry: () => void; selected: string | null; onSelect: (id: string) => void }) {
   const t = useKnowledgeStrings();
   const s = t.memory;
   const list = useRef<HTMLDivElement>(null);
@@ -298,22 +333,24 @@ function Timeline({ data, error, retry, selected, onSelect }: { data?: MemoryTim
   }, [data]);
   if (error)
     return (
-      <Notice tone="critical" action={{ label: t.rag.retry, onClick: retry }}>
-        {s.failed(error)}
-      </Notice>
+      <div className="kn-graphview__state">
+        <Notice tone="critical" action={{ label: t.rag.retry, onClick: retry }}>
+          {s.failed(error)}
+        </Notice>
+      </div>
     );
   if (!data)
     return (
-      <p className="kn-loading" role="status">
+      <p className="kn-loading kn-graphview__state" role="status">
         {s.loading}
       </p>
     );
-  if (!data.entries.length) return <p className="kn-empty">{s.empty}</p>;
+  if (!data.entries.length) return <p className="kn-empty kn-graphview__state">{s.empty}</p>;
   const byId = new Map(data.entries.map((e) => [e.id, e]));
   const days = new Map<string, typeof data.entries>();
   for (const e of data.entries) days.set(e.occurredAt.slice(0, 10), [...(days.get(e.occurredAt.slice(0, 10)) ?? []), e]);
   return (
-    <div ref={list} className="kn-timeline">
+    <div ref={list} className="mm-list kn-timeline">
       <p className="kn-meta" role="status">
         {s.shown(data.entries.length, data.total)}
       </p>
@@ -350,135 +387,5 @@ function Timeline({ data, error, retry, selected, onSelect }: { data?: MemoryTim
         </section>
       ))}
     </div>
-  );
-}
-
-/** The memory graph on a time axis: one lane per equipment item, simulation runs above. */
-function MemoryGraphView({ data, error, retry, selected, onSelect }: { data?: MemoryGraph; error?: string; retry: () => void; selected: string | null; onSelect: (id: string | null) => void }) {
-  const t = useKnowledgeStrings();
-  const s = t.memory;
-  const layout = useMemo(() => (data ? timeLayout(data.nodes) : null), [data]);
-  const [sel, setSel] = useState<{ kind: "node" | "edge"; id: string } | null>(null);
-  const current = selected ? { kind: "node" as const, id: selected } : sel;
-  if (error)
-    return (
-      <Notice tone="critical" action={{ label: t.rag.retry, onClick: retry }}>
-        {s.failed(error)}
-      </Notice>
-    );
-  if (!data || !layout)
-    return (
-      <p className="kn-loading" role="status">
-        {s.loadingGraph}
-      </p>
-    );
-  if (!data.nodes.length) return <p className="kn-empty">{s.empty}</p>;
-  const nodes = data.nodes.map((n) => ({
-    ...n,
-    ...layout.positions.get(n.id)!,
-    label: n.type === "equipment" ? equipmentName(n.label) : n.label,
-    dashed: n.status === "superseded",
-    scope: n.provenance === "simulation",
-    important: n.type === "equipment" || n.type === "simulation_run",
-  }));
-  // A record's link to its own lane's equipment is the lane itself; only others are drawn.
-  const lane = new Map(data.nodes.map((n) => [n.id, n.equipment?.[0]]));
-  const edges = data.edges.filter((e) => !(e.type === "RELATES_TO" && e.target === `equipment:${lane.get(e.source)}`));
-  const edge = sel?.kind === "edge" ? data.edges.find((e) => e.id === sel.id) : undefined;
-  return (
-    <div className="kn-mgraph">
-      <p className="kn-meta" role="status">
-        {s.graphCount(data.nodes.length, data.edges.length)}
-        {data.truncated && ` ${s.graphTruncated(data.limit, data.total)}`}
-      </p>
-      <GraphCanvas
-        nodes={nodes}
-        edges={edges}
-        shapes={MEMORY_SHAPES}
-        selected={current}
-        onSelect={(x) => {
-          setSel(x);
-          if (!x || x.kind === "node") onSelect(x?.id ?? null);
-        }}
-        label={s.canvasLabel(data.nodes.length, data.edges.length)}
-        hint={t.graph.hint}
-        describe={(n) => {
-          const node = data.nodes.find((x) => x.id === n.id)!;
-          return s.nodeLabel(s.nodeTypes[node.type], n.label, node.occurredAt ? formatUtc(node.occurredAt) : "", node.provenance ? s.provenance.labels[node.provenance] : "", node.status === "superseded");
-        }}
-        layoutKey={JSON.stringify(data.window) + data.total}
-        labelAll={false}
-        underlay={
-          <g className="kn-lanes" aria-hidden="true">
-            {layout.lanes.map((l) => (
-              <g key={l.key}>
-                <line x1={0} x2={layout.width} y1={l.y + LANE / 2} y2={l.y + LANE / 2} className="kn-lane__rule" />
-                {(l.key === "runs" || l.key === "none") && (
-                  <text x={0} y={l.y - 14} className="kn-lane__label">
-                    {l.key === "runs" ? s.lanes.runs : s.lanes.none}
-                  </text>
-                )}
-              </g>
-            ))}
-            {layout.days.map((d) => (
-              <g key={d.day}>
-                <line x1={d.x} x2={d.x} y1={-LANE / 2} y2={(layout.lanes.at(-1)?.y ?? 0) + LANE / 2} className="kn-lane__rule" />
-                <text x={d.x + 6} y={-LANE / 2 + 4} className="kn-lane__label">
-                  {d.day}
-                </text>
-              </g>
-            ))}
-          </g>
-        }
-      />
-      {edge && (
-        <p className="kn-note" role="status">
-          {s.edgeNote(
-            s.edgeTypes[edge.type],
-            nodes.find((n) => n.id === edge.source)?.label ?? edge.source,
-            nodes.find((n) => n.id === edge.target)?.label ?? edge.target,
-            Boolean(edge.derived),
-          )}
-        </p>
-      )}
-      <ul className="kn-legend" aria-label={s.legend}>
-        {(Object.keys(MEMORY_SHAPES) as MemoryNodeType[]).map((k) => (
-          <li key={k}>
-            <ShapeGlyph shape={MEMORY_SHAPES[k]} />
-            {s.nodeTypes[k]}
-          </li>
-        ))}
-        <li>
-          <span className="kn-legend__dash" aria-hidden="true" />
-          {s.legendDerived}
-        </li>
-      </ul>
-    </div>
-  );
-}
-
-/** What may be stored, and what is kept: the service's own rules. */
-function Rules({ status }: { status: MemoryStatus }) {
-  const s = useKnowledgeStrings().memory;
-  return (
-    <details className="kn-rulesbox">
-      <summary>{s.rules.title}</summary>
-      <ul>
-        {s.rules.items.map((r) => (
-          <li key={r}>{r}</li>
-        ))}
-      </ul>
-      <h4>{s.rules.provenanceTitle}</h4>
-      <ul>
-        {status.provenance.map((p) => (
-          <li key={p.id}>
-            <ProvenanceTag provenance={p.id} /> {s.provenance.explain[p.id]} {p.allowed ? "" : <span className="kn-meta kn-meta--caution">{p.reason}</span>}
-          </li>
-        ))}
-      </ul>
-      <h4>{s.rules.retentionTitle}</h4>
-      <p>{status.retention}</p>
-      <p className="kn-meta">{status.storage.persistent ? s.rules.storedLocal : s.rules.storedDemo}</p>
-    </details>
   );
 }
