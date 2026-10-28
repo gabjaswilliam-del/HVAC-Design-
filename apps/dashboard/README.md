@@ -2,7 +2,7 @@
 
 This is the junior-engineer handoff for the operator application. **Status: the
 owner approved React 19 + TypeScript + Vite on 2026-10-04 for the Version A fixture
-prototype. Milestones 0 to 7.3 are in this directory: shell, artwork, fixture data
+prototype. Milestones 0 to 7.6 are in this directory: shell, artwork, fixture data
 layer, interactive monitoring with KPI details, cooling prediction and equipment pages,
 scripted AI assistant, simulation and AI pilot on labelled mock services, and the
 knowledge workspace. Everything runs on labelled demo data except the knowledge

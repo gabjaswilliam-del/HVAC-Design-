@@ -1,6 +1,6 @@
 # HVAC Agent — living project context prompt
 
-**Last updated:** 2026-10-23 (Asia/Shanghai)
+**Last updated:** 2026-10-28 (Asia/Shanghai)
 
 **Purpose:** A self-contained information prompt for an LLM joining this project.
 
@@ -217,7 +217,14 @@ Shared artifacts should retain site/configuration revision, equipment identity,
 units, timestamps, observation origin/quality, and simulation-run identity where
 applicable. Real telemetry and simulated observations must remain distinguishable.
 
-## 6. Verified project state as of 2026-10-23
+## 6. Verified project state as of 2026-10-28
+
+Fetched `origin` on 2026-10-28: remote `main` was `efc0a0a`, the 2026-10-23 sync record.
+The fork's 2026-10-27 Memory Graph work was then integrated (see "Fork update:
+2026-10-27" below) and, at the user's instruction ("push"), `main` was pushed to `origin`
+as a fast-forward with this context update, without a pull request. The fork's `main`
+then received one commit on top of `6e8217a`, without force, whose files are identical
+to this `main` at the commit that records the push.
 
 On 2026-10-23, at the user's request, the collaborators' fork
 [gabjaswilliam-del/HVAC-Design-](https://github.com/gabjaswilliam-del/HVAC-Design-) was
@@ -244,8 +251,9 @@ implementation was not re-reviewed.
 |---|---|
 | PR #1 — modular scaffold | [Merged](https://github.com/yxiao986/hvac-agent/pull/1) on 2026-09-20 |
 | PR #2 — simulation foundation | [Approved](https://github.com/yxiao986/hvac-agent/pull/2#pullrequestreview-5477334444) at `ac0697e` and merged on 2026-10-10 |
-| `main` (local and remote) | Pushed 2026-10-19, fast-forward from `ae9c139`: the fork's RAG Graph `fd80e7e` and CAD Studio `20070f6`, the integration record `9d1c9fd` and this context update. Pushed 2026-10-16, fast-forward from `6b9fa28`: the dashboard merge `404ee4d`, its context update `48a8baa`, the owner UI changes `a8b610a` and `ae9c139`. No PR for either, at the user's instruction; `pytest` and the dashboard unit tests and build pass on the user's macOS workstation; browser tests not run; not DGX-validated |
-| Fork `gabjaswilliam-del/HVAC-Design-` | `main` synced 2026-10-23: one commit on top of `2c87b8a`, files identical to this `main` at the commit that records the sync; history differs (no force-push) |
+| `main` (local and remote) | Pushed 2026-10-28, fast-forward from `efc0a0a`: the fork's Memory Graph `20b0166`, the integration record `7c585b7` and this context update. Pushed 2026-10-19, fast-forward from `ae9c139`: the fork's RAG Graph `fd80e7e` and CAD Studio `20070f6`, the integration record `9d1c9fd` and this context update. Pushed 2026-10-16, fast-forward from `6b9fa28`: the dashboard merge `404ee4d`, its context update `48a8baa`, the owner UI changes `a8b610a` and `ae9c139`. No PR for any of them, at the user's instruction; `pytest` and the dashboard unit tests and build pass on the user's macOS workstation; browser tests not run; not DGX-validated |
+| Fork `gabjaswilliam-del/HVAC-Design-` | `main` synced 2026-10-23 (one commit on top of `2c87b8a`, no force-push). Now `6e8217a` (2026-10-27): gabjaswilliam-del's Memory Graph commit `14310a4`, built on the fork's pre-sync history, merged with the sync commit. On 2026-10-28 one more commit on top of `6e8217a` (no force-push) made its files equal this `main` at the commit that records the push; history still differs |
+| `feat/fork-update-2026-10-27` | Local branch from `efc0a0a`: `14310a4` replayed as `20b0166` (author kept) and the integration record; local `main` fast-forwarded to it and pushed on 2026-10-28. The branch itself was not pushed; no PR, browser tests not run, not DGX-validated |
 | `feat/prediction` | Upstream records creation from `e7b29be` on 2026-10-11; branch implementation was not rechecked during this pull, and no prediction code is merged on main |
 | `feat/prediction-vs-actual` | Local branch from `48a8baa` with the owner UI changes `a8b610a` (below); now contained in `main`. The branch itself was not pushed |
 | `feat/fork-update-2026-10-17` | Local branch from `ae9c139`: the fork's two 2026-10-17 commits replayed with their authors, and this context update; local `main` fast-forwarded to it and pushed on 2026-10-19. The branch itself was not pushed; no PR, browser tests not run, not DGX-validated |
@@ -279,7 +287,7 @@ dashboard/prediction handoffs below. Draft endpoint names are not existing servi
 | Site contracts and metrics | Merged on `main` through PR #2 after three request-changes reviews and a fourth approving review | Consistency with future scene, telemetry and model bindings |
 | Modified PHYVAC and simulation lifecycle | Merged on `main` through PR #2 with tests; every review finding verified resolved | Measured-site fidelity, calibration workflow, topology coverage beyond the current family |
 | CAD Studio, generated assets, editable scene | UI folder brief and backend responsibility documented; on `main` (pushed 2026-10-19 without a PR) a fixture-only `/cad` review interface from the fork (tcy, 2026-10-17): file-selection placeholder that stops at "Parser not connected", one synthetic sample, synchronized side-by-side drawing and extraction canvases, findings and evidence review, fixture port resolution, and a labelled draft preview in the Overview renderer. No parser, backend, model, persistence or activation | Real CAD formats/parser, durable jobs, backend validation, generated assets and commissioning integration |
-| Dashboard/API and telemetry ingestion | Per-screen/shared UI briefs, ownership folders and draft API/data contracts; on `main` (pushed without a PR on 2026-10-16 and 2026-10-19), the Version A prototype (milestones M0 to M7.3) on labelled fixtures and a local WSGI server for knowledge and memory; and the 2026-10-15 owner UI changes (section 6) | Browser-test run; owner confirmation of scope; DGX build/test validation; live simulation and telemetry adapters; production API transport; replacing fixtures |
+| Dashboard/API and telemetry ingestion | Per-screen/shared UI briefs, ownership folders and draft API/data contracts; on `main` (pushed without a PR on 2026-10-16, 2026-10-19 and 2026-10-28), the Version A prototype (milestones M0 to M7.6) on labelled fixtures and a local WSGI server for knowledge and memory; and the 2026-10-15 owner UI changes (section 6) | Browser-test run; owner confirmation of scope; DGX build/test validation; live simulation and telemetry adapters; production API transport; replacing fixtures |
 | Harness, local model serving, RAG and memory | On `main` (pushed 2026-10-16 without a PR): a scripted assistant demonstration with no language model, and a knowledge (graph RAG) and memory service using the Python standard library and SQLite, with 62 tests | Model serving, a real agent loop and tools, curated content, model selection/evaluation |
 | Cooling prediction and installation adaptation | Backend subfolder briefs, API route brief, full-page/monitoring UI brief; backend authorized on `feat/prediction`, no code merged on main | Models/data pipeline, no-history path, backtesting and uncertainty; API/UI integration awaits stage 4 |
 | Simulation AI pilot | Responsibility/plan only; supporting action/run contracts merged with the simulation foundation | Monitoring/diagnosis policy, issue workflow, tool integration and evaluation |
@@ -340,6 +348,30 @@ that passes `pytest` and DGX validation.
 - The fork's own records predate this merge: `VERSION_A.md` lists M7 and M7.1 as
   uncommitted and awaiting review, and `M6_HANDOFF.md` refers to the removed local files
   and the fork author's workstation. They were left unchanged as history.
+
+### Fork update: 2026-10-27 (integrated 2026-10-28)
+
+At the user's request, the fork's commits after the 2026-10-23 sync commit `069aaae` were
+read: `14310a4` (gabjaswilliam-del, 2026-10-27, "Complete Memory Graph 3D redesign and
+icon fixes"), whose parent is the fork's pre-sync `d960455`, and `6e8217a`, a merge of it
+with `069aaae`. No AI co-author trailer is present.
+
+- **No conflict with this repository.** The merge's net change since `069aaae` touches the
+  same 27 files as `14310a4` with identical per-file patches (`git patch-id`), so it
+  reverts nothing here, and none of the files removed by the sync came back. Replayed
+  onto `efc0a0a` as `20b0166` in a temporary clone, without conflicts; the result's tree
+  equals the fork's `6e8217a`.
+- **What it adds:** Version A M7.4 to M7.6, Graph Memory as a full-page timeline and a 3D
+  constellation, the memory graph's name and its 3D icons, all in
+  `features/knowledge/` plus `lib/i18n/knowledge.ts`, a Knowledge URL parameter (`mlink`)
+  in `app/navigation.ts`, and the fork's records (`DESIGN.md`, `VERSION_A.md`,
+  `M6_HANDOFF.md`). No dependency, Python, simulation, prediction, Overview or deck
+  change; it adds no global keyboard handler.
+- **Validation** on the user's macOS workstation: `tsc --noEmit` clean, Vitest 215 passed
+  in 23 files, `vite build` succeeded. No Python changed, so `pytest` was not rerun.
+  Browser tests not run; not DGX-validated.
+- The dashboard README's milestone range now reads 0 to 7.6; the fork's `VERSION_A.md`
+  rows are kept as written (they still call M7.2 uncommitted).
 
 ### Fork update: the collaborators' 2026-10-17 commits (integrated 2026-10-19)
 
@@ -784,6 +816,21 @@ Do not claim durable memory or a file update that did not happen.
 
 ### Latest handoff
 
+- **2026-10-28 — pushed `main` and brought the fork level, without a PR.** At the user's
+  instruction ("push"): fetched `origin` (remote `main` unchanged at `efc0a0a`; the
+  fork's `main` unchanged at `6e8217a`), committed this update, pushed `main` as a
+  fast-forward, and pushed to the fork's `main` one commit on top of `6e8217a` whose tree
+  is identical, without force. Bypasses the `AGENTS.md` PR and DGX-validation rule at the
+  user's direction. Checks as in the entry below; browser tests not run; no DGX
+  validation. Next dependency: the collaborators should pull the fork's `main`; a
+  Playwright run, stage 4 authorization and DGX validation.
+- **2026-10-28 — integrated the fork's 2026-10-27 Memory Graph work locally.** Replayed
+  gabjaswilliam-del's `14310a4` onto `main` as `20b0166`, author kept; verified the fork's
+  merge reverts nothing here; recorded it and updated the README milestone range.
+  Typecheck, 215 unit tests and build pass; `pytest` not rerun (no Python change).
+  Local `main` fast-forwarded; not pushed, no PR, browser tests not run, no DGX
+  validation. Next dependency: the push decision (to `origin`, and the record to the fork
+  to keep the files equal), a Playwright run, stage 4 authorization and DGX validation.
 - **2026-10-23 — fork brought level with `main`.** At the user's request ("update their
   version with my version … both of them are equal"), chose to add one commit on the
   fork rather than force-push over its history. Pushed this context update to `main`
