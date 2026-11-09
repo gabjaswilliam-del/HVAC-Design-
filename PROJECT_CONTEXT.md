@@ -848,8 +848,9 @@ Do not claim durable memory or a file update that did not happen.
   tree via stash (environmental, unrelated). At the user's later request the
   `/engineering-zh` redirect
   route (their own earlier change) was removed; their uncommitted `EngineeringPage.tsx`
-  simplification remains. Not committed, no PR, no DGX validation; next dependency is the
-  owner's review and the commit/PR decision.
+  simplification remains. Committed as `575222a` on branch `tcy` (pushed to origin) at
+  the user's request; PR not yet opened (no `gh` CLI on this machine — the user opens it
+  on the web). No DGX validation; the PR description must say so.
 - **2026-10-28 — pushed `main` and brought the fork level, without a PR.** At the user's
   instruction ("push"): fetched `origin` (remote `main` unchanged at `efc0a0a`; the
   fork's `main` unchanged at `6e8217a`), committed this update, pushed `main` as a
