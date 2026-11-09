@@ -43,7 +43,8 @@ const asTags = (issues: PilotIssue[]): Issue[] =>
  * The plant drawing, fed one of the run's recorded observations instead of telemetry (its
  * newest unless `frame` is given), with the pilot's open issues hanging on it, in a
  * recorded run's replay. Equipment chosen on it is kept in the address (`?equipment=`);
- * `children` (the replay's scrubber) sit under the drawing.
+ * `children` (the replay's scrubber) sit under the drawing. `highlightIds` marks the
+ * equipment a located issue names, in the highlight colour.
  */
 export function SimulatedPlant({
   run,
@@ -52,6 +53,8 @@ export function SimulatedPlant({
   site,
   timeZone,
   issues,
+  highlightIds = NO_IDS,
+  highlightColor,
   children,
 }: {
   run: RunDetail;
@@ -61,6 +64,9 @@ export function SimulatedPlant({
   site: SiteBundle;
   timeZone: string;
   issues: PilotIssue[];
+  highlightIds?: string[];
+  /** The highlight's colour (the located issue's own colour); the theme default otherwise. */
+  highlightColor?: string;
   children?: ReactNode;
 }) {
   const s = useStrings().simulation;
@@ -96,7 +102,8 @@ export function SimulatedPlant({
             metrics={site.metrics}
             issues={tags}
             selectedId={selected}
-            highlightIds={NO_IDS}
+            highlightIds={highlightIds}
+            highlightColor={highlightColor}
             onSelect={select}
             onOpenIssue={(issue) => navigate(targetPath({ type: "simulation", runId: run.runId, issueId: issue.id }))}
             float={false}

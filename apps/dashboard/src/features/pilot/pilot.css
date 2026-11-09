@@ -636,6 +636,12 @@ button.pilot-row[aria-pressed="true"] {
   gap: var(--space-2);
   margin: 0;
 }
+/* The one- or two-sentence overall picture, under the key figures. */
+.pilot-completion__lead {
+  margin: 0;
+  max-width: 60ch;
+  color: var(--text-2);
+}
 
 /* A control someone pointed to (the assistant cannot press it): a note saying whose it is,
    and a laminate ring on the control. The control swells twice inside the ring (GSAP,
@@ -676,10 +682,10 @@ button.pilot-row[aria-pressed="true"] {
   padding-top: var(--space-5);
   box-shadow: inset 0 1px 0 var(--hairline);
 }
-/* The scrubber under the plant: every recorded step, the time and step it shows. */
+/* The scrubber under the plant: auto-play, every recorded step, the time and step it shows. */
 .replay-scrubber {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) 0 0;
@@ -693,10 +699,122 @@ button.pilot-row[aria-pressed="true"] {
   color: var(--text-2);
   font-size: var(--type-caption);
 }
+/* The range in a track of its own, so a located issue's span can be drawn under it. */
+.replay-scrubber__track {
+  position: relative;
+  display: grid;
+  align-items: center;
+}
+/* Each open issue's span: a bar under the range in the issue's own colour (inline),
+   positioned by its steps (fractions of the whole run; the thumb's width keeps the
+   range's ends inside). The located issue's bar is solid. */
+.replay-scrubber__span {
+  position: absolute;
+  bottom: 0;
+  left: calc(8px + (100% - 16px) * var(--from));
+  width: calc((100% - 16px) * (var(--to) - var(--from)));
+  height: 4px;
+  border-radius: 2px;
+  opacity: 0.45;
+  pointer-events: none;
+}
+.replay-scrubber__span--strong {
+  opacity: 1;
+}
+@media (forced-colors: active) {
+  .replay-scrubber__span {
+    background: Highlight !important;
+  }
+}
 @container (max-width: 560px) {
   .replay-scrubber {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* The replay's results sit in the side column: the comparison stacks there. */
+.sim__side .sim-compare {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+.sim__side .sim-compare .sim-muted {
+  padding-bottom: 0;
+}
+
+/* The replay's results beside the plant: the values at the replayed step, then the
+   whole-run figures, both compact. */
+.sim-results__now,
+.sim-results__total {
+  gap: var(--space-2) var(--space-4);
+  padding-bottom: var(--space-2);
+}
+.sim-results__now dd,
+.sim-results__total dd {
+  font-size: var(--type-body);
+}
+/* The located issue's chip beside the results heading, in the issue's own colour. */
+.sim-results__located {
+  border: 1px solid;
+}
+
+/* Text folded away on the replay: the corrections record and the events timeline. */
+.replay-fold {
+  padding: var(--space-2) 0 var(--space-3);
+  box-shadow: inset 0 1px 0 var(--hairline);
+}
+.replay-fold > summary {
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+.replay-fold[open] > summary {
+  margin-bottom: var(--space-2);
+}
+
+/* The condensed run summary in AI Pilot: unresolved issues in a fold — one concise row
+   each (severity, title, the locate button), with the pilot's advice beneath it. */
+.pilot-fold {
+  margin-top: var(--space-3);
+}
+.pilot-fold > summary {
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+.pilot-completion__issues {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.pilot-completion__issues li {
+  display: grid;
+  gap: 2px;
+}
+.pilot-completion__issue-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--space-2);
+}
+.pilot-completion__issue-title {
+  flex: 1 1 auto;
+  min-width: 120px;
+  color: var(--text-1);
+}
+/* The issue's colour dot: the same colour marks its period on the replay's charts. */
+.pilot-completion__issue-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.pilot-completion__advice {
+  display: block;
+  margin: 0;
+  font-size: var(--type-caption);
 }
 
 @media (pointer: coarse) {

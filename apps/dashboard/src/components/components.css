@@ -660,6 +660,25 @@ kbd {
   stroke: var(--text-3);
   stroke-dasharray: 1 3;
 }
+/* An issue's span: a band between its first and last sighting, in the issue's own
+   colour (inline); the located issue's band is emphasised. */
+.ts-chart__highlight {
+  fill-opacity: 0.08;
+  stroke-opacity: 0.45;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.ts-chart__highlight--strong {
+  fill-opacity: 0.2;
+  stroke-opacity: 0.9;
+}
+/* Present throughout the run: an outline only — a filled band would paint the chart. */
+.ts-chart__highlight--throughout {
+  fill-opacity: 0.03;
+}
+.ts-chart__highlight--strong.ts-chart__highlight--throughout {
+  fill-opacity: 0.06;
+}
 .ts-chart__crosshair {
   stroke: var(--text-3);
   stroke-width: 1;

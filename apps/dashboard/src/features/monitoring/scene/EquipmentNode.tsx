@@ -28,6 +28,8 @@ interface EquipmentNodeProps {
   related?: boolean;
   /** Pointed out by another feature (assistant, pilot) without being selected. */
   highlighted?: boolean;
+  /** The highlight's colour (a located issue's own colour); the theme default otherwise. */
+  highlightColor?: string;
   /** Draw the name and state; off in Key mode, where they are drawn in screen space. */
   showLabel?: boolean;
   /** Draw and announce the operational/review state beside the equipment name. */
@@ -61,6 +63,7 @@ export function EquipmentNode({
   onSelect,
   related = false,
   highlighted = false,
+  highlightColor,
   showLabel = true,
   showState = true,
   alarm = false,
@@ -118,7 +121,7 @@ export function EquipmentNode({
           height={height + HALO_PAD * 2 + (labelAt === "below" ? 22 : 0)}
         />
       )}
-      {highlighted && !selected && (
+      {highlighted && (
         <rect
           className="eq-node__frame eq-node__frame--highlighted"
           x={-HALO_PAD - 4}
@@ -126,6 +129,7 @@ export function EquipmentNode({
           width={width + HALO_PAD * 2 + 8}
           height={height + HALO_PAD * 2 + 8}
           rx={8}
+          style={highlightColor ? { stroke: highlightColor } : undefined}
         />
       )}
       {selected && (

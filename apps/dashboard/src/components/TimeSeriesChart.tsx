@@ -33,6 +33,10 @@ interface TimeSeriesChartProps {
   yMin?: number;
   yMax?: number;
   marker?: { t: number; label: string };
+  /** Highlighted spans (issues' first-to-last-seen periods): each shaded in its own
+   *  colour; the located one (`strong`) is emphasised; one present the whole run
+   *  (`throughout`) is drawn as an outline only, so the chart is not painted over. */
+  highlights?: { from: number; to: number; color: string; strong?: boolean; throughout?: boolean }[];
   height?: number;
 }
 
@@ -71,7 +75,7 @@ function segments(points: { x: number; y: number | null }[]) {
  * observed/forecast distinguished by dash and label, an interval band only when one is
  * supplied, a crosshair tooltip, and a table view with the same numbers.
  */
-export function TimeSeriesChart({ title, series, band, unit, decimals, timeZone, xDomain, yMin, yMax, marker, height = 160 }: TimeSeriesChartProps) {
+export function TimeSeriesChart({ title, series, band, unit, decimals, timeZone, xDomain, yMin, yMax, marker, highlights, height = 160 }: TimeSeriesChartProps) {
   const s = useStrings();
   const wrap = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -206,6 +210,17 @@ export function TimeSeriesChart({ title, series, band, unit, decimals, timeZone,
               {unit}
             </text>
             {band && <path d={bandPath} fill={band.color} fillOpacity={0.22} stroke={band.color} strokeOpacity={0.45} strokeWidth={1} />}
+            {highlights?.map((h, i) => (
+              <rect
+                key={i}
+                x={x(h.from)}
+                y={M.t}
+                width={Math.max(2, x(h.to) - x(h.from))}
+                height={ph}
+                className={`ts-chart__highlight${h.strong ? " ts-chart__highlight--strong" : ""}${h.throughout ? " ts-chart__highlight--throughout" : ""}`}
+                style={{ fill: h.color, stroke: h.color }}
+              />
+            ))}
             {marker && (
               <g>
                 <line x1={x(marker.t)} x2={x(marker.t)} y1={M.t} y2={M.t + ph} className="ts-chart__marker" />

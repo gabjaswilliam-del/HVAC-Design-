@@ -505,7 +505,7 @@ test("simulation requests read the history and open recorded runs' replays, comp
 
   await askTyped(page, "How did the last simulation go?");
   await expect(page).toHaveURL(/\/simulation\/RUN-0002$/);
-  await expect(page.getByRole("region", { name: "Run summary, RUN-0002" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Results" })).toBeVisible();
   await expect(lastTurn(page).locator(".agent-prose")).toContainText("RUN-0002 (Normal operation) completed after 60 of 60 simulated minutes.");
   await expect(lastTurn(page).locator('[data-view="action"]')).toHaveText(/Opened in the workspace: RUN-0002 summary and replay/);
 
@@ -524,12 +524,13 @@ test("simulation requests read the history and open recorded runs' replays, comp
   await page.keyboard.press("Home");
   await expect(scrubber).toHaveAttribute("aria-valuetext", /step 0 of 4$/);
 
-  // An ended run's finding opens in its replay, chosen and in view; that replay starts at
-  // its own last step, not where the previous one was scrubbed to.
+  // An ended run's finding opens in its replay, located: its equipment highlighted on the
+  // plant, its span marked on the scrubber and played; the folded record keeps its detail.
   await askTyped(page, "inspect PIL-0001-1");
   await expect(page).toHaveURL(/\/simulation\/RUN-0001\?issue=PIL-0001-1/);
-  await expect(page.locator('main [data-pilot-detail="PIL-0001-1"]')).toBeInViewport();
-  await expect(scrubber).toHaveAttribute("aria-valuetext", /step 4 of 4$/);
+  await expect(page.locator("main .eq-node__frame--highlighted").first()).toBeVisible();
+  await expect(page.locator("main .replay-scrubber__span--strong")).toBeVisible();
+  await expect(scrubber).toHaveAttribute("aria-valuetext", /step 4 of 4$/, { timeout: 10_000 });
 
   // Not found is said, and nothing opens.
   await askTyped(page, "open RUN-0099");

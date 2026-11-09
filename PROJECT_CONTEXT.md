@@ -1,6 +1,6 @@
 # HVAC Agent — living project context prompt
 
-**Last updated:** 2026-10-28 (Asia/Shanghai)
+**Last updated:** 2026-11-09 (Asia/Shanghai)
 
 **Purpose:** A self-contained information prompt for an LLM joining this project.
 
@@ -816,6 +816,40 @@ Do not claim durable memory or a file update that did not happen.
 
 ### Latest handoff
 
+- **2026-11-09 — simulation replay and AI Pilot completion reworked in the dashboard
+  fixture, uncommitted.** At the user's request, reworked `apps/dashboard` (fixture
+  prototype, no backend): the replay (`src/features/pilot/SimulationView.tsx`) is
+  chart-led — one merged results section beside the plant (the old Trends and Results
+  sections were combined at the user's request): the values at the replayed step, the
+  whole-run figures, and every metric's course over the run (COP, cooling, unmet, power,
+  energy) with the scrubbed moment marked, a crosshair reading any point, and the newest
+  matched run overlaid automatically with a compare selector; auto-play; the corrections
+  record, events timeline and pilot findings are folded. `ResultsView.tsx` was deleted
+  (its comparison and forecast-support parts moved into `SimulationView.tsx`). The run
+  summary view was removed; AI Pilot's completion now shows a few key
+  figures, one or two overall-situation sentences quoted from the summary's own
+  assessment, and the unresolved issues in a collapsible fold, each as one concise line
+  with the pilot's advice for it and a "Locate in the replay" button. That button opens
+  `/simulation/<run>?issue=<id>&equipment=<id>`: the equipment is highlighted on the
+  plant (selection halo plus a highlight frame, which now also renders on a selected
+  node), and the issue periods are marked in colour — every open issue's first-to-last-
+  seen span is drawn on the scrubber and shaded on every trend chart in its own palette
+  colour (`src/features/simulation/issueColors.ts`, stable per run; the same colour dots
+  the issue's row in AI Pilot), with the located one emphasised and its span played once.
+  An issue present for (nearly) the whole run is drawn as a dashed outline plus a
+  "present throughout the run" chip instead of a filled band. English and Chinese (`zh.local.ts`, git-ignored) strings updated together.
+  A later full-width stacked relayout (plant across the top, charts in an auto-fill
+  grid, folds in a foot row) was tried and reverted at the user's request ("感觉越改越
+  差了") — the two-column `.sim__layout` stands.
+  Verification: `tsc --noEmit` clean, 215/215 unit tests, Playwright simulation 7/7 and
+  pilot 25/25 (re-run after each later change); agent 30/34 — forecast answer,
+  conversation history and speech-to-text as
+  before this work, plus "cancelling mid-answer" which was reproduced on the pre-change
+  tree via stash (environmental, unrelated). At the user's later request the
+  `/engineering-zh` redirect
+  route (their own earlier change) was removed; their uncommitted `EngineeringPage.tsx`
+  simplification remains. Not committed, no PR, no DGX validation; next dependency is the
+  owner's review and the commit/PR decision.
 - **2026-10-28 — pushed `main` and brought the fork level, without a PR.** At the user's
   instruction ("push"): fetched `origin` (remote `main` unchanged at `efc0a0a`; the
   fork's `main` unchanged at `6e8217a`), committed this update, pushed `main` as a

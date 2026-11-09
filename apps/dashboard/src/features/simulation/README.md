@@ -5,9 +5,9 @@
 and the [simulation guide](../../../../../docs/simulation.md), which states the merged
 foundation's supported topology and limits, before integration. Status: UI brief only.
 
-Build `SimulationPage`, `ScenarioForm`, `RunControls`, `SimulationTimeline`,
-`ResultsView` and `CorrectionHistory`. Use the monitoring scene renderer for a run
-view rather than creating another equipment catalog. Keep a persistent Simulation
+Build `SimulationPage`, `ScenarioForm`, `RunControls`, `SimulationTimeline`, the
+replay's results charts and `CorrectionHistory`. Use the monitoring scene renderer for a
+run view rather than creating another equipment catalog. Keep a persistent Simulation
 label, run identity, config revision and simulated time.
 
 ## Workflow and controls

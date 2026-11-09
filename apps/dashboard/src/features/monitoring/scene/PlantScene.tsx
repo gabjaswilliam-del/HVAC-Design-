@@ -25,6 +25,8 @@ interface PlantSceneProps {
   reviewStates?: Record<string, "confirmed" | "review" | "conflict" | "unknown">;
   reviewLabels?: Record<string, string>;
   highlightIds?: string[];
+  /** The highlight's colour (a located issue's own colour); the theme default otherwise. */
+  highlightColor?: string;
   /** Equipment with an open issue: never dimmed when something else is selected. */
   alarmIds?: string[];
   showTags?: boolean;
@@ -50,6 +52,7 @@ export function PlantScene({
   reviewStates,
   reviewLabels,
   highlightIds = [],
+  highlightColor,
   alarmIds = [],
   showTags = true,
   showLabels = true,
@@ -186,6 +189,7 @@ export function PlantScene({
             selected={selectedId === device.id}
             related={related.devices.has(device.id)}
             highlighted={highlightIds.includes(device.id)}
+            highlightColor={highlightColor}
             alarm={alarmIds.includes(device.id) || s.state === "fault"}
             reviewState={reviewStates?.[device.id]}
             reviewLabel={reviewLabels?.[device.id]}

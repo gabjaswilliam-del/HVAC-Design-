@@ -424,6 +424,7 @@ export const en = {
     kinds: { observation: "Observation", improved: "Improved", not_improved: "Did not improve", concern: "Concern" } as Record<string, string>,
     unresolved: "Unresolved issues",
     recommendations: "Recommendations",
+    openInReplay: "Locate in the replay",
     because: (basis: string) => `Based on: ${basis}`,
     timeline: "Timeline",
     timelineKinds: {
@@ -472,6 +473,9 @@ export const en = {
     liveInPilot: (run: string) => `${run} is live in AI Pilot, where it is operated and monitored. Its replay is here once it has ended.`,
     replayLabel: "Replay",
     replayValue: (time: string, step: number, last: number) => `${time} simulated time, step ${step} of ${last}`,
+    playReplay: "Play the replay from the start",
+    pauseReplay: "Pause the replay",
+    locating: (id: string, throughout: boolean) => (throughout ? `${id} · present throughout the run` : `${id} · highlighted period`),
     copChart: "System COP",
     lead: "What-if runs of this plant's model. Every value on this screen comes from a simulated plant, never from site equipment, and nothing here controls equipment.",
     unavailable: "The simulation service is not available.",

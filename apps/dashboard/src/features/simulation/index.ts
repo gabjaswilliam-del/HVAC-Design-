@@ -8,5 +8,4 @@ export { RunControls, hm } from "./RunControls";
 export { ScenarioForm } from "./ScenarioForm";
 export { CorrectionHistory } from "./CorrectionHistory";
 export { SimulationTimeline } from "./SimulationTimeline";
-export { ResultsView, Chart } from "./ResultsView";
-export { RunSummaryView } from "./RunSummaryView";
+export { issueColor } from "./issueColors";

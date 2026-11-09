@@ -334,11 +334,6 @@
 .sim-compare .sim-muted {
   padding-bottom: 7px;
 }
-.sim-charts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4) var(--space-5);
-}
 .sim-chart {
   display: grid;
   /* A chart keeps the width it last measured; a zero minimum lets it shrink with the display. */
@@ -352,7 +347,6 @@
   font-weight: 600;
 }
 @container (max-width: 760px) {
-  .sim-charts,
   .sim-compare {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -631,94 +625,6 @@ button.sim-runs__row {
   .sim-runs__row[aria-current="true"] {
     outline: 2px solid Highlight;
   }
-}
-
-/* The pilot's run summary ------------------------------------------------------------ */
-.run-summary {
-  display: grid;
-  gap: var(--space-4);
-  padding: var(--space-5) 0;
-  box-shadow: inset 0 1px 0 var(--hairline);
-}
-.run-summary h2 {
-  font-size: var(--type-section);
-}
-.run-summary h2:focus {
-  outline: none;
-}
-.run-summary h2:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 4px;
-  border-radius: var(--radius-chip);
-}
-.run-summary h3 {
-  margin-bottom: var(--space-2);
-  color: var(--text-2);
-  font-size: var(--type-prose);
-}
-.run-summary__figures {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: var(--space-3) var(--space-5);
-  margin: 0;
-}
-.run-summary__figures dt {
-  color: var(--text-3);
-  font-size: var(--type-micro);
-}
-.run-summary__figures dd {
-  margin: 0;
-}
-.run-summary__figures dd.num:first-of-type {
-  color: var(--text-1);
-  font-size: var(--type-value);
-  font-weight: 600;
-}
-.run-summary__cols {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4) var(--space-6);
-}
-@container (max-width: 820px) {
-  .run-summary__cols {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-.run-summary__list,
-.run-summary__links {
-  display: grid;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-ol.run-summary__list {
-  padding-left: var(--space-5);
-  list-style: decimal;
-}
-.run-summary__item {
-  display: grid;
-  gap: 2px;
-  color: var(--text-2);
-  font-size: var(--type-body);
-}
-.run-summary__kind {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--text-3);
-  font-size: var(--type-caption);
-  font-weight: 600;
-}
-.run-summary__item--improved .run-summary__kind {
-  color: var(--ok);
-}
-.run-summary__item--not_improved .run-summary__kind,
-.run-summary__item--concern .run-summary__kind {
-  color: var(--caution);
-}
-.run-summary__timeline {
-  max-height: 280px;
 }
 
 /* Simulation history ------------------------------------------------------------------ */

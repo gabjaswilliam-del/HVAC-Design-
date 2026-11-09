@@ -79,17 +79,19 @@ test("the archive lists every run, newest first; a run opens the same read-only 
   await expect(page.getByRole("main").getByRole("button", { name: /^Submit to |^Release / })).toHaveCount(0);
   await expect(band(page)).toContainText("ScenarioNormal operation");
   await expect(page.getByRole("main").getByRole("combobox")).toHaveCount(1); // Compare with, only
-  const summary = page.getByRole("region", { name: `Run summary, ${first}` });
-  await expect(summary).toContainText("From the recorded run");
-  await expect(summary).toContainText("Normal operation: completed");
+  // The pilot's condensed summary lives in AI Pilot; the replay itself is charts.
+  await expect(page.getByRole("region", { name: `Run summary, ${first}` })).toHaveCount(0);
+  await expect(replay(page).getByRole("region", { name: "Results" })).toBeVisible();
   await expect(page.locator(".sim-plant__box .stage-note")).toContainText(`Mock simulation ${first}, not site telemetry.`);
   for (const name of ["System COP", "Cooling demand and removed cooling", "Unmet demand", "Plant electrical power", "Electrical energy since start"]) {
-    await expect(page.getByRole("img", { name: new RegExp(`^${name}( \\(|$)`) })).toBeVisible(); // a unitless chart has no "( )"
+    await expect(page.locator(".sim-results").getByRole("img", { name: new RegExp(`^${name}( \\(|$)`) })).toBeVisible(); // a unitless chart has no "( )"
   }
   await expect(page.getByText(/the forecasting service supports telemetry sources only/)).toBeVisible();
-  // The pilot's findings and the events are part of the record.
+  // The pilot's findings and the events are part of the record; both sit in folds.
+  await replay(page).locator(".replay-fold summary", { hasText: "Issues" }).click();
   await expect(replay(page).getByRole("navigation", { name: "Issues" })).toBeVisible();
-  await expect(replay(page).locator(".sim-timeline, [data-event]").first()).toBeVisible();
+  await replay(page).locator(".replay-fold summary", { hasText: "Timeline" }).click();
+  await expect(replay(page).locator(".sim-timeline").first()).toBeVisible();
 });
 
 test("the replay scrubs through the recorded run: the plant, what was held and the charts follow the step", async ({ page }) => {
@@ -121,26 +123,38 @@ test("the replay scrubs through the recorded run: the plant, what was held and t
   await expect(plant.getByRole("heading", { level: 2 })).toHaveText("Simulated plant at 12:00 (simulated time)");
   await expect(chosen).toContainText("Nothing is held on it; it follows baseline control.");
   await expect(chosen.locator(".sim-readings")).not.toHaveText(atEnd);
-  await expect(replay(page).locator(".sim-results .ts-chart__marker")).toHaveCount(5); // every chart marks the moment
+  // The one chart section follows the same step: every chart marks the moment.
+  await expect(replay(page).locator(".sim-results .ts-chart__marker")).toHaveCount(5);
   await expect(replay(page).locator(".sim-results .ts-chart").first()).toContainText("12:00");
   // One step on, the correction has taken.
   await page.keyboard.press("ArrowRight");
   await expect(scrubber).toHaveAttribute("aria-valuetext", "12:15 simulated time, step 1 of 4");
   await expect(chosen).toContainText("held at 9 °C by COR-0001-1.");
+  await expect(replay(page).locator(".sim-results .ts-chart").first()).toContainText("12:15");
+  // Auto-play runs the replay through to the end by itself.
+  await replay(page).getByRole("button", { name: "Play the replay from the start" }).click();
+  await expect(scrubber).toHaveAttribute("aria-valuetext", "13:00 simulated time, step 4 of 4", { timeout: 10_000 });
+  await expect(plant.getByRole("heading", { level: 2 })).toHaveText("Simulated plant at 13:00 (simulated time)");
   // AI Pilot was not touched by the replay.
   await openConsole(page);
   await expect(consoleBand(page)).toHaveAttribute("data-run", run);
 });
 
-test("only matched runs compare, and a typed address can open a comparison", async ({ page }) => {
+test("matched runs compare automatically, and a typed address can open a comparison", async ({ page }) => {
   const first = await runToEnd(page);
   await runToEnd(page, { start: "13:00" }); // a different start is not a match
   const third = await runToEnd(page, { chw: "9" });
   await openReplay(page, third);
+  // The newest matched run is overlaid automatically.
   await expect(page.getByLabel("Compare with").locator("option")).toHaveText(["No comparison", `${first}, stopped`]);
-  await page.getByLabel("Compare with").selectOption(first);
+  await expect(page.getByLabel("Compare with")).toHaveValue(first);
   await expect(page.locator(".sim-compare")).toContainText(`${third} used`);
   await expect(page.locator(".sim-compare")).toContainText("Baseline chilled-water setpoints 9 and 7 °C");
+  // Choosing "No comparison" turns the overlay off; choosing it again brings it back.
+  await page.getByLabel("Compare with").selectOption("");
+  await expect(page.locator(".sim-compare")).toContainText("Listed runs have the same scenario");
+  await page.getByLabel("Compare with").selectOption(first);
+  await expect(page.locator(".sim-compare")).toContainText(`${third} used`);
 
   await openReplay(page, third, `&compare=${first}`);
   await expect(page.getByLabel("Compare with")).toHaveValue(first);
@@ -148,6 +162,7 @@ test("only matched runs compare, and a typed address can open a comparison", asy
   // Matching does not depend on the setpoint, so the first run matches the third too.
   await openReplay(page, first);
   await expect(page.getByLabel("Compare with").locator("option")).toHaveText(["No comparison", `${third}, stopped`]);
+  await expect(page.getByLabel("Compare with")).toHaveValue(third);
 });
 
 test("a live run is listed as live; it is operated in AI Pilot, never from the archive or its address", async ({ page }) => {

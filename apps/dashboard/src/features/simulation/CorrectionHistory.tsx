@@ -21,6 +21,8 @@ interface Props {
   readOnly?: boolean;
   /** In the AI Pilot console: its own heading level and a narrow layout. */
   compact?: boolean;
+  /** Inside a fold that already names it: no heading or note of its own. */
+  bare?: boolean;
   /** In AI Pilot, a pilot correction's issue is chosen there; elsewhere it is a link to the replay's finding. */
   onIssue?: (issueId: string) => void;
 }
@@ -31,7 +33,7 @@ interface Props {
  * submitted. A successful submission is "queued", never "applied": the run's gate and
  * its next step decide, and the outcome is measured after that.
  */
-export function CorrectionHistory({ run, caps, devices, metrics, timeZone, equipmentId, readOnly = false, compact = false, onIssue }: Props) {
+export function CorrectionHistory({ run, caps, devices, metrics, timeZone, equipmentId, readOnly = false, compact = false, bare = false, onIssue }: Props) {
   const s = useStrings().simulation;
   const name = (id: string) => devices.find((d) => d.id === id)?.label ?? id;
   const busy = useSimulation().busy;
@@ -79,11 +81,16 @@ export function CorrectionHistory({ run, caps, devices, metrics, timeZone, equip
   };
 
   return (
-    <section className={compact ? "sim-section sim-section--compact" : "sim-section"} aria-labelledby={`${id}-title`}>
-      <div className="sim-section__head">
-        {compact ? <h3 id={`${id}-title`}>{s.corrections}</h3> : <h2 id={`${id}-title`}>{s.corrections}</h2>}
-      </div>
-      <p className="sim-muted">{readOnly ? s.correctionsRecord : s.correctionsNote}</p>
+    <section
+      className={compact ? "sim-section sim-section--compact" : "sim-section"}
+      {...(bare ? { "aria-label": s.corrections } : { "aria-labelledby": `${id}-title` })}
+    >
+      {!bare && (
+        <div className="sim-section__head">
+          {compact ? <h3 id={`${id}-title`}>{s.corrections}</h3> : <h2 id={`${id}-title`}>{s.corrections}</h2>}
+        </div>
+      )}
+      {!bare && <p className="sim-muted">{readOnly ? s.correctionsRecord : s.correctionsNote}</p>}
       {!readOnly && (
         <form
           className="sim-correct"
