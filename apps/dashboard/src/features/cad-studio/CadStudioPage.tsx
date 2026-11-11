@@ -54,6 +54,8 @@ type ReviewState = "confirmed" | "review" | "conflict" | "unknown";
 const DRAG_THRESHOLD = 4;
 const ZOOM_STEP = 1.25;
 const PAN_STEP = 60;
+const SAMPLE_ID = "sample";
+const SAMPLE_FILENAME = "demo-cooling-plant-rev-a.dwg";
 const clone = <T,>(value: T): T => structuredClone(value);
 const previewReadings = {
   equipment: Object.fromEntries(
@@ -70,23 +72,22 @@ export function CadStudioPage() {
   const [topology, setTopology] = useState<Topology>(() => clone(demoTopology));
   const [selection, setSelection] = useState<Selection>(null);
   const [locate, setLocate] = useState<LocateRequest>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [drawingId, setDrawingId] = useState(SAMPLE_ID);
+  const [workspaceOpened, setWorkspaceOpened] = useState(false);
+  const activeFile = drawingId === SAMPLE_ID ? undefined : files[Number(drawingId)];
 
   const dirty = JSON.stringify(topology) !== JSON.stringify(demoTopology);
 
   useEffect(() => {
     if (screen !== "extract") return;
-    const timer = window.setInterval(() => {
-      setProgress((current) => {
-        if (current >= copy.extraction.length) {
-          window.clearInterval(timer);
-          window.setTimeout(() => setScreen("studio"), 250);
-          return current;
-        }
-        return current + 1;
-      });
-    }, 420);
-    return () => window.clearInterval(timer);
-  }, [copy.extraction.length, screen]);
+    const done = progress >= copy.extraction.length;
+    const timer = window.setTimeout(() => {
+      if (done) setScreen("studio");
+      else setProgress(progress + 1);
+    }, done ? 250 : 420);
+    return () => window.clearTimeout(timer);
+  }, [copy.extraction.length, progress, screen]);
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -144,8 +145,29 @@ export function CadStudioPage() {
     setSelection({ kind: "link", id });
   };
 
-  if (screen === "import") return <DrawingUpload onOpenSample={() => setScreen("extract")} />;
-  if (screen === "extract") return <ExtractionProgress progress={progress} onSkip={() => setScreen("studio")} />;
+  const openDrawing = (id: string) => {
+    setDrawingId(id);
+    setWorkspaceOpened(true);
+    setScreen(id === SAMPLE_ID && progress < copy.extraction.length ? "extract" : "studio");
+  };
+
+  if (screen === "import") {
+    return (
+      <DrawingUpload
+        onAddFiles={(next) => {
+          if (!next.length) return;
+          setFiles((current) => [...current, ...next]);
+          openDrawing(String(files.length));
+        }}
+        onOpenSample={() => openDrawing(SAMPLE_ID)}
+        onResume={workspaceOpened ? () => openDrawing(drawingId) : undefined}
+      />
+    );
+  }
+  if (screen === "extract") return <ExtractionProgress progress={progress} onSkip={() => {
+    setProgress(copy.extraction.length);
+    setScreen("studio");
+  }} />;
   if (screen === "preview") {
     return (
       <DraftPreview
@@ -182,31 +204,48 @@ export function CadStudioPage() {
         <div className="cad-head__identity">
           <div className="cad-title-row">
             <h2 id="cad-title">{copy.title}</h2>
-            <span className="tag-chip">{copy.syntheticSample}</span>
-            {dirty && <span className="cad-dirty">{copy.unsaved}</span>}
+            <span className="tag-chip">{activeFile ? copy.localDrawing : copy.syntheticSample}</span>
+            {!activeFile && dirty && <span className="cad-dirty">{copy.unsaved}</span>}
           </div>
-          <p>demo-cooling-plant-rev-a.dwg</p>
+          <select className="cad-drawing-picker" aria-label={copy.activeDrawing} value={drawingId} onChange={(event) => openDrawing(event.target.value)}>
+            <option value={SAMPLE_ID}>{copy.sampleName} · {SAMPLE_FILENAME}</option>
+            {files.map((file, index) => <option key={index} value={index}>{index + 1}. {file.name}</option>)}
+          </select>
         </div>
         <div className="cad-head__actions">
-          <nav className="cad-view-switch" aria-label={copy.viewLabel}>
-            {(["drawing", "compare"] as StudioView[]).map((item) => (
-              <button key={item} type="button" aria-pressed={view === item} onClick={() => setView(item)}>
-                {copy.steps[item]}
-              </button>
-            ))}
-          </nav>
-          <button type="button" className="button button--small cad-preview-button" onClick={() => setScreen("preview")}>
-            {copy.previewOverview} <ArrowRight size={15} aria-hidden="true" />
+          <button type="button" className="button button--small" onClick={() => setScreen("import")}>
+            <ArrowLeft size={15} aria-hidden="true" /> {copy.backToImport}
           </button>
-          {dirty && (
-            <button type="button" className="button button--small" onClick={reset}>
-              <RotateCcw size={15} aria-hidden="true" /> {copy.reset}
-            </button>
+          {!activeFile && (
+            <>
+              <nav className="cad-view-switch" aria-label={copy.viewLabel}>
+                {(["drawing", "compare"] as StudioView[]).map((item) => (
+                  <button key={item} type="button" aria-pressed={view === item} onClick={() => setView(item)}>
+                    {copy.steps[item]}
+                  </button>
+                ))}
+              </nav>
+              <button type="button" className="button button--small cad-preview-button" onClick={() => setScreen("preview")}>
+                {copy.previewOverview} <ArrowRight size={15} aria-hidden="true" />
+              </button>
+              {dirty && (
+                <button type="button" className="button button--small" onClick={reset}>
+                  <RotateCcw size={15} aria-hidden="true" /> {copy.reset}
+                </button>
+              )}
+            </>
           )}
         </div>
       </header>
 
-      <div className="cad-workspace">
+      {activeFile ? (
+        <section className="cad-workspace cad-local-drawing" aria-label={copy.localDrawing}>
+          <div className="cad-file-status" role="status">
+            <FileUp size={20} aria-hidden="true" />
+            <span><strong>{activeFile.name}</strong><small>{formatBytes(activeFile.size)} · {copy.parserUnavailable}</small></span>
+          </div>
+        </section>
+      ) : <div className="cad-workspace">
         <main className="cad-canvas">
           {view === "drawing" ? (
             <SyntheticDrawing
@@ -266,16 +305,18 @@ export function CadStudioPage() {
             />
           </aside>
         )}
-      </div>
+      </div>}
     </section>
   );
 }
 
-function DrawingUpload({ onOpenSample }: { onOpenSample: () => void }) {
+function DrawingUpload({ onAddFiles, onOpenSample, onResume }: {
+  onAddFiles: (files: File[]) => void;
+  onOpenSample: () => void;
+  onResume?: () => void;
+}) {
   const copy = useStrings().cad;
   const inputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const choose = (next?: File) => next && setFile(next);
 
   return (
     <section className="cad-entry cad-entry--upload" aria-labelledby="cad-title">
@@ -289,23 +330,23 @@ function DrawingUpload({ onOpenSample }: { onOpenSample: () => void }) {
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
-          choose(event.dataTransfer.files[0]);
+          onAddFiles(Array.from(event.dataTransfer.files));
         }}
       >
         <span className="cad-entry__mark"><Upload size={25} aria-hidden="true" /></span>
         <strong>{copy.dropDrawing}</strong>
         <small>{copy.chooseFile}</small>
       </button>
-      <input ref={inputRef} className="cad-file-input" type="file" onChange={(event) => choose(event.target.files?.[0])} />
-      {file && (
-        <div className="cad-file-status" role="status">
-          <FileUp size={17} aria-hidden="true" />
-          <span><strong>{file.name}</strong><small>{formatBytes(file.size)} · {copy.parserUnavailable}</small></span>
-        </div>
+      <input ref={inputRef} type="file" multiple hidden onChange={(event) => {
+        onAddFiles(Array.from(event.currentTarget.files ?? []));
+        event.currentTarget.value = "";
+      }} />
+      {onResume && (
+        <button type="button" className="button" onClick={onResume}>{copy.resumeWorkspace}</button>
       )}
       <div className="cad-entry__divider"><span>{copy.orTrySample}</span></div>
       <button type="button" className="cad-sample" onClick={onOpenSample}>
-        <span><strong>{copy.sampleName}</strong><small>demo-cooling-plant-rev-a.dwg</small></span>
+        <span><strong>{copy.sampleName}</strong><small>{SAMPLE_FILENAME}</small></span>
         <ArrowRight size={18} aria-hidden="true" />
       </button>
       <small>{copy.noParser}</small>

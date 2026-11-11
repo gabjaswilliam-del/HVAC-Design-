@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Link } from "react-router";
-import { History, MonitorPlay, X } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router";
+import { History, LogOut, MonitorPlay, X } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import { formatNumber, formatTime } from "../../lib/format";
 import { isFinal, type PilotIssue, type RunDetail, type RunSummary } from "../../lib/contracts/simulation";
@@ -39,16 +39,24 @@ const showMain = () => {
  * paused; then the same console operates the run (resume, pause, step, stop), shows its
  * key figures and the pilot's monitoring, and holds Live, Findings (with Apply and Decline
  * for a proposal) and Corrections. When the run ends it gives a short completion result;
- * its replay opens in the main display only when asked ("View summary & replay").
- *
- * The main display is never moved by AI Pilot: it stays the operator's own while a run
- * goes on. Only these explicit controls operate the simulation. The assistant may point
+ * Engineering launches open the simulation display beside the console.
+ * Only these explicit controls operate the simulation. The assistant may point
  * to one (it is outlined and named here) but never presses it. Nothing reaches physical
  * equipment.
  */
 export function PilotConsole({ hidden = false }: { hidden?: boolean }) {
   const s = useStrings();
   const p = s.pilot;
+  const navigate = useNavigate();
+  const location = useLocation();
+  const currentLocation = useRef(location);
+  currentLocation.current = location;
+  const showStartedRun = (runId: string) => {
+    if (currentLocation.current.key !== location.key) return;
+    if (location.pathname !== "/engineering" && !/^\/simulation(?:\/|$)/.test(location.pathname)) return;
+    navigate(targetPath({ type: "simulation", runId }));
+    showMain();
+  };
   const site = useSite();
   const sim = useSimulation();
   const tz = site.data?.site.timezone ?? "UTC";
@@ -119,6 +127,7 @@ export function PilotConsole({ hidden = false }: { hidden?: boolean }) {
               autoFocus={sim.composing}
               onCancel={sim.composing && sim.runId ? () => simulationSession.compose(false) : undefined}
               cancelLabel={sim.runId ? p.backToRun(sim.runId) : undefined}
+              onStarted={showStartedRun}
             />
             <RecentRuns timeZone={tz} />
           </>
@@ -353,6 +362,12 @@ function Completion({ run }: { run: RunDetail }) {
   const s = useStrings();
   const p = s.pilot;
   const sim = useSimulation();
+  const navigate = useNavigate();
+  const exit = () => {
+    simulationSession.attach(null);
+    operating.closeWorkspace();
+    navigate(targetPath({ type: "simulation" }));
+  };
   const summary = sim.summary?.runId === run.runId ? sim.summary : null;
   const pilot = sim.pilot?.runId === run.runId ? sim.pilot : null;
   const applied = run.corrections.filter((c) => c.applied).length;
@@ -396,6 +411,10 @@ function Completion({ run }: { run: RunDetail }) {
           <MonitorPlay size={15} aria-hidden="true" />
           {p.viewReplay}
         </Link>
+        <button type="button" className="button" onClick={exit}>
+          <LogOut size={15} aria-hidden="true" />
+          {p.exitToHistory}
+        </button>
       </p>
     </section>
   );

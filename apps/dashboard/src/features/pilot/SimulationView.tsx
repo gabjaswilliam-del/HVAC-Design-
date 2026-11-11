@@ -12,9 +12,10 @@ import { motion } from "../../lib/motion";
 import { pilotClient, simulationClient, simulationPace, useDataClient } from "../../app/dataClient";
 import { targetPath } from "../../app/navigation";
 import { showInPilot } from "../../app/openTarget";
+import { useOperating } from "../../app/operatingContext";
 import { useSite } from "../../app/site";
 import { MINUTE_MS } from "../../fixtures/generate";
-import { CorrectionHistory, Loading, RunControls, SimulatedPlant, SimulationTimeline, issueColor, useSimulation } from "../simulation";
+import { CorrectionHistory, Loading, RunControls, SimulatedPlant, SimulationTimeline, issueColor, simulationSession, useSimulation } from "../simulation";
 import { Findings } from "./Findings";
 import "./pilot.css";
 
@@ -29,8 +30,8 @@ import "./pilot.css";
  * on the scrubber and the charts, and that span plays itself. Text is folded away: the
  * corrections record, the events timeline and the findings collapse; the pilot's
  * condensed summary, its unresolved issues and their advice live in AI Pilot. Everything
- * is read from the run's record; nothing here operates a run. A run that is still live is
- * operated in AI Pilot and replays here once it has ended.
+ * is read from the run's record; nothing here operates a run. While live, the plant and
+ * results follow the latest observation. Replay controls appear once the run ends.
  * Typed address: `{ type: "simulation", runId, issueId, equipmentId, compareWith }`.
  */
 export function SimulationView() {
@@ -45,9 +46,11 @@ function RunReplay({ runId }: { runId: string }) {
   const p = s.pilot;
   const [params] = useSearchParams();
   const site = useSite();
-  const { caps } = useSimulation();
+  const sim = useSimulation();
+  const pilotOpen = useOperating((x) => x.workspace.open && x.workspace.tab === "pilot");
+  const { caps } = sim;
   const tz = site.data?.site.timezone ?? "UTC";
-  const { run, pilot, live } = useRecordedRun(runId);
+  const { run, pilot, live } = useRunDisplay(runId, sim);
   const r = run.data;
   const ended = Boolean(r && isFinal(r.state));
   const issues = pilot.data?.issues ?? [];
@@ -124,9 +127,9 @@ function RunReplay({ runId }: { runId: string }) {
     <div className="page sim replay" aria-busy={(!r && !run.error) || undefined}>
       <div className="page__head">
         <div className="sim__title-row">
-          <h2 className="page__title">{v.replayTitle}</h2>
-          <span className="tag-chip tag-chip--notice" data-provenance="recorded">
-            {v.recorded}
+          <h2 className="page__title">{live ? v.liveTitle : v.replayTitle}</h2>
+          <span className="tag-chip tag-chip--notice" data-provenance={live ? "simulation" : "recorded"}>
+            {live ? v.liveRun : v.recorded}
           </span>
           <span className="tag-chip tag-chip--demo" title={caps?.service.engine}>
             {v.mock}
@@ -135,9 +138,17 @@ function RunReplay({ runId }: { runId: string }) {
             {p.mock}
           </span>
         </div>
-        <p className="page__sub">{v.replayLead}</p>
+        <p className="page__sub">{live ? v.liveLead : v.replayLead}</p>
+        {live && (!pilotOpen || sim.runId !== runId || sim.composing) && (
+          <button type="button" className="button sim__open-pilot" onClick={() => {
+            showInPilot({ type: "pilot", runId });
+            simulationSession.compose(false);
+          }}>
+            {p.openPilot}
+          </button>
+        )}
       </div>
-      {back}
+      {!live && back}
       {run.error && !r ? (
         <Notice tone={run.error.code === "NOT_FOUND" ? "info" : "warning"} action={run.error.code === "NOT_FOUND" ? undefined : { label: v.reconnect, onClick: run.retry }}>
           {run.error.code === "NOT_FOUND" ? s.history.unknown(runId) : run.error.message}
@@ -147,19 +158,22 @@ function RunReplay({ runId }: { runId: string }) {
       ) : (
         <>
           <RunControls run={r} timeZone={tz} readOnly />
-          {live ? (
-            <Notice tone="info" action={{ label: p.openPilot, onClick: () => showInPilot({ type: "pilot", runId: r.runId }) }}>
-              {v.liveInPilot(r.runId)}
+          {run.error && (
+            <Notice tone="warning" action={{ label: v.reconnect, onClick: run.retry }}>
+              {v.refreshFailed}
             </Notice>
-          ) : (
-            <div ref={content} className="replay__content">
-              {r.state === "failed" && r.lastError && (
-                <Notice tone="warning">
-                  <strong>{v.failed}</strong> {r.lastError}
-                </Notice>
-              )}
-              <div className="sim__layout">
-                <div className="sim__main" ref={plantRef}>
+          )}
+          <div ref={content} className="replay__content">
+            {r.state === "failed" && r.lastError && (
+              <Notice tone="warning">
+                <strong>{v.failed}</strong> {r.lastError}
+              </Notice>
+            )}
+            <div className="sim__layout">
+              <div className="sim__main" ref={plantRef}>
+                {live ? (
+                  <SimulatedPlant run={r} site={site.data} timeZone={tz} issues={issues} highlightIds={issue?.equipmentIds} />
+                ) : (
                   <PlantReplay
                     run={r}
                     site={site.data}
@@ -173,28 +187,33 @@ function RunReplay({ runId }: { runId: string }) {
                     segment={segment}
                     playNonce={playNonce}
                   />
-                </div>
-                <div className="sim__side">
-                  <ReplayResults
-                    run={r}
-                    timeZone={tz}
-                    step={shownStep}
-                    spans={spans}
-                    located={issue ? { id: issue.id, color: issueColor(issue.id, issues), throughout: segment?.throughout ?? false } : null}
-                    compareWith={params.get("compare")}
-                  />
-                  {caps && (
-                    <details className="replay-fold">
-                      <summary>{v.corrections}</summary>
-                      <CorrectionHistory run={r} caps={caps} devices={site.data.topology.devices} metrics={site.data.metrics} timeZone={tz} equipmentId={equipmentParam} readOnly bare />
-                    </details>
-                  )}
+                )}
+              </div>
+              <div className="sim__side">
+                <ReplayResults
+                  run={r}
+                  timeZone={tz}
+                  step={shownStep}
+                  spans={spans}
+                  located={issue ? { id: issue.id, color: issueColor(issue.id, issues), throughout: segment?.throughout ?? false } : null}
+                  compareWith={params.get("compare")}
+                  live={live}
+                />
+                {!live && caps && (
+                  <details className="replay-fold">
+                    <summary>{v.corrections}</summary>
+                    <CorrectionHistory run={r} caps={caps} devices={site.data.topology.devices} metrics={site.data.metrics} timeZone={tz} equipmentId={equipmentParam} readOnly bare />
+                  </details>
+                )}
+                {!live && (
                   <details className="replay-fold">
                     <summary>{v.timeline}</summary>
                     <SimulationTimeline events={r.events} timeZone={tz} bare />
                   </details>
-                </div>
+                )}
               </div>
+            </div>
+            {!live && (
               <details className="replay-fold replay__findings">
                 <summary>{p.issues}</summary>
                 {pilot.data ? (
@@ -207,27 +226,33 @@ function RunReplay({ runId }: { runId: string }) {
                   <Loading label={p.findingsLoading} />
                 )}
               </details>
-            </div>
-          )}
+            )}
+          </div>
         </>
       )}
     </div>
   );
 }
 
-/** One run read from the service: kept current while it is still live (it runs in AI
- *  Pilot); its pilot's findings once it has ended. */
-function useRecordedRun(runId: string) {
+/** Use the same observation as AI Pilot when attached. Direct links also work with
+ * the console detached by reading the run from the service. */
+function useRunDisplay(runId: string, sim: ReturnType<typeof useSimulation>) {
+  const attached = sim.runId === runId;
   const [tick, setTick] = useState(0);
-  const run = useResource(`replay-run:${runId}:${tick}`, `replay:${runId}`, (signal) => simulationClient.getRun(runId, { signal }));
+  const record = useResource(attached ? null : `replay-run:${runId}:${tick}`, `replay:${runId}`, (signal) => simulationClient.getRun(runId, { signal }));
+  const run = attached
+    ? { data: sim.run ?? record.data, error: sim.readError ?? undefined, retry: simulationSession.retry }
+    : record;
   const live = Boolean(run.data && !isFinal(run.data.state));
   useEffect(() => {
-    if (!live) return;
+    if (attached || !live) return;
     const t = setTimeout(() => setTick((x) => x + 1), 1000 * simulationPace);
     return () => clearTimeout(t);
-  }, [live, tick]);
+  }, [attached, live, tick]);
   const ended = Boolean(run.data && isFinal(run.data.state));
-  const pilot = useResource(ended ? `replay-pilot:${runId}` : null, `replay-pilot:${runId}`, (signal) => pilotClient.getState(runId, { signal }));
+  const attachedPilot = attached ? sim.pilot : null;
+  const findings = useResource(ended && !attachedPilot ? `replay-pilot:${runId}` : null, `replay-pilot:${runId}`, (signal) => pilotClient.getState(runId, { signal }));
+  const pilot = attachedPilot ? { data: attachedPilot, error: sim.pilotError } : findings;
   return { run, pilot, live };
 }
 
@@ -398,6 +423,7 @@ function ReplayResults({
   spans = [],
   located = null,
   compareWith,
+  live,
 }: {
   run: RunDetail;
   timeZone: string;
@@ -405,6 +431,7 @@ function ReplayResults({
   spans?: { id: string; from: number; to: number; color: string; strong: boolean; throughout: boolean }[];
   located?: { id: string; color: string; throughout: boolean } | null;
   compareWith?: string | null;
+  live: boolean;
 }) {
   const s = useStrings();
   const v = s.simulation;
@@ -418,7 +445,7 @@ function ReplayResults({
   useEffect(() => {
     if (compareWith) setPickedId(compareWith);
   }, [compareWith]);
-  const candidates = runs.filter((x) => matchedRuns(run, x));
+  const candidates = live ? [] : runs.filter((x) => matchedRuns(run, x));
   const chosen = pickedId === null ? (candidates[0]?.runId ?? "") : candidates.some((x) => x.runId === pickedId) ? pickedId : "";
   // Refetched as this run steps, so a compared run that is still running keeps up.
   const other = useResource(chosen ? `compare:${chosen}:${run.results.times.length}` : null, "simulation-compare", (signal) =>
@@ -431,7 +458,7 @@ function ReplayResults({
     return (
       <section className="sim-section sim-results" aria-labelledby="sim-results-title">
         <div className="sim-section__head">
-          <h2 id="sim-results-title">{v.results}</h2>
+          <h2 id="sim-results-title">{live ? v.liveResults : v.results}</h2>
           <span className="tag-chip tag-chip--notice">{v.resultsSource(run.runId)}</span>
         </div>
         <p className="sim-empty">{v.noResults}</p>
@@ -465,7 +492,7 @@ function ReplayResults({
   return (
     <section className="sim-section sim-results" aria-labelledby="sim-results-title">
       <div className="sim-section__head">
-        <h2 id="sim-results-title">{v.results}</h2>
+        <h2 id="sim-results-title">{live ? v.liveResults : v.results}</h2>
         <span className="tag-chip num">{formatTime(at, timeZone)}</span>
         {located && (
           <span className="tag-chip sim-results__located" style={{ borderColor: located.color, color: located.color }} data-located-issue={located.id}>
@@ -507,29 +534,31 @@ function ReplayResults({
         </div>
       </dl>
       {run.state === "failed" && run.simulatedTime && <p className="sim-retained-note">{v.resultsEnd(formatTime(run.simulatedTime, timeZone))}</p>}
-      <div className="sim-compare">
-        <div className="sim-field">
-          <label htmlFor={`${id}-compare`}>{v.compareWith}</label>
-          <select
-            id={`${id}-compare`}
-            className="select"
-            value={chosen}
-            disabled={!candidates.length}
-            aria-describedby={`${id}-compare-note`}
-            onChange={(e) => setPickedId(e.target.value)}
-          >
-            <option value="">{v.compareNone}</option>
-            {candidates.map((c) => (
-              <option key={c.runId} value={c.runId}>
-                {v.compareOption(c.runId, v.state[c.state])}
-              </option>
-            ))}
-          </select>
+      {!live && (
+        <div className="sim-compare">
+          <div className="sim-field">
+            <label htmlFor={`${id}-compare`}>{v.compareWith}</label>
+            <select
+              id={`${id}-compare`}
+              className="select"
+              value={chosen}
+              disabled={!candidates.length}
+              aria-describedby={`${id}-compare-note`}
+              onChange={(e) => setPickedId(e.target.value)}
+            >
+              <option value="">{v.compareNone}</option>
+              {candidates.map((c) => (
+                <option key={c.runId} value={c.runId}>
+                  {v.compareOption(c.runId, v.state[c.state])}
+                </option>
+              ))}
+            </select>
+          </div>
+          <p id={`${id}-compare-note`} className="sim-muted">
+            {cmp ? <Comparison run={run} other={cmp} timeZone={timeZone} /> : candidates.length ? v.compareHint(run.configRevision) : v.compareNoneMatched}
+          </p>
         </div>
-        <p id={`${id}-compare-note`} className="sim-muted">
-          {cmp ? <Comparison run={run} other={cmp} timeZone={timeZone} /> : candidates.length ? v.compareHint(run.configRevision) : v.compareNoneMatched}
-        </p>
-      </div>
+      )}
       <Chart title={v.copChart}>
         <TimeSeriesChart title={v.copChart} series={[...compared("cop", cmp?.results.cop ?? []), line("cop", v.thisRun(run.runId), r.cop)]} unit="" decimals={2} {...chart} />
       </Chart>

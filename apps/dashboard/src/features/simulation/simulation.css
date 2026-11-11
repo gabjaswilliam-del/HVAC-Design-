@@ -36,7 +36,7 @@
 }
 .sim__layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, min(36%, 400px));
   gap: 0 var(--space-6);
   align-items: start;
 }
@@ -45,10 +45,13 @@
   display: grid;
   min-width: 0;
 }
-@container (max-width: 1060px) {
+@container (width < 880px) {
   .sim__layout {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+.sim__open-pilot {
+  justify-self: start;
 }
 
 .sim-section {

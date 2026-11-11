@@ -316,3 +316,83 @@
     border: 1px solid CanvasText;
   }
 }
+
+.engineering-simulation {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+}
+
+.engineering-simulation__intro {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  padding: clamp(16px, 4vw, 36px);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 12px;
+  background: var(--raised);
+}
+
+.engineering-simulation__intro :is(h2, p),
+.engineering-simulation__guide h2,
+.engineering-simulation__steps :is(h3, p),
+.engineering-simulation__note {
+  margin: 0;
+}
+
+.engineering-simulation__icon,
+.engineering-simulation__step-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.engineering-simulation__icon {
+  padding: 10px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.engineering-simulation__actions,
+.engineering-simulation__note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.engineering-simulation__steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+
+.engineering-simulation__steps li {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 10px;
+}
+
+.engineering-simulation__steps p,
+.engineering-simulation__step-label,
+.engineering-simulation__note {
+  color: var(--text-2);
+}
+
+.engineering-simulation__note {
+  padding-block: 12px;
+  border-top: 1px solid var(--hairline);
+}
+
+.engineering-simulation__note .link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

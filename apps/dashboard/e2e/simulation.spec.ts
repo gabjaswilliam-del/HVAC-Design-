@@ -37,6 +37,34 @@ async function openReplay(page: Page, runId: string, query = "") {
   await expect(band(page)).toHaveAttribute("data-run", runId);
 }
 
+test("Engineering opens the live monitor after launch and exits to history after completion", async ({ page }) => {
+  await page.goto("/engineering?simSpeed=fast");
+  const main = page.getByRole("main");
+  await expect(main.getByRole("heading", { name: "How a simulation works" })).toBeVisible();
+  await expect(main.getByRole("link", { name: "Open Simulation history" })).toBeVisible();
+  await main.getByRole("button", { name: "Configure in AI Pilot" }).click();
+  const run = await startRun(page, { paused: true, hours: "1 h", step: "15 min" });
+  await expect(page).toHaveURL(new RegExp(`/simulation/${run}$`));
+  const frame = main.locator("[data-sim-frame]");
+  await expect(frame).toBeVisible();
+  const initial = await frame.getAttribute("data-sim-frame");
+  await expect(main.getByRole("region", { name: "Live results" })).toBeVisible();
+  await expect(main.getByRole("img", { name: "System COP" })).toBeInViewport();
+  await expect(pilotConsole(page).getByRole("button", { name: "Exit to simulation history" })).toHaveCount(0);
+
+  await control(page, "Resume");
+  await expect(frame).not.toHaveAttribute("data-sim-frame", initial!);
+  await expect(consoleState(page)).toHaveText("Stopped", { timeout: 10_000 });
+  await expect(main.getByRole("heading", { name: "Simulation replay" })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/simulation/${run}$`));
+  await completion(page).getByRole("button", { name: "Exit to simulation history" }).click();
+  await expect(page).toHaveURL(/\/simulation$/);
+  await expect(pilotConsole(page)).toBeHidden();
+  await expect(rows(page).first()).toHaveAttribute("data-history-run", run);
+  await page.getByRole("link", { name: `Open ${run}` }).click();
+  await expect(main.getByRole("slider", { name: "Replay" })).toBeVisible();
+});
+
 test("an empty history says so and points to AI Pilot, where runs start", async ({ page }) => {
   await openHistory(page);
   await expect(page.getByText("No simulations have been run yet.")).toBeVisible();
@@ -174,14 +202,14 @@ test("a live run is listed as live; it is operated in AI Pilot, never from the a
   await openHistory(page);
   await expect(rows(page).first()).toContainText("Paused");
   await page.getByRole("link", { name: "Open RUN-0001" }).click();
-  await expect(replay(page)).toContainText("RUN-0001 is live in AI Pilot, where it is operated and monitored.");
+  await expect(replay(page).getByRole("heading", { name: "Simulation monitor" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Run summary, RUN-0001" })).toHaveCount(0);
-  await expect(page.locator("main [data-sim-frame]")).toHaveCount(0);
-  await page.getByRole("link", { name: "All runs" }).click();
+  await expect(page.locator("main [data-sim-frame]")).toBeVisible();
+  await page.goBack();
   await rows(page).first().getByRole("button", { name: "Live in AI Pilot" }).click();
   // AI Pilot opens with the run; the archive stays in the main display.
   await expect(consoleBand(page).getByRole("button", { name: "Resume" })).toBeVisible();
-  await expect(page).toHaveURL(/\/simulation$/);
+  await expect(page).toHaveURL(/\/simulation\?simSpeed=fast$/);
 });
 
 test("an unknown run is reported, not invented", async ({ page }) => {

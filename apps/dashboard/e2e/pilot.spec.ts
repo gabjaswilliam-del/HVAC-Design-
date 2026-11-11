@@ -155,9 +155,9 @@ test("the console operates the lifecycle; reading never advances the clock; the 
   await expect(consoleBand(page)).toHaveAttribute("data-run", "RUN-0001");
   const second = await startRun(page, { name: "Second run", hours: "1 h", step: "15 min" });
   expect(second).toBe("RUN-0002");
-  // A run that completes on its own opens nothing either.
+  // Starting from a simulation page opens the new monitor; completion stays there.
   await expect(completion(page).getByRole("heading", { level: 3 })).toHaveText("Simulation completed", { timeout: 10_000 });
-  await expect(page).toHaveURL(/\/simulation\/RUN-0001$/);
+  await expect(page).toHaveURL(/\/simulation\/RUN-0002$/);
 });
 
 test("monitoring is secondary: it pauses and resumes without touching the run", async ({ page }) => {
@@ -388,7 +388,7 @@ test("a stale proposal is rejected by the run's gate and stays visible", async (
   await expect(decide.locator(".pilot-decision__evidence li").filter({ hasText: "Rejected by the run's gate (stale)" })).toHaveCount(1);
 });
 
-test("one live operator: a live run's replay address points to AI Pilot; there is no live copy in the main display", async ({ page }) => {
+test("an active run can be monitored from its address and operated only in AI Pilot", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 }); // the workspace floats, closed
   await page.goto("/?simSpeed=fast");
   await openConsole(page);
@@ -400,8 +400,10 @@ test("one live operator: a live run's replay address points to AI Pilot; there i
   await expect(page.getByText("No screen exists at this address.")).toBeVisible();
   await page.goto(`/simulation/${run}?simSpeed=fast`);
   await expect(page.getByRole("heading", { level: 1, name: "Simulation" })).toBeVisible();
-  await expect(replay(page)).toContainText(`${run} is live in AI Pilot, where it is operated and monitored. Its replay is here once it has ended.`);
-  await expect(page.locator("main [data-sim-frame], main .pilot-readings, main [data-pilot-issue]")).toHaveCount(0);
+  await expect(replay(page).getByRole("heading", { name: "Simulation monitor" })).toBeVisible();
+  await expect(replay(page).locator("[data-sim-frame]")).toBeVisible();
+  await expect(replay(page).getByRole("region", { name: "Live results" })).toBeVisible();
+  await expect(replay(page).getByRole("slider", { name: "Replay" })).toHaveCount(0);
   await expect(page.locator("main").getByRole("button", { name: /^(Resume|Pause|Step|Stop simulation)$/ })).toHaveCount(0);
   await replay(page).getByRole("button", { name: "Open AI Pilot" }).click();
   await expect(pilotConsole(page)).toBeVisible();

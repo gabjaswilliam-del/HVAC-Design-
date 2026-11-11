@@ -1,6 +1,6 @@
 # HVAC Agent — living project context prompt
 
-**Last updated:** 2026-11-09 (Asia/Shanghai)
+**Last updated:** 2026-11-11 (Asia/Shanghai)
 
 **Purpose:** A self-contained information prompt for an LLM joining this project.
 
@@ -815,6 +815,34 @@ or patch for the affected sections. Explicitly say that it has **not** been save
 Do not claim durable memory or a file update that did not happen.
 
 ### Latest handoff
+
+- **2026-11-11 — Engineering simulation workspace and live monitor.** Implemented
+  in the local working tree on `tcy` at `8cfffb8`, alongside the existing CAD
+  changes below. The fork's open PR #1 does not include this work. Engineering
+  opens a setup guide with links to AI Pilot and Simulation history. A successful
+  launch from Engineering or a simulation page opens that run's monitor. Its plant
+  and charts follow the attached AI Pilot session, and the same URL becomes a
+  replay when the run ends. The completion panel's Exit button detaches the run,
+  closes the workspace and opens the history. Launches on other dashboard pages
+  leave the current page in place. All of this uses the dashboard mock services.
+  Windows validation passed the demo build, 215 dashboard unit tests, all 33
+  Simulation and AI Pilot browser tests and pytest (554 passed, 4 xfailed).
+  The broader shell browser run reported three
+  failures in keyboard shortcuts, radio navigation and a scroll test referencing
+  the old Engineering hub. DGX SSH authentication failed, so DGX validation
+  could not be completed.
+
+- **2026-11-10 — CAD Studio workspace continuity and multi-file selection.**
+  Implemented as uncommitted changes on `tcy` at `8cfffb8`; no PR for this update.
+  The dashboard shell retains the CAD workspace across navigation. `Back to import`
+  returns to the entry screen, where an operator can resume the active drawing or
+  append another batch through the picker or drop zone. The drawing selector switches
+  between files and the synthetic sample, and is visible even when the sample is the
+  only drawing. Local files report parser unavailability.
+  Files and edits are held in the current tab's memory and are discarded on refresh.
+  Windows validation: demo build, three focused unit tests and three Chrome CAD
+  scenarios passed. The full unit run encountered missing temporary transform files
+  in the Windows sandbox. DGX validation has not been run.
 
 - **2026-11-09 — simulation replay and AI Pilot completion reworked in the dashboard
   fixture, uncommitted.** At the user's request, reworked `apps/dashboard` (fixture

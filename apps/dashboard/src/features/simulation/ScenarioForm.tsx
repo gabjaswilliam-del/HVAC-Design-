@@ -23,12 +23,14 @@ export function ScenarioForm({
   autoFocus,
   onCancel,
   cancelLabel,
+  onStarted,
 }: {
   caps: SimulationCapabilities;
   devices: number;
   autoFocus: boolean;
   onCancel?: () => void;
   cancelLabel?: string;
+  onStarted: (runId: string) => void;
 }) {
   const s = useStrings().simulation;
   const f = s.form;
@@ -70,6 +72,7 @@ export function ScenarioForm({
     if (started) {
       setNonce(newNonce());
       setName("");
+      onStarted(started.runId);
     }
   };
 
