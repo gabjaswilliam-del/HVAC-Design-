@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useContext, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { Presentation, Waypoints, X } from "lucide-react";
+import { PanelsTopLeft, Route, Presentation, Waypoints, X } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import { openIssues } from "../../lib/issues";
 import type { Issue } from "../../lib/contracts";
@@ -13,6 +13,7 @@ import { isKpiKey, kpiEquipment } from "./kpiDefinitions";
 import { sceneMatchesTopology } from "./scene/PlantScene";
 import { PlantViewport } from "./scene/PlantViewport";
 import { AiDisplay } from "../display";
+import { OverviewTreatment } from "../../app/overviewTreatment";
 import "./monitoring.css";
 
 /**
@@ -22,6 +23,7 @@ import "./monitoring.css";
  * workspace.
  */
 export function MonitoringPage() {
+  const alternate = useContext(OverviewTreatment);
   const s = useStrings();
   const m = s.monitoring;
   const site = useSite();
@@ -165,8 +167,8 @@ export function MonitoringPage() {
         value={shown}
         onChange={(v) => operating.setOverviewView(v)}
         options={[
-          { value: "schematic", label: <Waypoints size={16} aria-hidden="true" />, name: m.viewSchematic, title: `${m.viewSchematic} (L)`, disabled: !matches },
-          { value: "display", label: <Presentation size={16} aria-hidden="true" />, name: m.viewDisplay, title: `${m.viewDisplay} (L)` },
+          { value: "schematic", label: alternate ? <><Route size={16} aria-hidden="true" /> {m.viewSchematic}</> : <Waypoints size={16} aria-hidden="true" />, name: m.viewSchematic, title: `${m.viewSchematic} (L)`, disabled: !matches },
+          { value: "display", label: alternate ? <><PanelsTopLeft size={16} aria-hidden="true" /> {m.viewDisplay}</> : <Presentation size={16} aria-hidden="true" />, name: m.viewDisplay, title: `${m.viewDisplay} (L)` },
         ]}
       />
 

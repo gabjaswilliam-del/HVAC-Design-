@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps } from "react";
+import { OverviewTreatment } from "../../../app/overviewTreatment";
+import { useContext, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps } from "react";
 import { Map as MapIcon, Minus, Plus, Scan } from "lucide-react";
 import { useStrings } from "../../../lib/i18n";
 import type { Issue, MetricInfo } from "../../../lib/contracts";
@@ -10,6 +11,7 @@ import { spriteGeometry } from "./geometry";
 import { SpriteDefs } from "./materials";
 import { centerOn, clampView, fitBeside, fitView, FLOAT_COVER, keepCenter, zoomAt, type Size, type View } from "./panZoom";
 import { PlantScene } from "./PlantScene";
+import { placeOverviewCallouts } from "./placeOverviewCallouts";
 import { IssueTags, KeyLayer } from "./StageOverlay";
 
 const DRAG_THRESHOLD = 4;
@@ -47,6 +49,7 @@ type PlantViewportProps = Omit<ComponentProps<typeof PlantScene>, "showTags" | "
  * disclosure; readings switch to key readings below 80% zoom unless chosen otherwise.
  */
 export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, issues, note, inPage = false, designPreview = false, ...sceneProps }: PlantViewportProps) {
+  const alternate = useContext(OverviewTreatment);
   const s = useStrings();
   const t = s.monitoring.toolbar;
   const legendId = useId();
@@ -220,6 +223,14 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
     drag.current = { x: e.clientX, y: e.clientY, view, moved: false, id: e.pointerId };
   };
   const onPointerMove = (e: React.PointerEvent) => {
+    // Overview B: equipment near the cursor stirs — set a proximity weight per node.
+    if (alternate && !drag.current && e.pointerType !== "touch" && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      for (const node of svgRef.current?.querySelectorAll<SVGGElement>(".eq-node") ?? []) {
+        const r = node.getBoundingClientRect();
+        const d = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2));
+        node.style.setProperty("--near", Math.exp(-(d * d) / (2 * 160 * 160)).toFixed(3));
+      }
+    }
     const d = drag.current;
     if (!d || !box) return;
     const dx = e.clientX - d.x;
@@ -260,6 +271,17 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
   const limit = limitOf(box, float);
   const highlightIds = reach.length ? [...(sceneProps.highlightIds ?? []), ...reach] : sceneProps.highlightIds;
 
+  useLayoutEffect(() => {
+    const element = boxRef.current;
+    if (!alternate || !box || !element) return;
+    placeOverviewCallouts(element, limit);
+    if (document.fonts.status === "loaded") return;
+    let current = true;
+    void document.fonts.ready.then(() => {
+      if (current) placeOverviewCallouts(element, limit);
+    });
+    return () => { current = false; };
+  });
   return (
     <div className="plant-view" data-zoom={view.k.toFixed(4)} data-read={designPreview ? "off" : effective}>
       <div ref={boxRef} className="plant-view__box">
@@ -273,6 +295,12 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
+          onPointerLeave={() => {
+            if (!alternate) return;
+            for (const node of svgRef.current?.querySelectorAll<SVGGElement>(".eq-node") ?? []) {
+              node.style.setProperty("--near", "0");
+            }
+          }}
           onClickCapture={(e) => {
             if (suppressClick.current) {
               suppressClick.current = false;
@@ -377,6 +405,11 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
       {!designPreview && <p className={`readmode-hint${hint.on ? " is-on" : ""}`} aria-live="polite">{hint.text}</p>}
       <div id={legendId} className="legend" hidden={designPreview || !legend}>
         {legend && <SceneLegend />}
+        {legend && alternate && (
+          <a className="link" href={`${import.meta.env.BASE_URL}overview-equipment/credits.txt`} target="_blank" rel="noreferrer">
+            Equipment symbol credits
+          </a>
+        )}
       </div>
     </div>
   );

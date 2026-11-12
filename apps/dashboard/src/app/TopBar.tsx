@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useContext, useEffect, useId, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { ChevronDown, CircleCheck, Clock, LocateFixed, MessageSquareText } from "lucide-react";
 import { useStrings } from "../lib/i18n";
@@ -9,6 +9,7 @@ import { useDismissOutside, useEscapeLayer } from "../components/escape";
 import { ISSUES_KPI } from "../features/monitoring/kpiDefinitions";
 import { sceneMatchesTopology } from "../features/monitoring";
 import { useLatestForecast } from "../features/prediction";
+import { OverviewTreatment } from "./overviewTreatment";
 import { pageOf, segmentOf } from "./navigation";
 import { getOperating, operating, useOperating } from "./operatingContext";
 import { useIssues, useSite, useSnapshot } from "./site";
@@ -36,7 +37,7 @@ function Mark() {
  * data, the four readings that summarise the plant, and the attention slot. The slot
  * is always reserved, so a new issue never moves the plant.
  */
-export function TopBar({ phone, inert }: { phone: boolean; inert?: boolean }) {
+export function TopBar({ phone, inert, toggleTreatment }: { phone: boolean; inert?: boolean; toggleTreatment?: () => void }) {
   const s = useStrings();
   const location = useLocation();
   const site = useSite();
@@ -46,6 +47,7 @@ export function TopBar({ phone, inert }: { phone: boolean; inert?: boolean }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const segment = segmentOf(location.pathname);
   const lastSegment = useRef(segment);
+  const alternate = useContext(OverviewTreatment);
   const workspaceOpen = useOperating((x) => x.workspace.open);
 
   // The new screen's heading takes focus after navigation (not on first load), unless
@@ -61,7 +63,7 @@ export function TopBar({ phone, inert }: { phone: boolean; inert?: boolean }) {
   return (
     <header className="topbar" inert={inert}>
       <div className="topbar__site">
-        <Mark />
+        {!alternate && <Mark />}
         <div className="site">
           {site.data && (
             <span className="site__name">
@@ -78,6 +80,11 @@ export function TopBar({ phone, inert }: { phone: boolean; inert?: boolean }) {
         <span className="tag-chip tag-chip--demo topbar__demo" title={s.dataMode.demoDescription}>
           {s.dataMode.demo}
         </span>
+        {toggleTreatment && (
+          <button type="button" className="button overview-treatment" onClick={toggleTreatment}>
+            {alternate ? "Try Overview A" : "Try Overview B"}
+          </button>
+        )}
       </div>
       {site.data ? <Readouts site={site.data} snapshot={snapshot.data} failed={Boolean(snapshot.error)} /> : <div />}
       {site.data ? <Attention site={site.data} title={title} /> : <div className="attention" />}
@@ -101,6 +108,7 @@ function Readouts({ site, snapshot, failed }: { site: SiteBundle; snapshot?: Sna
   const t = s.topBar;
   const location = useLocation();
   const navigate = useNavigate();
+  const alternate = useContext(OverviewTreatment);
   const kpiKey = useOperating((x) => x.kpiKey);
   const [tray, setTray] = useState(false);
   const trayId = useId();
@@ -160,8 +168,28 @@ function Readouts({ site, snapshot, failed }: { site: SiteBundle; snapshot?: Sna
     </button>
   );
 
+  // Overview B: track the cursor across the strip — each readout gets its position
+  // (--mx/--my) and a proximity weight (--near) for the light-field effects.
+  const readoutsRef = useRef<HTMLDivElement>(null);
+  const fieldOn = () => alternate && !(typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const onFieldMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!fieldOn() || e.pointerType === "touch") return;
+    for (const el of readoutsRef.current?.querySelectorAll<HTMLElement>(".readout") ?? []) {
+      const r = el.getBoundingClientRect();
+      el.style.setProperty("--mx", `${(((e.clientX - r.left) / r.width) * 100).toFixed(1)}%`);
+      el.style.setProperty("--my", `${(((e.clientY - r.top) / r.height) * 100).toFixed(1)}%`);
+      const d = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2));
+      el.style.setProperty("--near", Math.exp(-(d * d) / (2 * 200 * 200)).toFixed(3));
+    }
+  };
+  const onFieldLeave = () => {
+    for (const el of readoutsRef.current?.querySelectorAll<HTMLElement>(".readout") ?? []) {
+      el.style.setProperty("--near", "0");
+    }
+  };
+
   return (
-    <div className={`readouts${stale ? " is-stale" : ""}`} role="group" aria-label={t.readouts}>
+    <div ref={readoutsRef} className={`readouts${stale ? " is-stale" : ""}`} role="group" aria-label={t.readouts} onPointerMove={onFieldMove} onPointerLeave={onFieldLeave}>
       {stale && snapshot?.latestSampleAt && (
         <span className="tag-chip tag-chip--caution readouts__stale num" title={t.staleTitle(formatTime(snapshot.latestSampleAt, tz))}>
           <Clock size={13} aria-hidden="true" />

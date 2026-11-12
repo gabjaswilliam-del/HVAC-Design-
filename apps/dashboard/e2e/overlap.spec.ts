@@ -105,3 +105,22 @@ test("at 1024x768 the panel covers part of the plant, and alarms under it move t
     expect(b.x + b.width, await tag.textContent() ?? "").toBeLessThanOrEqual(left);
   }
 });
+
+test("Overview B keeps callouts clear and draws a complete equipment selection", async ({ page }) => {
+  await page.goto("/?scenario=tower-fault");
+  await settle(page);
+  await page.getByRole("button", { name: "Try Overview B" }).click();
+  await settle(page);
+  expect(await page.evaluate(collisions)).toEqual([]);
+
+  const node = page.locator('.plant-view__box [data-equipment-id="chiller_plant_2"]');
+  await node.press("Enter");
+  await expect(node).toHaveAttribute("aria-pressed", "true");
+  const frame = node.locator(".eq-node__frame--selected");
+  await expect(frame).toHaveCSS("stroke-width", "2px");
+  expect(await frame.evaluate((el) => el.previousElementSibling?.classList.contains("eq-node__art"))).toBe(true);
+  await expect(node.locator(".equipment-symbol")).toBeVisible();
+
+  await page.getByRole("button", { name: "Try Overview A" }).click();
+  await expect(node.locator(".equipment-symbol")).toHaveCount(0);
+});

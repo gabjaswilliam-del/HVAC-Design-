@@ -1,5 +1,7 @@
-import type { CSSProperties, KeyboardEvent } from "react";
+import { useContext, type CSSProperties, type KeyboardEvent } from "react";
 import { useStrings } from "../../../lib/i18n";
+import { OverviewTreatment } from "../../../app/overviewTreatment";
+import { EquipmentSymbol } from "./EquipmentSymbol";
 import { spriteGeometry, type SpriteKind } from "./geometry";
 import type { OperatingState } from "./materials";
 import { ChillerSprite } from "./sprites/Chiller";
@@ -70,6 +72,7 @@ export function EquipmentNode({
   reviewState,
   reviewLabel,
 }: EquipmentNodeProps) {
+  const alternate = useContext(OverviewTreatment);
   const s = useStrings();
   const { width, height } = spriteGeometry[kind];
   const still = state !== "running" || stale;
@@ -142,7 +145,7 @@ export function EquipmentNode({
           rx={6}
         />
       )}
-      {(selected || state === "fault" || state === "unavailable") && (
+      {!alternate && (selected || state === "fault" || state === "unavailable") && (
         <rect
           className={`eq-node__frame eq-node__frame--${selected ? "selected" : state}`}
           x={-HALO_PAD}
@@ -153,11 +156,26 @@ export function EquipmentNode({
         />
       )}
       <g className="eq-node__art">
-        {kind === "chiller" && <ChillerSprite state={state} />}
-        {kind === "pump" && <PumpSprite state={state} flip={flip} />}
-        {kind === "coolingTower" && <CoolingTowerSprite state={state} />}
-        {kind === "dataHall" && <DataHallSprite state={state} />}
+        {alternate ? <EquipmentSymbol kind={kind} running={!still} flip={flip} /> : (
+          <>
+            {kind === "chiller" && <ChillerSprite state={state} />}
+            {kind === "pump" && <PumpSprite state={state} flip={flip} />}
+            {kind === "coolingTower" && <CoolingTowerSprite state={state} />}
+            {kind === "dataHall" && <DataHallSprite state={state} />}
+          </>
+        )}
       </g>
+      {alternate && (selected || state === "fault" || state === "unavailable") && (
+        <rect
+          className={`eq-node__frame eq-node__frame--${selected ? "selected" : state}`}
+          x={-HALO_PAD}
+          y={-HALO_PAD}
+          width={width + HALO_PAD * 2}
+          height={height + HALO_PAD * 2}
+          rx={9}
+          vectorEffect="non-scaling-stroke"
+        />
+      )}
       {badge && (
         <g className={`eq-badge eq-badge--${badge}`} transform={`translate(${width + 2} ${-2})`}>
           <circle r={8.5} />
