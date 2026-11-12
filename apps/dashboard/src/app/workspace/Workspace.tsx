@@ -1,12 +1,13 @@
-import { useLayoutEffect, useRef, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useContext, useLayoutEffect, useRef, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { Link } from "react-router";
-import { Bot, Maximize2, MessageSquareText, PanelRight, PanelRightClose, type LucideIcon } from "lucide-react";
+import { Bot, Compass, MessagesSquare, Maximize2, MessageSquareText, PanelRight, PanelRightClose, type LucideIcon } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import { useRestoreFocus } from "../../components/useRestoreFocus";
 import { AssistantPanel } from "../../features/agent";
 import { PilotConsole } from "../../features/pilot";
 import { clampWidth, getOperating, operating, useOperating, WORKSPACE_DEFAULT, WORKSPACE_MAX, WORKSPACE_MIN, type WorkspaceTab } from "../operatingContext";
 import type { WorkspaceLayout } from "../useWorkspaceLayout";
+import { OverviewTreatment } from "../overviewTreatment";
 import { DetailsPane, DetailsStrip } from "./DetailsPane";
 import "./workspace.css";
 
@@ -14,6 +15,11 @@ import "./workspace.css";
 const TABS: { tab: WorkspaceTab; icon: LucideIcon }[] = [
   { tab: "assistant", icon: MessageSquareText },
   { tab: "pilot", icon: Bot },
+];
+
+const ALTERNATE_TABS: typeof TABS = [
+  { tab: "assistant", icon: MessagesSquare },
+  { tab: "pilot", icon: Compass },
 ];
 
 /**
@@ -24,6 +30,7 @@ const TABS: { tab: WorkspaceTab; icon: LucideIcon }[] = [
 export function Workspace({ layout }: { layout: WorkspaceLayout }) {
   const s = useStrings();
   const w = s.workspace;
+  const tabItems = useContext(OverviewTreatment) ? ALTERNATE_TABS : TABS;
   const { tab, width, open } = useOperating((x) => x.workspace);
   const hasDetails = useOperating((x) => Boolean(x.selectedId || x.kpiKey));
   const collapsed = useOperating((x) => x.detailsCollapsed);
@@ -46,7 +53,7 @@ export function Workspace({ layout }: { layout: WorkspaceLayout }) {
   const float = layout === "float";
   const dock = (layout === "collapsed" || float) && (
     <div className="ws-dock" role="toolbar" aria-orientation="vertical" aria-label={w.label}>
-      {TABS.map(({ tab: t, icon }) => (
+      {tabItems.map(({ tab: t, icon }) => (
         <DockButton
           key={t}
           icon={icon}
@@ -95,7 +102,7 @@ export function Workspace({ layout }: { layout: WorkspaceLayout }) {
           <div className="workspace__bar">
             <div ref={tabs} className="workspace__tabs" role="tablist" aria-label={w.modes} onKeyDown={onTabKey}>
               <span className="workspace__pill" aria-hidden="true" />
-              {TABS.map(({ tab: t, icon: Icon }) => (
+              {tabItems.map(({ tab: t, icon: Icon }) => (
                 <button
                   key={t}
                   type="button"

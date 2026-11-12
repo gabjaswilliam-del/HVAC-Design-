@@ -1,0 +1,18 @@
+Overview B equipment symbols
+
+Source: diagrams.net (draw.io) v24.7.17, JGraph Ltd and contributors.
+Revision: acd938b1e42cff3be3b629e6239cdec9a9baddcc
+License: JGraph Adapted Apache License 2.0, included as LICENSE-drawio.txt.
+
+Chiller and Cooling Tower (Wet, Induced Draught):
+https://github.com/jgraph/drawio/blob/v24.7.17/src/main/webapp/stencils/pid/misc.xml
+
+Centrifugal Pump 2:
+https://github.com/jgraph/drawio/blob/v24.7.17/src/main/webapp/stencils/pid/pumps.xml
+
+2U Rack Server:
+https://github.com/jgraph/drawio/blob/v24.7.17/src/main/webapp/stencils/rack/general.xml
+
+Modified for this dashboard: converted stencil commands to SVG, simplified
+rack details, applied dashboard colors, scaled and positioned symbols within
+the scene, repeated the rack unit and added dashboard pipe connections.

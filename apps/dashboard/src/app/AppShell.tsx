@@ -15,7 +15,9 @@ import { TopBar } from "./TopBar";
 import { useMedia } from "./useMedia";
 import { useWorkspaceLayout } from "./useWorkspaceLayout";
 import { Workspace } from "./workspace/Workspace";
+import { OverviewTreatment } from "./overviewTreatment";
 import "./app.css";
+import "./overview-b.css";
 
 const TICK_MS = 250;
 
@@ -42,6 +44,13 @@ function Shell() {
   const narrow = useMedia(NARROW);
   const workspace = useOperating((x) => x.workspace);
   const layout = useWorkspaceLayout();
+  const [alternate, setAlternate] = useState(() => sessionStorage.getItem("hvac-overview") === "b");
+  const overview = section === "";
+  const treatmentB = overview && alternate;
+  const toggleTreatment = () => {
+    sessionStorage.setItem("hvac-overview", alternate ? "a" : "b");
+    setAlternate(!alternate);
+  };
   const [keys, setKeys] = useState(false);
   const view = useRef<HTMLDivElement>(null);
   useShortcuts(() => setKeys((v) => !v));
@@ -85,23 +94,25 @@ function Shell() {
   }, [layout]);
 
   return (
-    <div className="shell" data-workspace={layout} style={{ "--ws-width": `${workspace.width}px` } as CSSProperties}>
-      <a className="skip-link" href="#main">
-        {s.app.skipToContent}
-      </a>
-      <TopBar phone={narrow} inert={sheet} />
-      <Dock onShortcuts={() => setKeys((v) => !v)} shortcutsOpen={keys} inert={sheet} />
-      <main id="main" className="main" tabIndex={-1} inert={sheet} data-float={layout === "float" || undefined}>
-        <div ref={view} className={`main__view${section === "" ? " main__view--stage" : ""}`}>
-          <Activity mode={cadOpen ? "visible" : "hidden"}>
-            <CadStudioPage />
-          </Activity>
-          <Outlet />
-        </div>
-      </main>
-      <Deck inert={sheet} />
-      <Workspace layout={layout} />
-      <Shortcuts open={keys} onClose={() => setKeys(false)} />
-    </div>
+    <OverviewTreatment.Provider value={treatmentB}>
+      <div className={treatmentB ? "shell shell--overview-b" : "shell"} data-workspace={layout} style={{ "--ws-width": `${workspace.width}px` } as CSSProperties}>
+        <a className="skip-link" href="#main">
+          {s.app.skipToContent}
+        </a>
+        <TopBar phone={narrow} inert={sheet} toggleTreatment={overview ? toggleTreatment : undefined} />
+        <Dock onShortcuts={() => setKeys((v) => !v)} shortcutsOpen={keys} inert={sheet} />
+        <main id="main" className="main" tabIndex={-1} inert={sheet} data-float={layout === "float" || undefined}>
+          <div ref={view} className={`main__view${section === "" ? " main__view--stage" : ""}`}>
+            <Activity mode={cadOpen ? "visible" : "hidden"}>
+              <CadStudioPage />
+            </Activity>
+            <Outlet />
+          </div>
+        </main>
+        <Deck inert={sheet} />
+        <Workspace layout={layout} />
+        <Shortcuts open={keys} onClose={() => setKeys(false)} />
+      </div>
+    </OverviewTreatment.Provider>
   );
 }

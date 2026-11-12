@@ -1,9 +1,13 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
-import { Keyboard, Server } from "lucide-react";
+import { Boxes, Command, FileStack, Gauge, Keyboard, Layers, Orbit, Server, SlidersHorizontal } from "lucide-react";
 import { useStrings } from "../lib/i18n";
 import { useDismissOutside, useEscapeLayer } from "../components/escape";
 import { navSearch, sectionOf, sections, segmentOf, systemLinks } from "./navigation";
+
+import { OverviewTreatment } from "./overviewTreatment";
+
+const alternateIcons = { overview: Gauge, analytics: Orbit, engineering: Boxes, cad: Layers, knowledge: FileStack };
 
 const SIZE = 40;
 const MAX = 0.3;
@@ -20,6 +24,9 @@ const phone = () => typeof matchMedia !== "undefined" && matchMedia("(max-width:
 export function Dock({ onShortcuts, shortcutsOpen, inert }: { onShortcuts: () => void; shortcutsOpen: boolean; inert?: boolean }) {
   const s = useStrings();
   const n = s.nav;
+  const alternate = useContext(OverviewTreatment);
+  const ShortcutsIcon = alternate ? Command : Keyboard;
+  const SystemIcon = alternate ? SlidersHorizontal : Server;
   const location = useLocation();
   const active = sectionOf(location.pathname)?.key;
   const search = navSearch(location.search);
@@ -63,6 +70,15 @@ export function Dock({ onShortcuts, shortcutsOpen, inert }: { onShortcuts: () =>
   const onPointerMove = (e: React.PointerEvent) => {
     if (reduceMotion() || phone() || e.pointerType === "touch") return;
     const list = items();
+    // Overview B: a horizontal light field — items near the cursor lift and glow.
+    if (alternate) {
+      for (const it of list) {
+        const r = it.getBoundingClientRect();
+        const d = e.clientX - (r.left + r.width / 2);
+        it.style.setProperty("--near", Math.exp(-(d * d) / (2 * 130 * 130)).toFixed(3));
+      }
+      return;
+    }
     const centres = list.map((it) => {
       const r = it.getBoundingClientRect();
       const shift = parseFloat(it.style.getPropertyValue("--shift")) || 0;
@@ -81,6 +97,7 @@ export function Dock({ onShortcuts, shortcutsOpen, inert }: { onShortcuts: () =>
     items().forEach((it) => {
       it.style.setProperty("--s", "1");
       it.style.setProperty("--shift", "0px");
+      it.style.setProperty("--near", "0");
     });
 
   // One tab stop: the current section (or the first item); arrows move between items.
@@ -101,22 +118,25 @@ export function Dock({ onShortcuts, shortcutsOpen, inert }: { onShortcuts: () =>
     <nav ref={nav} className="dock" inert={inert} aria-label={n.label} onPointerMove={onPointerMove} onPointerLeave={onPointerLeave} onKeyDown={onKeyDown} onBlur={(e) => !nav.current?.contains(e.relatedTarget as Node) && setFocusIndex(null)}>
       <span ref={indicator} className="dock__indicator" aria-hidden="true" />
       <ul className="dock__list dock__list--main">
-        {sections.map((sec, i) => (
-          <li key={sec.key}>
-            <Link
-              to={{ pathname: sec.path, search }}
-              className="dock__item"
-              aria-current={active === sec.key ? "page" : undefined}
-              tabIndex={stop === i ? 0 : -1}
-              aria-label={n.sections[sec.key]}
-            >
-              <sec.icon size={20} aria-hidden="true" />
-              <span className="dock__label" aria-hidden="true">
-                {n.sections[sec.key]}
-              </span>
-            </Link>
-          </li>
-        ))}
+        {sections.map((sec, i) => {
+          const Icon = alternate ? alternateIcons[sec.key] : sec.icon;
+          return (
+            <li key={sec.key}>
+              <Link
+                to={{ pathname: sec.path, search }}
+                className="dock__item"
+                aria-current={active === sec.key ? "page" : undefined}
+                tabIndex={stop === i ? 0 : -1}
+                aria-label={n.sections[sec.key]}
+              >
+                <Icon size={20} aria-hidden="true" />
+                <span className="dock__label" aria-hidden="true">
+                  {n.sections[sec.key]}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
       </ul>
       <ul className="dock__list dock__list--foot">
         <li>
@@ -130,7 +150,7 @@ export function Dock({ onShortcuts, shortcutsOpen, inert }: { onShortcuts: () =>
             onClick={onShortcuts}
             data-shortcuts-opener
           >
-            <Keyboard size={20} aria-hidden="true" />
+            <ShortcutsIcon size={20} aria-hidden="true" />
             <span className="dock__label" aria-hidden="true">
               {s.dock.shortcuts}
             </span>
@@ -148,7 +168,7 @@ export function Dock({ onShortcuts, shortcutsOpen, inert }: { onShortcuts: () =>
             tabIndex={stop === sections.length + 1 ? 0 : -1}
             onClick={() => setMenuOpen((v) => !v)}
           >
-            <Server size={20} aria-hidden="true" />
+            <SystemIcon size={20} aria-hidden="true" />
             <span className="dock__label" aria-hidden="true">
               {n.system}
             </span>
