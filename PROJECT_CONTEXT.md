@@ -1,6 +1,6 @@
 # HVAC Agent — living project context prompt
 
-**Last updated:** 2026-11-11 (Asia/Shanghai)
+**Last updated:** 2026-11-12 (Asia/Shanghai)
 
 **Purpose:** A self-contained information prompt for an LLM joining this project.
 
@@ -815,6 +815,42 @@ or patch for the affected sections. Explicitly say that it has **not** been save
 Do not claim durable memory or a file update that did not happen.
 
 ### Latest handoff
+
+- **2026-11-12 — Overview B prototype and owner-requested visual revision.**
+  Implemented in the local working tree on `tcy` at `fabdb63`. Overview
+  defaults to A and offers a session-scoped A/B switch. B has horizontal
+  navigation, a separate KPI band, a layered light schematic, and a tabbed
+  Assistant/Pilot workspace. After owner feedback, removed the title mark and
+  boxed heading focus treatment, changed the surfaces, and replaced abstract
+  equipment symbols with locally bundled, freely licensed photo cutouts.
+  Sources, authors and license links are in
+  `apps/dashboard/public/overview-equipment/credits.txt`, linked from B's
+  schematic legend. Photos depict equipment types for the synthetic demo.
+  Existing routes, device IDs, topology and data drive both layouts.
+  Windows demo build and Chrome checks at 1440 px and 390 px passed for the
+  revision. Checks covered all four local image requests, all 16 equipment
+  nodes, the credits link, equipment details, Pilot and switching back to A.
+  Before the visual revision, Vitest reported 214 passes and one fixture
+  generator timeout at 5 seconds. Its targeted rerun passed all 8 tests at
+  20 seconds. Pytest was unavailable in the local Python runtime. Pending
+  owner review and DGX Spark validation. The changes are uncommitted and
+  no PR was opened.
+
+  Follow-up UI revision on the same checkout replaces the photo cutouts with
+  bundled 2D symbols built from Lucide glyphs and project-drawn equipment
+  outlines. The B selection frame draws above the equipment artwork. B also
+  places screen-space callouts around the equipment and controls, defers
+  crowded secondary readings until zoom or Details, and updates the title,
+  KPIs and panel surfaces. Chrome passed 18 fit checks across three demo
+  scenarios and five desktop widths, plus the B selection and A/B switch
+  regression. DGX Spark validation is pending. No commit or PR was created.
+
+  The next icon revision replaces the Lucide and custom artwork with four
+  adapted diagrams.net v24.7.17 P&ID and Rack stencils for chillers, wet
+  cooling towers, centrifugal pumps and rack servers. The bundled credits
+  record the upstream revision, modifications and JGraph Adapted Apache 2.0
+  license. The Windows demo build and Chrome Overview B selection and A/B
+  switch regression passed. DGX Spark validation is pending.
 
 - **2026-11-11 — Engineering simulation workspace and live monitor.** Implemented
   in the local working tree on `tcy` at `8cfffb8`, alongside the existing CAD
