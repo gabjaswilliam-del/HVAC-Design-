@@ -3,13 +3,15 @@ import { formatTime } from "../../lib/format";
 import type { RunEvent } from "../../lib/contracts/simulation";
 
 /** What happened in the run, newest first, at simulated time: lifecycle, corrections, failures. */
-export function SimulationTimeline({ events, timeZone }: { events: RunEvent[]; timeZone: string }) {
+export function SimulationTimeline({ events, timeZone, bare = false }: { events: RunEvent[]; timeZone: string; bare?: boolean }) {
   const s = useStrings().simulation;
   return (
-    <section className="sim-section" aria-labelledby="sim-timeline-title">
-      <div className="sim-section__head">
-        <h2 id="sim-timeline-title">{s.timeline}</h2>
-      </div>
+    <section className="sim-section" {...(bare ? { "aria-label": s.timeline } : { "aria-labelledby": "sim-timeline-title" })}>
+      {!bare && (
+        <div className="sim-section__head">
+          <h2 id="sim-timeline-title">{s.timeline}</h2>
+        </div>
+      )}
       {events.length ? (
         <ol className="sim-timeline" aria-label={s.timelineLabel} tabIndex={0}>
           {[...events].reverse().map((e) => (

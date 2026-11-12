@@ -70,7 +70,8 @@ describe("CAD Studio demo", () => {
 
     expect(screen.getByText("mechanical-room.dwg")).toBeTruthy();
     expect(screen.getByText(/Parser not connected/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Water-cooled plant/i })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Active CAD drawing" })).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "Synthetic source drawing" })).toBeNull();
   });
 
   it("previews the reviewed draft in the shared Overview viewport", () => {

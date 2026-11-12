@@ -1,6 +1,6 @@
 # HVAC Agent — living project context prompt
 
-**Last updated:** 2026-10-28 (Asia/Shanghai)
+**Last updated:** 2026-11-11 (Asia/Shanghai)
 
 **Purpose:** A self-contained information prompt for an LLM joining this project.
 
@@ -816,6 +816,69 @@ Do not claim durable memory or a file update that did not happen.
 
 ### Latest handoff
 
+- **2026-11-11 — Engineering simulation workspace and live monitor.** Implemented
+  in the local working tree on `tcy` at `8cfffb8`, alongside the existing CAD
+  changes below. The fork's open PR #1 does not include this work. Engineering
+  opens a setup guide with links to AI Pilot and Simulation history. A successful
+  launch from Engineering or a simulation page opens that run's monitor. Its plant
+  and charts follow the attached AI Pilot session, and the same URL becomes a
+  replay when the run ends. The completion panel's Exit button detaches the run,
+  closes the workspace and opens the history. Launches on other dashboard pages
+  leave the current page in place. All of this uses the dashboard mock services.
+  Windows validation passed the demo build, 215 dashboard unit tests, all 33
+  Simulation and AI Pilot browser tests and pytest (554 passed, 4 xfailed).
+  The broader shell browser run reported three
+  failures in keyboard shortcuts, radio navigation and a scroll test referencing
+  the old Engineering hub. DGX SSH authentication failed, so DGX validation
+  could not be completed.
+
+- **2026-11-10 — CAD Studio workspace continuity and multi-file selection.**
+  Implemented as uncommitted changes on `tcy` at `8cfffb8`; no PR for this update.
+  The dashboard shell retains the CAD workspace across navigation. `Back to import`
+  returns to the entry screen, where an operator can resume the active drawing or
+  append another batch through the picker or drop zone. The drawing selector switches
+  between files and the synthetic sample, and is visible even when the sample is the
+  only drawing. Local files report parser unavailability.
+  Files and edits are held in the current tab's memory and are discarded on refresh.
+  Windows validation: demo build, three focused unit tests and three Chrome CAD
+  scenarios passed. The full unit run encountered missing temporary transform files
+  in the Windows sandbox. DGX validation has not been run.
+
+- **2026-11-09 — simulation replay and AI Pilot completion reworked in the dashboard
+  fixture, uncommitted.** At the user's request, reworked `apps/dashboard` (fixture
+  prototype, no backend): the replay (`src/features/pilot/SimulationView.tsx`) is
+  chart-led — one merged results section beside the plant (the old Trends and Results
+  sections were combined at the user's request): the values at the replayed step, the
+  whole-run figures, and every metric's course over the run (COP, cooling, unmet, power,
+  energy) with the scrubbed moment marked, a crosshair reading any point, and the newest
+  matched run overlaid automatically with a compare selector; auto-play; the corrections
+  record, events timeline and pilot findings are folded. `ResultsView.tsx` was deleted
+  (its comparison and forecast-support parts moved into `SimulationView.tsx`). The run
+  summary view was removed; AI Pilot's completion now shows a few key
+  figures, one or two overall-situation sentences quoted from the summary's own
+  assessment, and the unresolved issues in a collapsible fold, each as one concise line
+  with the pilot's advice for it and a "Locate in the replay" button. That button opens
+  `/simulation/<run>?issue=<id>&equipment=<id>`: the equipment is highlighted on the
+  plant (selection halo plus a highlight frame, which now also renders on a selected
+  node), and the issue periods are marked in colour — every open issue's first-to-last-
+  seen span is drawn on the scrubber and shaded on every trend chart in its own palette
+  colour (`src/features/simulation/issueColors.ts`, stable per run; the same colour dots
+  the issue's row in AI Pilot), with the located one emphasised and its span played once.
+  An issue present for (nearly) the whole run is drawn as a dashed outline plus a
+  "present throughout the run" chip instead of a filled band. English and Chinese (`zh.local.ts`, git-ignored) strings updated together.
+  A later full-width stacked relayout (plant across the top, charts in an auto-fill
+  grid, folds in a foot row) was tried and reverted at the user's request ("感觉越改越
+  差了") — the two-column `.sim__layout` stands.
+  Verification: `tsc --noEmit` clean, 215/215 unit tests, Playwright simulation 7/7 and
+  pilot 25/25 (re-run after each later change); agent 30/34 — forecast answer,
+  conversation history and speech-to-text as
+  before this work, plus "cancelling mid-answer" which was reproduced on the pre-change
+  tree via stash (environmental, unrelated). At the user's later request the
+  `/engineering-zh` redirect
+  route (their own earlier change) was removed; their uncommitted `EngineeringPage.tsx`
+  simplification remains. Committed as `575222a` on branch `tcy` (pushed to origin) at
+  the user's request; PR not yet opened (no `gh` CLI on this machine — the user opens it
+  on the web). No DGX validation; the PR description must say so.
 - **2026-10-28 — pushed `main` and brought the fork level, without a PR.** At the user's
   instruction ("push"): fetched `origin` (remote `main` unchanged at `efc0a0a`; the
   fork's `main` unchanged at `6e8217a`), committed this update, pushed `main` as a

@@ -135,18 +135,18 @@ test("the console operates the lifecycle; reading never advances the clock; the 
   await expect(result.getByRole("heading", { level: 3 })).toHaveText("Simulation stopped");
   await expect(result).toContainText("Normal operation from 12:00 RUN-0001");
   for (const label of ["Findings detected", "Corrections applied", "Average COP", "Energy"]) await expect(result.getByText(label, { exact: true })).toBeVisible();
+  // One or two sentences of the overall situation sit under the figures.
+  await expect(result.locator(".pilot-completion__lead")).toContainText("was stopped by the operator after");
   const energy = (await result.locator("dd").nth(3).innerText()).trim();
   await expect(page.getByRole("status").filter({ hasText: "Simulation ended: Normal operation from 12:00, RUN-0001." })).toBeAttached();
   await expect(pilotConsole(page).getByRole("tab")).toHaveCount(0); // no live views once ended
   await mainIsOwn(page, /\/\?simSpeed=fast$/, "Overview");
 
-  // The replay opens when asked, at that run, with the same recorded figures.
+  // The replay opens when asked, at that run; the condensed summary stays in AI Pilot.
   await viewReplay(page, "RUN-0001");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Simulation");
-  const summary = replay(page).getByRole("region", { name: "Run summary, RUN-0001" });
-  await expect(summary).toContainText("From the recorded run");
-  await expect(summary).toContainText(/Normal operation: stopped by the operator, 12:00 to \d\d:\d\d/);
-  await expect(summary).toContainText(energy);
+  await expect(page.getByRole("region", { name: "Run summary, RUN-0001" })).toHaveCount(0);
+  await expect(completion(page)).toContainText(energy);
 
   // Another run starts from the same console.
   await consoleBand(page).getByRole("button", { name: "New simulation" }).click();
@@ -155,9 +155,9 @@ test("the console operates the lifecycle; reading never advances the clock; the 
   await expect(consoleBand(page)).toHaveAttribute("data-run", "RUN-0001");
   const second = await startRun(page, { name: "Second run", hours: "1 h", step: "15 min" });
   expect(second).toBe("RUN-0002");
-  // A run that completes on its own opens nothing either.
+  // Starting from a simulation page opens the new monitor; completion stays there.
   await expect(completion(page).getByRole("heading", { level: 3 })).toHaveText("Simulation completed", { timeout: 10_000 });
-  await expect(page).toHaveURL(/\/simulation\/RUN-0001$/);
+  await expect(page).toHaveURL(/\/simulation\/RUN-0002$/);
 });
 
 test("monitoring is secondary: it pauses and resumes without touching the run", async ({ page }) => {
@@ -223,7 +223,8 @@ test("the pilot lifecycle runs to resolution from the console; the replay keeps 
   await control(page, "Stop simulation");
   await viewReplay(page, "RUN-0001");
 
-  // The finding, in the replay: its lifecycle, evidence and outcome, read only.
+  // The finding, in the replay: its lifecycle, evidence and outcome, read only — in its fold.
+  await replay(page).locator(".replay-fold summary", { hasText: "Issues" }).click();
   await replay(page).locator('[data-pilot-issue="PIL-0001-1"]').click();
   const detail = replay(page).locator('[data-pilot-detail="PIL-0001-1"]');
   await expect(detail.getByRole("heading").first()).toHaveText("Chiller 1: chilled-water setpoint colder than load requires");
@@ -268,6 +269,8 @@ test("corrections are made in AI Pilot: explained limits, queued, applied at the
   // Applied corrections are counted in the result; the ledger stays with the recorded run.
   await expect(completion(page)).toContainText("Corrections applied2");
   await viewReplay(page, run);
+  // The corrections record sits in its fold on the replay.
+  await replay(page).locator(".replay-fold summary", { hasText: "Corrections" }).click();
   const record = (n: number) => replay(page).locator(`[data-correction="COR-${run.slice(4)}-${n}"] [data-correction-status]`);
   await expect(record(1)).toHaveText("Applied");
   await expect(record(3)).toHaveText("Expired");
@@ -280,14 +283,34 @@ test("a run that leaves the model envelope fails, says so, and keeps its last va
   await expect(consoleState(page)).toHaveText("Failed", { timeout: 20_000 });
   await expect(completion(page).getByRole("heading", { level: 3 })).toHaveText("Simulation failed");
   await expect(completion(page)).toContainText("Outside the model envelope");
+  await expect(completion(page).locator(".pilot-completion__lead")).toContainText("The run failed after");
   const name = await consoleBand(page).locator("[data-run-name]").innerText();
   await expect(page.getByRole("status").filter({ hasText: `Simulation failed: ${name}, ${run}.` })).toBeAttached();
   const time = (await consoleBand(page).locator("[data-sim-time]").innerText()).trim();
   await viewReplay(page, run);
   await expect(page.getByRole("alert").filter({ hasText: "Run failed." }).first()).toContainText("Outside the model envelope");
-  const summary = replay(page).getByRole("region", { name: `Run summary, ${run}` });
-  await expect(summary).toContainText(`Results end at the last valid observation, ${time}.`);
-  await expect(summary.locator("[data-recommendation]").filter({ hasText: "within the model's envelope" })).toHaveCount(1);
+  await expect(replay(page)).toContainText(`Results end at the last valid observation, ${time}.`);
+  // The condensed summary is in AI Pilot: the unresolved issues in a fold, each with its advice.
+  await expect(completion(page).locator("[data-recommendation]").filter({ hasText: "within the model's envelope" })).toHaveCount(1);
+  const unresolved = completion(page).locator("[data-unresolved]").first();
+  await expect(unresolved).toBeVisible();
+  // The fold collapses and expands; each issue's button locates it in the replay.
+  await completion(page).locator(".pilot-fold summary").click();
+  await expect(unresolved).toBeHidden();
+  await completion(page).locator(".pilot-fold summary").click();
+  await expect(unresolved).toBeVisible();
+  await unresolved.getByRole("link", { name: "Locate in the replay" }).click();
+  await expect(page).toHaveURL(new RegExp(`/simulation/${run}\\?issue=`));
+  // The issue is located: its equipment highlighted on the plant, its span marked on the
+  // scrubber and the results charts (its own colour, emphasised among the other open
+  // issues'), and that span played by itself.
+  await expect(replay(page).locator(".eq-node__frame--highlighted").first()).toBeVisible();
+  await expect(replay(page).locator(".replay-scrubber__span--strong")).toHaveCount(1);
+  await expect(replay(page).locator(".sim-results .ts-chart__highlight--strong")).toHaveCount(5);
+  await expect(replay(page).locator("[data-located-issue]")).toBeVisible();
+  await expect(replay(page).getByRole("button", { name: "Pause the replay" })).toBeVisible();
+  await expect(replay(page).getByRole("button", { name: "Play the replay from the start" })).toBeVisible({ timeout: 20_000 });
+  await page.goto(`/simulation/${run}?simSpeed=fast`);
   await expect(page.locator("[data-retained]")).toHaveText(`Retained: last valid observation, ${time}`);
 });
 
@@ -334,7 +357,7 @@ test("unavailable services say so instead of pretending", async ({ page }) => {
   await expect(completion(page)).toContainText("The pilot's run summary is not available.");
   await expect(completion(page)).toContainText("Findings detected–");
   await viewReplay(page, "RUN-0001");
-  await expect(replay(page).getByRole("alert").filter({ hasText: "The pilot's run summary is not available." })).toBeVisible();
+  await replay(page).locator(".replay-fold summary", { hasText: "Issues" }).click();
   await expect(replay(page).getByRole("alert").filter({ hasText: "The pilot's findings on this run are not available." })).toBeVisible();
 });
 
@@ -365,7 +388,7 @@ test("a stale proposal is rejected by the run's gate and stays visible", async (
   await expect(decide.locator(".pilot-decision__evidence li").filter({ hasText: "Rejected by the run's gate (stale)" })).toHaveCount(1);
 });
 
-test("one live operator: a live run's replay address points to AI Pilot; there is no live copy in the main display", async ({ page }) => {
+test("an active run can be monitored from its address and operated only in AI Pilot", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 }); // the workspace floats, closed
   await page.goto("/?simSpeed=fast");
   await openConsole(page);
@@ -377,15 +400,17 @@ test("one live operator: a live run's replay address points to AI Pilot; there i
   await expect(page.getByText("No screen exists at this address.")).toBeVisible();
   await page.goto(`/simulation/${run}?simSpeed=fast`);
   await expect(page.getByRole("heading", { level: 1, name: "Simulation" })).toBeVisible();
-  await expect(replay(page)).toContainText(`${run} is live in AI Pilot, where it is operated and monitored. Its replay is here once it has ended.`);
-  await expect(page.locator("main [data-sim-frame], main .pilot-readings, main [data-pilot-issue]")).toHaveCount(0);
+  await expect(replay(page).getByRole("heading", { name: "Simulation monitor" })).toBeVisible();
+  await expect(replay(page).locator("[data-sim-frame]")).toBeVisible();
+  await expect(replay(page).getByRole("region", { name: "Live results" })).toBeVisible();
+  await expect(replay(page).getByRole("slider", { name: "Replay" })).toHaveCount(0);
   await expect(page.locator("main").getByRole("button", { name: /^(Resume|Pause|Step|Stop simulation)$/ })).toHaveCount(0);
   await replay(page).getByRole("button", { name: "Open AI Pilot" }).click();
   await expect(pilotConsole(page)).toBeVisible();
   await expect(consoleBand(page).getByRole("button", { name: "Resume" })).toBeVisible();
   // When it ends, this address is its replay.
   await control(page, "Stop simulation");
-  await expect(replay(page).getByRole("region", { name: `Run summary, ${run}` })).toBeVisible();
+  await expect(replay(page).getByRole("region", { name: "Results" })).toBeVisible();
 });
 
 test("keyboard and axe: console views move with arrow keys; nothing serious on the console, its result or the replay", async ({ page }) => {
@@ -416,7 +441,7 @@ test("keyboard and axe: console views move with arrow keys; nothing serious on t
   await expect(completion(page)).toBeVisible();
   await axe("#pilot-panel");
   await viewReplay(page, "RUN-0001");
-  await expect(replay(page).getByRole("heading", { name: "Run summary, RUN-0001" })).toBeVisible();
+  await expect(replay(page).getByRole("heading", { name: "Results" })).toBeVisible();
   await axe("main");
 });
 
@@ -432,7 +457,7 @@ test("reduced motion: every state change is immediate, smooth scrolling is off, 
   await control(page, "Stop simulation");
   await expect(completion(page)).toBeVisible();
   await viewReplay(page, "RUN-0001");
-  await expect(replay(page).getByRole("heading", { name: "Run summary, RUN-0001" })).toBeVisible();
+  await expect(replay(page).getByRole("heading", { name: "Results" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.dataset.motion ?? "")).toBe("");
   await expect(page.locator(".main__view.lenis")).toHaveCount(0);
 });

@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Link } from "react-router";
-import { History, MonitorPlay, X } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router";
+import { History, LogOut, MonitorPlay, X } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import { formatNumber, formatTime } from "../../lib/format";
-import { isFinal, type PilotIssue, type RunDetail } from "../../lib/contracts/simulation";
+import { isFinal, type PilotIssue, type RunDetail, type RunSummary } from "../../lib/contracts/simulation";
 import { Notice } from "../../components/Notice";
 import { motion } from "../../lib/motion";
 import { targetPath } from "../../app/navigation";
@@ -14,6 +14,7 @@ import {
   RunControls,
   RunStateLabel,
   ScenarioForm,
+  issueColor,
   liveRunOf,
   simulationSession,
   useSimulation,
@@ -38,16 +39,24 @@ const showMain = () => {
  * paused; then the same console operates the run (resume, pause, step, stop), shows its
  * key figures and the pilot's monitoring, and holds Live, Findings (with Apply and Decline
  * for a proposal) and Corrections. When the run ends it gives a short completion result;
- * its replay opens in the main display only when asked ("View summary & replay").
- *
- * The main display is never moved by AI Pilot: it stays the operator's own while a run
- * goes on. Only these explicit controls operate the simulation. The assistant may point
+ * Engineering launches open the simulation display beside the console.
+ * Only these explicit controls operate the simulation. The assistant may point
  * to one (it is outlined and named here) but never presses it. Nothing reaches physical
  * equipment.
  */
 export function PilotConsole({ hidden = false }: { hidden?: boolean }) {
   const s = useStrings();
   const p = s.pilot;
+  const navigate = useNavigate();
+  const location = useLocation();
+  const currentLocation = useRef(location);
+  currentLocation.current = location;
+  const showStartedRun = (runId: string) => {
+    if (currentLocation.current.key !== location.key) return;
+    if (location.pathname !== "/engineering" && !/^\/simulation(?:\/|$)/.test(location.pathname)) return;
+    navigate(targetPath({ type: "simulation", runId }));
+    showMain();
+  };
   const site = useSite();
   const sim = useSimulation();
   const tz = site.data?.site.timezone ?? "UTC";
@@ -118,6 +127,7 @@ export function PilotConsole({ hidden = false }: { hidden?: boolean }) {
               autoFocus={sim.composing}
               onCancel={sim.composing && sim.runId ? () => simulationSession.compose(false) : undefined}
               cancelLabel={sim.runId ? p.backToRun(sim.runId) : undefined}
+              onStarted={showStartedRun}
             />
             <RecentRuns timeZone={tz} />
           </>
@@ -343,14 +353,21 @@ function ConsoleFindings({ run, issues, timeZone }: { run: RunDetail; issues: Pi
 }
 
 /**
- * The run has ended: a short result from what it recorded (how it ended, what the pilot
- * found, corrections applied, average COP, energy) and the way to its replay. Nothing
- * opens by itself; the summary, the plant and the charts are in the replay.
+ * The run has ended: the pilot's condensed summary, here in AI Pilot — a few key figures,
+ * the unresolved issues in a fold with a button each to the screen that resolves them,
+ * and the next steps. Nothing opens by itself; the plant, the trends and the full record
+ * are in the replay, opened on request.
  */
 function Completion({ run }: { run: RunDetail }) {
   const s = useStrings();
   const p = s.pilot;
   const sim = useSimulation();
+  const navigate = useNavigate();
+  const exit = () => {
+    simulationSession.attach(null);
+    operating.closeWorkspace();
+    navigate(targetPath({ type: "simulation" }));
+  };
   const summary = sim.summary?.runId === run.runId ? sim.summary : null;
   const pilot = sim.pilot?.runId === run.runId ? sim.pilot : null;
   const applied = run.corrections.filter((c) => c.applied).length;
@@ -381,15 +398,97 @@ function Completion({ run }: { run: RunDetail }) {
           <dt>{s.summary.energy}</dt>
           <dd className="num">{formatNumber(run.stats.energyKwh, 0)} kWh</dd>
         </div>
+        <div>
+          <dt>{s.simulation.peakUnmet}</dt>
+          <dd className="num">{formatNumber(run.stats.peakUnmetKw, 0)} kWt</dd>
+        </div>
       </dl>
+      {summary && <p className="pilot-completion__lead">{overviewLines(summary).join(" ")}</p>}
+      {summary && <UnresolvedIssues run={run} summary={summary} issues={pilot?.issues ?? []} />}
       {sim.summaryError && <p className="pilot__muted">{p.summaryUnavailable} {sim.summaryError.message}</p>}
       <p className="pilot-completion__actions">
         <Link className="button button--primary" to={targetPath({ type: "simulation", runId: run.runId })} onClick={showMain}>
           <MonitorPlay size={15} aria-hidden="true" />
           {p.viewReplay}
         </Link>
+        <button type="button" className="button" onClick={exit}>
+          <LogOut size={15} aria-hidden="true" />
+          {p.exitToHistory}
+        </button>
       </p>
     </section>
+  );
+}
+
+/**
+ * The overall situation in one or two sentences, quoted from the summary's own
+ * assessment: how the run ended, then the first substantive concern (unmet demand or a
+ * failure) or, when nothing raised one, the steady-state observation. The "issues remain
+ * unresolved" sentence is left to the fold right below, and the average-COP/energy
+ * sentence is skipped — those figures stand right above.
+ */
+function overviewLines(summary: RunSummary): string[] {
+  const first = summary.assessment[0]?.text;
+  const concerns = summary.assessment.filter((x, i) => i > 0 && x.kind === "concern");
+  const second =
+    concerns.find((x) => !/pilot issues? remains? unresolved/.test(x.text))?.text ??
+    summary.assessment.slice(1).find((x) => !x.text.startsWith("Average COP"))?.text;
+  return [first, second].filter((t): t is string => Boolean(t));
+}
+
+/**
+ * The issues the pilot left open when the run ended, in a fold the operator can collapse.
+ * Each is one concise line — severity, its name and the pilot's advice for it — with a
+ * button that locates it in the replay: the equipment highlighted on the plant, its span
+ * marked on the scrubber and the trends, and that span played. Advice that names no issue
+ * follows the list, just as brief.
+ */
+function UnresolvedIssues({ run, summary, issues }: { run: RunDetail; summary: RunSummary; issues: PilotIssue[] }) {
+  const s = useStrings();
+  const r = s.summary;
+  const unresolved = summary.pilot.unresolved;
+  if (!unresolved.length) return null;
+  // An issue's advice quotes its ID; the rest is general.
+  const adviceFor = (issueId: string) => summary.recommendations.filter((x) => x.text.includes(issueId) || x.basis.includes(issueId));
+  const general = summary.recommendations.filter((x) => !unresolved.some((u) => x.text.includes(u.issueId) || x.basis.includes(u.issueId)));
+  return (
+    <details className="pilot-fold" open>
+      <summary>
+        {r.unresolved} <span className="num pilot__muted">{unresolved.length}</span>
+      </summary>
+      <ul className="pilot-completion__issues">
+        {unresolved.map((u) => {
+          const advice = adviceFor(u.issueId);
+          const equipment = issues.find((i) => i.id === u.issueId)?.equipmentIds ?? [];
+          return (
+            <li key={u.issueId} data-unresolved={u.issueId}>
+              <span className="pilot-completion__issue-row">
+                <span className="pilot-completion__issue-dot" style={{ background: issueColor(u.issueId, issues) }} aria-hidden="true" />
+                <span className={`sev sev--${u.severity}`}>{s.issues.severity[u.severity]}</span>
+                <span className="pilot-completion__issue-title">{u.title}</span>
+                <Link
+                  className="button button--small"
+                  to={targetPath({ type: "simulation", runId: run.runId, issueId: u.issueId, equipmentId: equipment[0] })}
+                  onClick={showMain}
+                >
+                  {r.openInReplay}
+                </Link>
+              </span>
+              {advice.map((x, i) => (
+                <span key={i} className="pilot__muted pilot-completion__advice" data-recommendation>
+                  {x.text}
+                </span>
+              ))}
+            </li>
+          );
+        })}
+      </ul>
+      {general.map((x, i) => (
+        <p key={i} className="pilot__muted pilot-completion__advice" data-recommendation>
+          {x.text}
+        </p>
+      ))}
+    </details>
   );
 }
 

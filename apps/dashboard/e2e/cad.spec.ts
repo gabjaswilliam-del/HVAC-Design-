@@ -11,6 +11,7 @@ test("CAD Studio is a primary navigation destination with an honest demo workflo
   await page.getByRole("button", { name: "Skip" }).click();
 
   await expect(page.getByRole("heading", { name: "CAD Studio", level: 2 })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Active CAD drawing" })).toHaveValue("sample");
   await expect(page.getByRole("button", { name: "Topology", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Review", exact: true })).toHaveCount(0);
   await expect(page.getByRole("spinbutton")).toHaveCount(0);
@@ -81,6 +82,13 @@ test("CAD Studio is a primary navigation destination with an honest demo workflo
   await expect(page.getByRole("button", { name: /Unconnected port/ })).toHaveCount(0);
   await expect(page.getByText("Chiller 2:evap_out")).toBeVisible();
 
+  const dividerPosition = await splitter.getAttribute("aria-valuenow");
+  await page.getByRole("link", { name: "Engineering", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Back to import" })).toBeHidden();
+  await page.getByRole("link", { name: "CAD Studio", exact: true }).click();
+  await expect(splitter).toHaveAttribute("aria-valuenow", dividerPosition ?? "");
+  await expect(page.getByText("Chiller 2:evap_out")).toBeVisible();
+
   await page.getByRole("button", { name: "Preview in Overview" }).click();
   await expect(page.getByRole("heading", { name: "Overview preview" })).toBeVisible();
   await expect(page.getByText("Draft scene · not validated or commissioned").first()).toBeVisible();
@@ -89,6 +97,42 @@ test("CAD Studio is a primary navigation destination with an honest demo workflo
   await expect(page.locator(".cad-inspector--preview .cad-evidence")).toHaveText("Confirmed");
   await page.getByRole("button", { name: "Back to review" }).click();
   await expect(page.getByRole("heading", { name: "CAD Studio", level: 2 })).toBeVisible();
+});
+
+test("local CAD drawings stay selectable across navigation and further imports", async ({ page }) => {
+  await page.goto("/cad");
+  const input = page.getByRole("region", { name: "CAD Studio" }).locator('input[type="file"]');
+  const buffer = (globalThis as unknown as { Buffer: { from(text: string): Uint8Array } }).Buffer.from("fixture");
+  const drawing = (name: string) => ({ name, mimeType: "application/octet-stream", buffer });
+  await input.setInputFiles([drawing("floor-a.dwg"), drawing("floor-b.dxf")]);
+  const picker = page.getByRole("combobox", { name: "Active CAD drawing" });
+  await expect(page.getByRole("status").filter({ hasText: "Parser not connected" })).toContainText("floor-a.dwg");
+  await picker.selectOption({ label: "2. floor-b.dxf" });
+  await page.getByRole("link", { name: "Engineering", exact: true }).click();
+  await page.getByRole("link", { name: "CAD Studio", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Parser not connected" })).toContainText("floor-b.dxf");
+  await expect(page.getByRole("group", { name: "Synthetic source drawing" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Back to import" }).click();
+  await page.getByRole("button", { name: "Resume workspace" }).click();
+  await expect(picker).toHaveValue("1");
+  await page.getByRole("button", { name: "Back to import" }).click();
+  await page.getByRole("button", { name: /Drop CAD drawings here/ }).evaluate((dropzone) => {
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(new File(["fixture"], "floor-c.dwg"));
+    dropzone.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer }));
+  });
+  await expect(picker).toHaveValue("2");
+  await expect(picker.locator("option")).toHaveText([
+    /Water-cooled plant/, "1. floor-a.dwg", "2. floor-b.dxf", "3. floor-c.dwg",
+  ]);
+  await picker.selectOption({ label: "1. floor-a.dwg" });
+  await expect(page.getByRole("status").filter({ hasText: "Parser not connected" })).toContainText("floor-a.dwg");
+  await picker.selectOption("sample");
+  await page.getByRole("button", { name: "Skip" }).click();
+  await expect(page.getByRole("group", { name: "Synthetic source drawing" })).toBeVisible();
+  await picker.selectOption({ label: "3. floor-c.dwg" });
+  await expect(page.getByRole("status").filter({ hasText: "Parser not connected" })).toContainText("floor-c.dwg");
 });
 
 test("CAD Studio has no serious accessibility violations and stays usable on a phone", async ({ page }) => {

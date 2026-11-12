@@ -1,8 +1,7 @@
 # CAD Studio UI
 
-**Status (2026-10-17): fixture-only Version A UI implemented on `main` as uncommitted
-working-tree changes.** `/cad` is a primary dock destination. It accepts a local file
-selection but honestly reports that parsing is not connected; the prepared synthetic
+**Status: fixture-only Version A UI.** `/cad` is a primary dock destination. It accepts
+multiple local drawings and reports that parsing is not connected. The prepared synthetic
 sample remains the only reviewable input. No CAD parser, upload API, LLM/image model,
 backend validation or site activation is connected.
 
@@ -18,9 +17,10 @@ small screens.
 
 ## Workflow
 
-1. Select a drawing. Browser code must not parse proprietary CAD or call an image/LLM
-   provider directly. Until the local API exists, retain the selected filename and show
-   `Parser not connected`; never imply that the file was uploaded or analyzed.
+1. Select or drop one or more drawings. The workspace opens the first file in the
+   batch and keeps all files available in the drawing selector alongside the sample.
+   Local files show `Parser not connected`. Browser code must not parse proprietary
+   CAD or call an image/LLM provider directly.
 2. Review a synchronized Drawing/Compare canvas. Drawing shows the high-contrast source;
    Compare places the complete source and extraction in side-by-side canvases at the
    same scene coordinates. Drag the accessible center divider to allocate more space to
@@ -63,8 +63,10 @@ introduced. Keyboard alternatives must cover canvas navigation and the compariso
 
 ## Implemented fixture scope
 
-- The import surface has a real local file picker/drop target, but deliberately stops
-  at `Parser not connected`. `Water-cooled plant` starts the prepared fixture flow.
+- The picker and drop target append batches to the current tab's drawing list.
+  Navigation away from CAD Studio preserves the current workspace. Use
+  `Back to import` to add more files or `Resume workspace` to reopen the active drawing.
+  `Water-cooled plant` starts the prepared fixture flow.
 - The studio has only Drawing and Compare. Compare shows complete source and extraction
   canvases side by side with identical scene coordinates and one shared view transform;
   a mouse-, touch- and keyboard-operable divider adjusts their relative widths from
@@ -82,7 +84,7 @@ introduced. Keyboard alternatives must cover canvas navigation and the compariso
   draft disclosure. Its inspector reports the selected device's own evidence rather
   than the aggregate CAD connection-review state. It does not persist, validate or
   activate anything.
-- Browser refresh discards all fixture edits.
+- Browser refresh discards the in-memory drawing list and fixture edits.
 - Windows validation: TypeScript, focused Vitest, demo build and two focused Playwright
   scenarios using installed Chrome at desktop and 390 px, including an axe
   serious/critical check. DGX validation has not been run.

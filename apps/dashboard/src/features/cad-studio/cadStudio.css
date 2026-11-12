@@ -21,17 +21,19 @@
 .cad-head__identity { min-width: 0; }
 .cad-title-row { gap: var(--space-2); }
 .cad-head h2 { font-size: var(--type-page); letter-spacing: -0.015em; }
-.cad-head p {
-  max-width: 42ch;
-  margin: 3px 0 0;
-  overflow: hidden;
-  color: var(--text-3);
-  font: var(--type-caption)/1.35 var(--font-mono);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .cad-dirty { color: var(--caution); font-size: var(--type-caption); }
-.cad-head__actions { justify-content: flex-end; gap: var(--space-2); }
+.cad-head__actions { justify-content: flex-end; flex-wrap: wrap; gap: var(--space-2); }
+.cad-drawing-picker {
+  width: min(300px, 100%);
+  min-height: 34px;
+  margin-top: 5px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text-1);
+  text-overflow: ellipsis;
+}
 .cad-preview-button { white-space: nowrap; }
 
 .cad-view-switch {
@@ -238,10 +240,12 @@
 .cad-dropzone { display: grid; place-items: center; gap: 7px; width: min(520px, 100%); min-height: 190px; margin-top: var(--space-2); padding: var(--space-5); border: 1px dashed var(--control-border); border-radius: 14px; background: color-mix(in srgb, var(--sheet) 74%, transparent); color: var(--text-1); cursor: pointer; transition: border-color var(--motion-fast) var(--ease), background var(--motion-fast) var(--ease); }
 .cad-dropzone:hover { border-color: var(--laminate); background: var(--hover); }
 .cad-dropzone small { color: var(--text-3); }
-.cad-file-input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.cad-workspace.cad-local-drawing { display: grid; grid-template-rows: 1fr; place-items: center; min-height: 220px; }
 .cad-file-status { display: flex; align-items: center; gap: 10px; width: min(520px, 100%); padding: 10px 12px; border: 1px solid var(--hairline-strong); border-radius: 10px; background: var(--sheet); text-align: left; }
+.cad-local-drawing .cad-file-status { width: min(420px, calc(100% - 32px)); }
+.cad-file-status > svg { flex: none; }
 .cad-file-status > span { display: grid; min-width: 0; }
-.cad-file-status strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cad-file-status strong { overflow-wrap: anywhere; }
 .cad-file-status small { color: var(--caution); }
 .cad-entry__divider { display: flex; align-items: center; width: min(520px, 100%); color: var(--text-3); font-size: var(--type-caption); }
 .cad-entry__divider::before,

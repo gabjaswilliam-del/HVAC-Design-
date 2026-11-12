@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Outlet, useLocation } from "react-router";
+import { Activity, useEffect, useRef, useState, type CSSProperties } from "react";
+import { Outlet, useLocation, useMatch } from "react-router";
 import { useStrings } from "../lib/i18n";
+import { CadStudioPage } from "../features/cad-studio";
 import { closesOnEscape } from "../components/escape";
 import { Deck } from "./Deck";
 import { Dock } from "./Dock";
@@ -36,6 +37,7 @@ function Shell() {
   const s = useStrings();
   const location = useLocation();
   const section = segmentOf(location.pathname);
+  const cadOpen = Boolean(useMatch("/cad"));
   const wide = useMedia(WIDE);
   const narrow = useMedia(NARROW);
   const workspace = useOperating((x) => x.workspace);
@@ -91,6 +93,9 @@ function Shell() {
       <Dock onShortcuts={() => setKeys((v) => !v)} shortcutsOpen={keys} inert={sheet} />
       <main id="main" className="main" tabIndex={-1} inert={sheet} data-float={layout === "float" || undefined}>
         <div ref={view} className={`main__view${section === "" ? " main__view--stage" : ""}`}>
+          <Activity mode={cadOpen ? "visible" : "hidden"}>
+            <CadStudioPage />
+          </Activity>
           <Outlet />
         </div>
       </main>
