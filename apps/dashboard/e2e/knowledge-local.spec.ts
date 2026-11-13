@@ -27,7 +27,7 @@ let log = "";
 async function startService() {
   const { spawn } = await builtin("node:child_process");
   const script = new URL("apps/api/local_server.py", REPO);
-  proc = spawn(python, [decodeURIComponent(script.pathname).replace(/^\/([A-Za-z]:)/, "$1"), "--port", String(port), "--data-dir", dataDir], { stdio: "pipe" }) as Proc;
+  proc = spawn(python, [decodeURIComponent(script.pathname).replace(/^\/([A-Za-z]:)/, "$1"), "--port", String(port), "--data-dir", dataDir, "--cad-dir", `${dataDir}/cad`], { stdio: "pipe" }) as Proc;
   const started = new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`the local service did not start:\n${log}`)), 20_000);
     const seen = (chunk: { toString(): string }) => {
@@ -139,17 +139,16 @@ async function upload(page: Page, name: string, text: string, opts: { title?: st
   await form.getByRole("button", { name: "Add to library" }).click();
 }
 
-test("real mode shows the local service: empty, persistent, and plain about what it cannot do", async ({ page }) => {
+test("real mode shows the local service, empty, with no capabilities list", async ({ page }) => {
   await open(page);
   // The graph says it is empty; the library, opened beside it, says why.
   await expect(page.getByText("The graph is empty: no document has been indexed yet.")).toBeVisible();
   await page.getByRole("button", { name: "Library" }).click();
   await expect(page.getByText("Local knowledge service", { exact: true })).toBeVisible();
   await expect(page.getByText("The library is empty. Add a manual, procedure or reference to index it.")).toBeVisible();
-  const caps = page.locator(".kn-caps");
-  await expect(caps).toContainText("SQLite, persistent on this machine");
-  await expect(caps).toContainText("PDF not configured");
-  await expect(caps.locator("div", { hasText: "Vector search" })).toContainText("Not configured");
+  // The capabilities list was removed (2026-11-12); persistence is checked across a restart below.
+  await expect(page.locator(".kn-caps")).toHaveCount(0);
+  await expect(page.getByText(/no language model/i)).toHaveCount(0);
   await expect(page.getByText(/demo library is fixed/)).toHaveCount(0);
 });
 

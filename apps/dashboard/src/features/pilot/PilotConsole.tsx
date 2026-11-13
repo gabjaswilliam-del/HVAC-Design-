@@ -85,16 +85,6 @@ export function PilotConsole({ hidden = false }: { hidden?: boolean }) {
 
   return (
     <aside id="pilot-panel" className="pilot-console" aria-label={p.label} data-escape-ignore data-phase={phase} hidden={hidden}>
-      <p className="pilot-console__scope">
-        <span className="tag-chip tag-chip--notice">{p.scope}</span>
-        <span className="tag-chip tag-chip--demo" title={p.mockTitle}>
-          {p.mock}
-        </span>
-        <span className="tag-chip tag-chip--demo" title={caps?.service.engine}>
-          {s.simulation.mock}
-        </span>
-        <span className="pilot-console__note">{p.scopeNote}</span>
-      </p>
       <p className="visually-hidden" role="status">
         {ended}
       </p>
@@ -123,7 +113,6 @@ export function PilotConsole({ hidden = false }: { hidden?: boolean }) {
           <>
             <ScenarioForm
               caps={caps}
-              devices={site.data.topology.devices.length}
               autoFocus={sim.composing}
               onCancel={sim.composing && sim.runId ? () => simulationSession.compose(false) : undefined}
               cancelLabel={sim.runId ? p.backToRun(sim.runId) : undefined}
@@ -331,7 +320,6 @@ function ConsoleFindings({ run, issues, timeZone }: { run: RunDetail; issues: Pi
   }
   return (
     <div className="pilot-console__section">
-      <p className="pilot__muted">{p.findingsHint}</p>
       {open.length > 0 && (
         <section aria-labelledby="pilot-console-open">
           <h3 id="pilot-console-open" className="pilot-console__h">

@@ -45,7 +45,7 @@ test("every indicator opens its details panel; Escape closes it and returns focu
     await openKpi(page, key);
     await expect(panel(page).getByRole("heading", { level: 2 })).toHaveText(title);
     if (where === "top") await expect(card(page, key)).toHaveAttribute("aria-pressed", "true");
-    await expect(panel(page).getByText(/Synthetic scenario value/)).toBeVisible();
+    await expect(panel(page).getByText(/Synthetic scenario value/)).toHaveCount(0);
     await expect(page).toHaveURL(new RegExp(`kpi=${encodeURIComponent(key).replace(/%3A/g, "(:|%3A)")}`));
     await page.keyboard.press("Escape");
     await expect(panel(page)).toHaveCount(0);
@@ -101,7 +101,9 @@ test("Open issues lists the scenario's active issues with equipment, status and 
   const fault = p.locator('[data-issue="ISS-0142"]');
   await expect(fault).toContainText("Critical, investigating, ISS-0142");
   await expect(fault).toContainText("Cooling tower 4 fan fault");
-  await expect(fault).toContainText("Scenario description (synthetic)");
+  // The issue's own description, without a "(synthetic)" label.
+  await expect(fault).toContainText("Fan stopped with a fault while the plant needs four towers");
+  await expect(fault).not.toContainText("Scenario description");
   await expect(fault.locator('[data-reading="cooling_towers_4:frequency_hz"]')).toContainText("0.0 Hz");
   await expect(fault.locator('[data-equipment-row="cooling_towers_4"]')).toContainText("Fault");
   // Affected equipment is pointed out on the schematic while the panel is open.
@@ -138,7 +140,7 @@ test("demand and delivered panels identify a shortfall, and replay keeps card an
   const p = panel(page);
   await expect(p.getByRole("alert")).toContainText("Shortfall now");
   await expect(p.locator("[data-shortfall-periods]")).toContainText("14:05–ongoing");
-  await expect(p.getByText(/Running capacity is the rated capacity/)).toBeVisible();
+  await expect(p.getByText(/Running capacity is the rated capacity/)).toHaveCount(0);
   const number = (s: string) => s.match(/[\d,.]+/)![0];
   const cardValue = number(await card(page, "plant:cooling_delivered_kw").locator(".readout__value").innerText());
   expect(number(await p.locator(".kpi-panel__value").innerText())).toBe(cardValue);

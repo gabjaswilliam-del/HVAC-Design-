@@ -28,7 +28,7 @@ async function ask(page: Page, question: string) {
   await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "complete", { timeout: 15_000 });
 }
 
-test("the assistant is clearly labelled and narrows the page instead of covering the plant", async ({ page }) => {
+test("the assistant opens without engine labels and narrows the page instead of covering the plant", async ({ page }) => {
   // Width-bound fit (see monitoring test 6); start with the workspace collapsed.
   await page.setViewportSize({ width: 1440, height: 1100 });
   await openMonitoring(page);
@@ -39,9 +39,9 @@ test("the assistant is clearly labelled and narrows the page instead of covering
   const wide = await zoom(page);
   await page.getByRole("toolbar", { name: "Workspace" }).getByRole("button", { name: "Assistant" }).click();
   await expect(drawer(page)).toBeVisible();
-  // What answers is said in words: no language model, offline rules.
-  await expect(drawer(page).locator('[data-engine="offline"]')).toHaveText("No language model connected");
-  await expect(drawer(page).getByText(/No language model is connected: offline rules read each request/)).toBeVisible();
+  // The offline rules carry no badge and no notice (2026-11-12).
+  await expect(drawer(page).locator("[data-engine]")).toHaveCount(0);
+  await expect(drawer(page).getByText(/No language model/)).toHaveCount(0);
   await expect.poll(() => zoom(page)).toBeLessThan(wide);
   const box = (await viewport(page).boundingBox())!;
   for (const id of ["cooling_towers_1", "terminal", "cooling_water_pump_4"]) {
@@ -53,14 +53,14 @@ test("the assistant is clearly labelled and narrows the page instead of covering
   await expect.poll(() => zoom(page)).toBeCloseTo(wide, 2);
 });
 
-test("an investigation streams labelled simulated tool calls and a data-based answer", async ({ page }) => {
+test("an investigation streams its tool calls and a data-based answer", async ({ page }) => {
   await openMonitoring(page, "&scenario=tower-fault");
   await ask(page, "What needs attention right now?");
   const turn = lastTurn(page);
   await expect(turn.locator("[data-tool]")).toHaveCount(2);
-  // Once the answer is written the steps fold into one line that names them simulated.
+  // Once the answer is written the steps fold into one line that counts them.
   const steps = turn.locator(".agent-activity__head");
-  await expect(steps).toHaveText("Used 2 simulated tools");
+  await expect(steps).toHaveText("Used 2 tools");
   await expect(steps).toHaveAttribute("aria-expanded", "false");
   await expect(turn.locator('[data-tool="list_issues"]')).toContainText("2 open, 0 resolved.");
   await expect(turn.locator(".agent-prose")).toContainText("Cooling tower 4 fan fault (ISS-0142)");
@@ -70,7 +70,8 @@ test("an investigation streams labelled simulated tool calls and a data-based an
   await expect(turn.locator('[data-tool="list_issues"] .agent-tool__status')).toHaveText("Complete");
   await turn.locator('[data-tool="list_issues"] .agent-tool__head').click();
   await expect(turn.locator('[data-tool="list_issues"]')).toContainText("Arguments");
-  await expect(turn.locator('[data-tool="list_issues"]')).toContainText("list_issues, simulated tool");
+  await expect(turn.locator('[data-tool="list_issues"] .agent-tool__details code')).toHaveText("list_issues");
+  await expect(turn.locator('[data-tool="list_issues"]')).not.toContainText("simulated tool");
   await expect(page.getByRole("status").filter({ hasText: "Answer complete." })).toBeAttached();
 });
 
@@ -109,7 +110,9 @@ test("asking from the equipment inspector investigates that equipment, with a fa
   await viewport(page).locator('[data-equipment-id="cooling_towers_4"] .eq-node__art').click();
   await page.getByRole("complementary", { name: "Equipment inspector" }).getByRole("button", { name: "Ask the assistant" }).click();
   await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "complete", { timeout: 15_000 });
-  await expect(drawer(page).locator(".agent-context")).toContainText("equipment Cooling tower 4");
+  // The question names the equipment it was asked from; no context line above it (2026-11-12).
+  await expect(lastTurn(page).locator(".agent-turn__prompt")).toContainText("Investigate Cooling tower 4");
+  await expect(drawer(page).getByText("Context:", { exact: true })).toHaveCount(0);
   await expect(lastTurn(page).locator(".agent-prose")).toContainText("Cooling tower 4 is in fault");
   await expect(lastTurn(page).locator('[data-tool="search_knowledge"]')).toHaveAttribute("data-tool-status", "error");
   await expect(lastTurn(page).locator('[data-tool="search_knowledge"]')).toContainText("not available in this demo build");
@@ -194,7 +197,7 @@ test("conversation history keeps recorded context; links follow it; new question
   await expect(page).toHaveURL(/conversation=demo-3/);
   await expect(page.getByText(/This conversation is about Cooling tower 4 fan fault at 15:15/)).toBeVisible();
   await expect(page.locator('[data-turn-status="complete"]')).toHaveCount(1);
-  const tools = page.getByRole("region", { name: "Simulated tools" });
+  const tools = page.getByRole("region", { name: "Tools" });
   await expect(tools.locator('[data-tool-name="search_knowledge"]')).toContainText("Not available");
 
   await page.getByRole("button", { name: "Ask in the current context" }).click();
@@ -262,7 +265,9 @@ const scrolls = (page: Page) => page.evaluate(() => (window as unknown as { scro
 
 async function askLong(page: Page) {
   test.setTimeout(60_000); // a long answer at the demonstration's own pace
-  await page.setViewportSize({ width: 1440, height: 760 });
+  // 640 px keeps the conversation as tall as it was at 760 px before the notice and context
+  // line were removed (358 px; they took 121 px), so the answer outgrows it while streaming.
+  await page.setViewportSize({ width: 1440, height: 640 });
   await page.goto("/?scenario=normal");
   await expect(drawer(page).getByRole("heading", { name: "Suggested questions" })).toBeVisible();
   await recordScrolls(page);

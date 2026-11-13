@@ -31,6 +31,8 @@ export function Workspace({ layout }: { layout: WorkspaceLayout }) {
   // Here rather than in Details: focus returns after Details have closed.
   const restoreFocus = useRestoreFocus();
   const tabs = useRef<HTMLDivElement>(null);
+  // Inside the workspace is inside the inspector's panel: a click there keeps it open.
+  const panel = useRef<HTMLElement>(null);
 
   // The selected tab's raised pill slides between the tabs.
   useLayoutEffect(() => {
@@ -80,6 +82,7 @@ export function Workspace({ layout }: { layout: WorkspaceLayout }) {
     <>
       {dock}
       <aside
+        ref={panel}
         className={`workspace workspace--${layout}`}
         aria-label={w.label}
         data-details={hasDetails ? (detailsLead ? "lead" : "strip") : undefined}
@@ -87,7 +90,7 @@ export function Workspace({ layout }: { layout: WorkspaceLayout }) {
         {layout === "docked" && <Resizer width={width} />}
         {detailsLead && (
           <div className="workspace__details">
-            <DetailsPane restoreFocus={restoreFocus} />
+            <DetailsPane restoreFocus={restoreFocus} panel={panel} />
           </div>
         )}
         {hasDetails && collapsed && <DetailsStrip />}

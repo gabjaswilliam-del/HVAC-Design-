@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { ArrowDown, Beaker, FileText, LoaderCircle, Mic, Paperclip, Send, Square, X } from "lucide-react";
+import { ArrowDown, FileText, LoaderCircle, Mic, Paperclip, Send, Square, X } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import { formatTime } from "../../lib/format";
 import type { SiteBundle } from "../../lib/contracts";
@@ -188,25 +188,9 @@ export function ConversationView({ site, conversationId, onConversationChange, s
 
   const ctx = conversation?.context;
   const mismatch = ctx?.demoScenario && ctx.demoScenario.id !== scenarioId;
-  const equipmentLabel = ctx?.equipmentId ? site.topology.devices.find((d) => d.id === ctx.equipmentId)?.label : null;
 
   return (
     <div className="agent-conversation">
-      <p className="agent-notice">
-        <Beaker size={14} aria-hidden="true" /> {a.notice}
-      </p>
-
-      {ctx && (
-        <p className="agent-context num">
-          <span className="agent-context__label">{a.context}:</span>{" "}
-          {a.contextValue(ctx.demoScenario?.label ?? "", `${formatTime(ctx.at, tz)} ${tzLabel}`)}
-          {equipmentLabel && (
-            <>
-              , {a.contextEquipment} {equipmentLabel}
-            </>
-          )}
-        </p>
-      )}
       {mismatch && (
         <Notice tone="info" action={{ label: a.askCurrent, onClick: () => onConversationChange(null) }}>
           {a.mismatch(ctx!.demoScenario!.label, `${formatTime(ctx!.at, tz)} ${tzLabel}`)}

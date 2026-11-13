@@ -69,10 +69,8 @@ export function TrendPage() {
       <div className="page__head">
         <div className="sim__title-row">
           <h2 className="page__title">{info.label}</h2>
-          <span className="tag-chip tag-chip--demo">{s.dataMode.demo}</span>
           <span className="tag-chip">{t.source(scenarioById(scenarioId)?.label ?? scenarioId)}</span>
         </div>
-        <p className="page__sub">{t.lead}</p>
       </div>
       <dl className="trend__figures">
         <div>

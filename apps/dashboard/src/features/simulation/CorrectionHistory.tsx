@@ -90,7 +90,6 @@ export function CorrectionHistory({ run, caps, devices, metrics, timeZone, equip
           {compact ? <h3 id={`${id}-title`}>{s.corrections}</h3> : <h2 id={`${id}-title`}>{s.corrections}</h2>}
         </div>
       )}
-      {!bare && <p className="sim-muted">{readOnly ? s.correctionsRecord : s.correctionsNote}</p>}
       {!readOnly && (
         <form
           className="sim-correct"

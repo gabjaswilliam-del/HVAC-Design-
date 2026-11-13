@@ -11,22 +11,20 @@ const newNonce = () => `${Date.now().toString(36)}-${Math.random().toString(36).
 
 /**
  * AI Pilot's launch form: a new simulation configured only from what the service
- * advertises (scenarios, durations, timesteps, setpoint range), with the topology it uses
- * and the model's known limits. Starting it also has the pilot monitor it. The request
+ * advertises (scenarios, durations, timesteps, setpoint range). Starting it also has the
+ * pilot monitor it. The request
  * ID is the same for every submission of one configuration until a run is created, so a
  * repeated click or a retry can never create a second run, while a changed configuration
  * is a new request.
  */
 export function ScenarioForm({
   caps,
-  devices,
   autoFocus,
   onCancel,
   cancelLabel,
   onStarted,
 }: {
   caps: SimulationCapabilities;
-  devices: number;
   autoFocus: boolean;
   onCancel?: () => void;
   cancelLabel?: string;
@@ -45,7 +43,6 @@ export function ScenarioForm({
   const [chw, setChw] = useState(String(caps.chwSetpoint.default));
   const [nonce, setNonce] = useState(newNonce);
   const [touched, setTouched] = useState(false);
-  const scenario = caps.scenarios.find((x) => x.id === scenarioId)!;
 
   useEffect(() => {
     if (autoFocus) first.current?.focus();
@@ -98,13 +95,15 @@ export function ScenarioForm({
             maxLength={80}
             placeholder={f.namePlaceholder}
             aria-invalid={Boolean(nameError) || undefined}
-            aria-describedby={`${id}-name-note`}
+            aria-describedby={nameError ? `${id}-name-note` : undefined}
             autoComplete="off"
             onChange={(e) => setName(e.target.value)}
           />
-          <small id={`${id}-name-note`} className={nameError ? "sim-field__error" : undefined}>
-            {nameError ?? f.nameHint}
-          </small>
+          {nameError && (
+            <small id={`${id}-name-note`} className="sim-field__error">
+              {nameError}
+            </small>
+          )}
         </div>
         <div className="sim-field sim-field--wide">
           <label htmlFor={`${id}-scenario`}>{f.scenario}</label>
@@ -112,7 +111,6 @@ export function ScenarioForm({
             id={`${id}-scenario`}
             className="select"
             value={scenarioId}
-            aria-describedby={`${id}-scenario-note`}
             onChange={(e) => {
               const next = caps.scenarios.find((x) => x.id === e.target.value)!;
               setScenarioId(next.id);
@@ -125,7 +123,6 @@ export function ScenarioForm({
               </option>
             ))}
           </select>
-          <small id={`${id}-scenario-note`}>{scenario.description}</small>
         </div>
         <div className="sim-field">
           <label htmlFor={`${id}-start`}>{f.startTime}</label>
@@ -177,24 +174,16 @@ export function ScenarioForm({
             step={0.1}
             value={chw}
             aria-invalid={(touched && Boolean(chwError)) || undefined}
-            aria-describedby={`${id}-chw-note`}
+            aria-describedby={touched && chwError ? `${id}-chw-error` : undefined}
             onChange={(e) => setChw(e.target.value)}
           />
-          <small id={`${id}-chw-note`} className={touched && chwError ? "sim-field__error" : undefined}>
-            {touched && chwError ? chwError : f.chwHint(caps.chwSetpoint.min, caps.chwSetpoint.max)}
-          </small>
+          {touched && chwError && (
+            <small id={`${id}-chw-error`} className="sim-field__error">
+              {chwError}
+            </small>
+          )}
         </div>
       </div>
-      <p className="sim-form__meta">{f.topology(caps.topologyFamily, caps.configRevision, devices)}</p>
-      <details className="sim-form__limits">
-        <summary>{f.limits}</summary>
-        <ul>
-          {caps.limits.map((l) => (
-            <li key={l}>{l}</li>
-          ))}
-        </ul>
-      </details>
-      <p className="sim-form__meta">{f.monitorNote}</p>
       <div className="sim-form__actions">
         <button type="submit" className="button button--primary" aria-disabled={Boolean(busy) || undefined} aria-busy={busy === "launch" || undefined} data-pilot-control="start">
           <Play size={15} aria-hidden="true" />

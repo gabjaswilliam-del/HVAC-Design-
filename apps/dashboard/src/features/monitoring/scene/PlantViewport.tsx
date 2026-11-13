@@ -30,7 +30,7 @@ type PlantViewportProps = Omit<ComponentProps<typeof PlantScene>, "showTags" | "
   /** Clicking empty drawing dismisses a floating panel. */
   onDismiss?: () => void;
   onOpenIssue: (issue: Issue) => void;
-  /** The provenance note in the bottom-left corner; the synthetic-plant note by default. */
+  /** A note in the bottom-left corner (CAD Studio's draft preview); none by default. */
   note?: { tag: string; text: string; title?: string };
   /** The drawing sits in a scrolling page: the wheel scrolls the page, and Ctrl or Cmd
    *  with the wheel (or a pinch) zooms. The Overview's drawing zooms on any wheel. */
@@ -316,10 +316,12 @@ export function PlantViewport({ locate, float, onDismiss, onOpenIssue, metrics, 
         )}
       </div>
 
-      <p className="stage-note" title={note?.title ?? s.monitoring.syntheticTitle}>
-        <span className={note ? "tag-chip tag-chip--notice" : "tag-chip"}>{note?.tag ?? s.monitoring.synthetic}</span>
-        <span className="stage-note__text">{note?.text ?? s.monitoring.syntheticNote}</span>
-      </p>
+      {note && (
+        <p className="stage-note" title={note.title}>
+          <span className="tag-chip tag-chip--notice">{note.tag}</span>
+          <span className="stage-note__text">{note.text}</span>
+        </p>
+      )}
 
       <div className="stage-controls" role="toolbar" aria-label={t.label}>
         {!designPreview && <div className="stage-controls__row">

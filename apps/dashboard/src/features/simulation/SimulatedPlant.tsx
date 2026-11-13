@@ -108,7 +108,6 @@ export function SimulatedPlant({
             onOpenIssue={(issue) => navigate(targetPath({ type: "simulation", runId: run.runId, issueId: issue.id }))}
             float={false}
             inPage
-            note={{ tag: s.label, text: s.plantNote(run.runId), title: s.plantNoteTitle }}
           />
         </div>
       ) : (

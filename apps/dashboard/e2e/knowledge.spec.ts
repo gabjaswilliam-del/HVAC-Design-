@@ -123,7 +123,8 @@ test("Knowledge opens on the RAG Graph, with Graph Memory as the other tab and n
   // The tab says "Memory graph" (sentence case), and the old name is gone from the page.
   await expect(tab(page, "Memory graph")).toHaveText("Memory graph");
   await expect(page.getByText(/Graph Memory/)).toHaveCount(0);
-  await expect(page.getByText("Demo library, read only")).toBeVisible();
+  // No store tag for the built-in library (2026-11-12); the local service names itself.
+  await expect(page.getByText("Demo library, read only")).toHaveCount(0);
   // The graph at once: no Library, Search and Graph views to choose between, no lead
   // paragraph; the header counts what the graph shows.
   await expect(scene(page).locator("canvas")).toBeVisible();
@@ -139,7 +140,7 @@ test("Knowledge opens on the RAG Graph, with Graph Memory as the other tab and n
   await page.keyboard.press("ArrowRight");
   await expect(tab(page, "Memory graph")).toBeFocused();
   await expect(page).toHaveURL(/kn=memory/);
-  await expect(page.getByText("Demo records, read only")).toBeVisible();
+  await expect(page.getByText("Demo records, read only")).toHaveCount(0);
   await page.goBack();
   await expect(tab(page, "RAG Graph")).toHaveAttribute("aria-selected", "true");
 });
@@ -208,15 +209,13 @@ test("the library opens beside the graph: what was indexed and what failed, and 
   await expect(failed).toContainText("Failed");
   await expect(failed).toContainText("The file has no text to index.");
   await expect(table.locator("tr", { hasText: "Demo chiller maintenance guide" })).toContainText("Indexed");
-  // What the service can and cannot do, as facts.
-  const caps = drawer.locator(".kn-caps");
-  await expect(caps).toContainText("Demo snapshot, read only");
-  await expect(caps).toContainText("PDF not configured");
-  await expect(caps).toContainText("Rule-based HVAC vocabulary");
-  await expect(caps).toContainText("Not generated: no language model is configured");
-  // No management in the demo, and the reason is given.
+  // No list of the service's capabilities (2026-11-12): the drawer is the documents.
+  await expect(drawer.locator(".kn-caps")).toHaveCount(0);
+  await expect(drawer.getByText(/no language model/i)).toHaveCount(0);
+  await expect(drawer.getByText("Demo snapshot, read only")).toHaveCount(0);
+  // No management in the demo, and no note explaining it.
   await expect(page.getByRole("button", { name: "Add document" })).toHaveCount(0);
-  await expect(drawer.getByText(/The demo library is fixed/)).toBeVisible();
+  await expect(drawer.getByText(/The demo library is fixed/)).toHaveCount(0);
   // Closed, it gives the graph its room back; focus returns to the button that opened it.
   await drawer.getByRole("button", { name: "Close panel" }).click();
   await expect(page).not.toHaveURL(/kv=/);
@@ -281,14 +280,16 @@ test("search returns stored passages with their source and how each was found, a
   await expect(page.locator(".kn-methods")).toContainText("keyword (BM25)");
   await expect(page.locator(".kn-methods")).toContainText("graph from Low COP (Symptom)");
   await expect(page.locator(".kn-methods")).toContainText("vectors not configured");
-  await expect(page.getByText(/No answer is written: no language model is configured/)).toBeVisible();
+  // Passages only; no line about the missing answer (2026-11-12).
+  await expect(page.getByText(/No answer is written/)).toHaveCount(0);
   const top = results.first();
   await expect(top).toContainText("Demo chiller maintenance guide");
   await expect(top).toContainText("Common causes of low COP");
   await expect(top.locator(".kn-method")).toContainText(["Keyword #1", "Graph #"]);
   await expect(top.locator(".kn-path").first()).toBeVisible();
   await expect(top.locator("mark").first()).toBeVisible();
-  await expect(page.getByText(/the scores are not probabilities/)).toBeVisible();
+  // Results carry ranks, not scores; no note on the fusion (2026-11-12).
+  await expect(page.getByText(/reciprocal rank fusion/)).toHaveCount(0);
   // The passage opens at its source, exactly as stored; the results are a step back.
   await top.getByRole("button", { name: "Read passage" }).click();
   await expect(panel(page).locator(".kn-passage")).toContainText("Condenser tube fouling insulates the tubes");
@@ -977,7 +978,7 @@ test("Graph Memory: a stored link opens on its own, with what it joins and when 
   await expect(panel(page)).toContainText("was resolved by");
   await expect(panel(page)).toContainText("Chiller 2 condenser tubes cleaned and returned to service");
   await expect(panel(page)).toContainText("A stored link, made 2026-10-02 15:20 UTC.");
-  await expect(panel(page)).toContainText("none is inferred");
+  await expect(panel(page)).not.toContainText("none is inferred");
   // The link and the two records it joins light up.
   await expect(timeline(page).locator(".mm-link--lit")).toHaveCount(1);
   await expect(record(page, "mem_demo004")).toHaveAttribute("data-state", "linked");

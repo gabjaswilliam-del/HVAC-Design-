@@ -36,19 +36,13 @@ export function Snippet({ snippet }: { snippet: { text: string; highlight: reado
   );
 }
 
-/** Which store the tab shows: the demo's, read only, or the local service's. */
+/** The local service's tag when the tab shows it; nothing for the built-in library. */
 export function SourceTag({ system }: { system: "knowledge" | "memory" }) {
   const s = useKnowledgeStrings().source;
-  if (knowledgeMode === "local") {
-    return (
-      <span className="tag-chip tag-chip--notice" title={s.localTitle(system)}>
-        {s.local(system)}
-      </span>
-    );
-  }
+  if (knowledgeMode !== "local") return null;
   return (
-    <span className="tag-chip tag-chip--demo" title={s.demoTitle(system)}>
-      {s.demo(system)}
+    <span className="tag-chip tag-chip--notice" title={s.localTitle(system)}>
+      {s.local(system)}
     </span>
   );
 }

@@ -2,16 +2,13 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { settled } from "./pilot-console";
 
-// Every screen, and how the navigation reaches it (F3): primary sections in the dock,
-// the System menu at its foot, and the workspace for the assistant and pilot pages.
+// Every screen, and how the navigation reaches it (F3): primary sections in the dock and
+// the workspace for the assistant and pilot pages. The dock has no System menu or
+// Shortcuts button (2026-11-12): System and Installation open only at their address.
 // The page name is the top bar's h1.
 type Step = (page: Page) => Promise<void>;
 const nav = (page: Page) => page.getByRole("navigation", { name: "Main navigation" });
 const dock = (name: string): Step => (page) => nav(page).getByRole("link", { name, exact: true }).click();
-const systemMenu = (name: string): Step => async (page) => {
-  await nav(page).getByRole("button", { name: "System", exact: true }).click();
-  await page.getByRole("group", { name: "System and installation" }).getByRole("link", { name }).click();
-};
 const ROUTES: [string, string, Step][] = [
   ["/prediction", "Cooling prediction", dock("Prediction")],
   ["/engineering", "Engineering", dock("Engineering")],
@@ -21,8 +18,6 @@ const ROUTES: [string, string, Step][] = [
     await page.locator("#hub-simulation").getByRole("link", { name: "Open Simulation history" }).click();
   }],
   ["/knowledge", "Knowledge", dock("Knowledge")],
-  ["/system", "System", systemMenu("System")],
-  ["/setup", "Installation", systemMenu("Installation")],
   ["/agent", "AI assistant", async (page) => {
     await page.getByRole("tab", { name: "Assistant" }).click();
     await page.getByRole("link", { name: "Open full page" }).click();
@@ -38,8 +33,18 @@ test("every screen is reachable from the navigation and moves focus to its headi
     const heading = page.getByRole("heading", { level: 1, name });
     await expect(heading).toBeVisible();
     await expect(heading).toBeFocused();
-    await expect(page.getByText("Demo data", { exact: true })).toBeVisible();
+    // The demo stream is named by the deck's data source on every screen; no "Demo data" tag.
+    await expect(page.getByRole("radio", { name: "Live demo" })).toBeVisible();
+    await expect(page.getByText("Demo data", { exact: true })).toHaveCount(0);
     // Each screen has its own page title.
+    await expect(page).toHaveTitle(new RegExp(`HVAC Agent · ${name}$`));
+  }
+  // The dock holds the five sections only; the planned screens still open at their address.
+  await expect(nav(page).getByRole("link")).toHaveCount(5);
+  await expect(nav(page).getByRole("button")).toHaveCount(0);
+  for (const [path, name] of [["/system", "System"], ["/setup", "Installation"]]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
     await expect(page).toHaveTitle(new RegExp(`HVAC Agent · ${name}$`));
   }
 });
@@ -88,12 +93,14 @@ test("the dock is one tab stop; arrow keys move between its items", async ({ pag
   await expect(nav(page).getByRole("link", { name: "Prediction", exact: true })).toBeFocused();
   await page.keyboard.press("ArrowUp");
   await page.keyboard.press("ArrowUp");
-  await expect(nav(page).getByRole("button", { name: "System", exact: true })).toBeFocused();
+  // Five sections and nothing at the foot: up from the first wraps to Knowledge.
+  await expect(nav(page).getByRole("link", { name: "Knowledge", exact: true })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(nav(page).getByRole("link", { name: "Overview", exact: true })).toBeFocused();
+  await page.keyboard.press("ArrowUp");
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("group", { name: "System and installation" })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("group", { name: "System and installation" })).toBeHidden();
-  await expect(nav(page).getByRole("button", { name: "System", exact: true })).toBeFocused();
+  await expect(page).toHaveURL(/\/knowledge/);
+  await expect(nav(page).getByRole("button")).toHaveCount(0);
 });
 
 test("single-key shortcuts navigate, fit, switch the view and cycle readings; ? lists them", async ({ page }) => {
@@ -197,7 +204,9 @@ test("unknown address explains itself", async ({ page }) => {
 test("narrow screens use a bottom tab bar with names and keep the data mode visible", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await expect(page.getByText("Demo data", { exact: true })).toBeVisible();
+  // The data mode is the deck's data source, "Live demo"; there is no "Demo data" tag.
+  await expect(page.getByRole("radio", { name: "Live demo" })).toBeVisible();
+  await expect(page.getByText("Demo data", { exact: true })).toHaveCount(0);
   await expect(nav(page)).toBeVisible();
   const bar = (await nav(page).boundingBox())!;
   expect(bar.y + bar.height).toBeCloseTo(844, -1);
@@ -206,7 +215,7 @@ test("narrow screens use a bottom tab bar with names and keep the data mode visi
   expect(target.height).toBeGreaterThanOrEqual(50);
   await dock("Engineering")(page);
   await expect(page.getByRole("heading", { level: 1, name: "Engineering" })).toBeVisible();
-  await expect(page.getByText("Demo data", { exact: true })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Live demo" })).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(overflow).toBe(false);
 });

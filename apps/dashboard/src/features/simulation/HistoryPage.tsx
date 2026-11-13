@@ -30,11 +30,7 @@ export function HistoryPage() {
       <div className="page__head">
         <div className="sim__title-row">
           <h2 className="page__title">{h.title}</h2>
-          <span className="tag-chip tag-chip--demo" title={sim.caps?.service.engine}>
-            {s.simulation.mock}
-          </span>
         </div>
-        <p className="page__sub">{h.lead}</p>
       </div>
       {sim.capsError && !sim.caps && (
         <Notice tone="critical" action={{ label: s.simulation.reconnect, onClick: session.retry }}>

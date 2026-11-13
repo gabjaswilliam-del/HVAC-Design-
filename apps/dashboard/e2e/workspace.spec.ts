@@ -104,10 +104,10 @@ test("AI Pilot works on simulations only; with nothing to watch it opens on sett
   await openOverview(page);
   await page.getByRole("tab", { name: "AI Pilot" }).click();
   const pilot = page.getByRole("complementary", { name: "AI Pilot" });
-  await expect(pilot.getByText("Simulation only", { exact: true })).toBeVisible();
-  await expect(pilot).toContainText("The pilot never controls physical equipment.");
-  // A labelled mock; the set-up is here, in AI Pilot, not on another page.
-  await expect(pilot.getByText("Mock pilot service", { exact: true })).toBeVisible();
+  // No scope tags, mock labels or scope note over the console (2026-11-12).
+  for (const tag of ["Simulation only", "Mock pilot service", "Mock simulation service"]) await expect(pilot.getByText(tag, { exact: true })).toHaveCount(0);
+  await expect(pilot).not.toContainText("The pilot never controls physical equipment.");
+  // The set-up is here, in AI Pilot, not on another page.
   await expect(pilot.getByRole("heading", { name: "Start a simulation" })).toBeVisible();
   await expect(pilot.getByRole("button", { name: "Start simulation" })).toBeVisible();
   // The main display only shows the run: the Simulation view, read only.
@@ -189,6 +189,104 @@ test("below 1440 px the workspace floats: the plant refits beside it at 1280, an
   await expect(assistant(page)).toHaveCount(0);
 });
 
+/** A point on the drawing with no equipment: its left edge, half way down. */
+async function emptyDrawing(page: Page) {
+  const vb = (await viewport(page).boundingBox())!;
+  return { x: vb.x + 30, y: vb.y + vb.height / 2 };
+}
+/** A point on the dock below its sections: bezel, no control. */
+async function emptyDock(page: Page) {
+  const dock = (await page.getByRole("navigation", { name: "Main navigation" }).boundingBox())!;
+  return { x: dock.x + dock.width / 2, y: dock.y + dock.height - 40 };
+}
+const equipment = (page: Page, id: string) => viewport(page).locator(`[data-equipment-id="${id}"] .eq-node__art`);
+
+test("the inspector closes on a click outside the workspace; another item replaces it; controls, drags and the inside keep it", async ({ page }) => {
+  await openOverview(page, "&scenario=tower-fault");
+  const heading = inspector(page).getByRole("heading", { level: 2 });
+  await equipment(page, "cooling_towers_4").click();
+  await expect(heading).toHaveText("Cooling tower 4");
+  const panel = await inspector(page).elementHandle();
+
+  // Inside the panel: nothing closes.
+  await inspector(page).locator(".inspector__facts").click();
+  await expect(heading).toHaveText("Cooling tower 4");
+  // Another item replaces it in place: the same panel, never closed and reopened.
+  await equipment(page, "chiller_plant_2").click();
+  await expect(heading).toHaveText("Chiller 2");
+  expect(await panel!.evaluate((el) => el.isConnected)).toBe(true);
+  // Plain space on the drawing closes it.
+  let at = await emptyDrawing(page);
+  await page.mouse.click(at.x, at.y);
+  await expect(inspector(page)).toHaveCount(0);
+  await expect(viewport(page).locator('[aria-pressed="true"]')).toHaveCount(0);
+
+  // A drag pans and keeps it; a control does its own work and keeps it.
+  await equipment(page, "cooling_towers_4").click();
+  await expect(heading).toHaveText("Cooling tower 4");
+  at = await emptyDrawing(page);
+  await page.mouse.move(at.x, at.y);
+  await page.mouse.down();
+  await page.mouse.move(at.x + 80, at.y + 30, { steps: 6 });
+  await page.mouse.up();
+  await expect(heading).toHaveText("Cooling tower 4");
+  const before = await zoom(page);
+  await page.getByRole("toolbar", { name: "Drawing" }).getByRole("button", { name: "Zoom in" }).click();
+  await expect.poll(() => zoom(page)).toBeGreaterThan(before);
+  await expect(heading).toHaveText("Cooling tower 4");
+  // Plain space outside the drawing closes it too: the dock below its sections.
+  at = await emptyDock(page);
+  await page.mouse.click(at.x, at.y);
+  await expect(inspector(page)).toHaveCount(0);
+
+  // An open popover takes the first click outside; the next one closes the inspector.
+  await equipment(page, "cooling_towers_4").click();
+  await page.getByRole("button", { name: "More readings" }).click();
+  const tray = page.getByRole("region", { name: "More readings" });
+  await expect(tray).toBeVisible();
+  await page.mouse.click(at.x, at.y);
+  await expect(tray).toBeHidden();
+  await expect(heading).toHaveText("Cooling tower 4");
+  await page.mouse.click(at.x, at.y);
+  await expect(inspector(page)).toHaveCount(0);
+
+  // Escape and the close button still close it.
+  await equipment(page, "cooling_towers_4").click();
+  await expect(inspector(page)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(inspector(page)).toHaveCount(0);
+  await equipment(page, "cooling_towers_4").click();
+  await inspector(page).getByRole("button", { name: "Close inspector" }).click();
+  await expect(inspector(page)).toHaveCount(0);
+  await expect(viewport(page).locator('[data-equipment-id="cooling_towers_4"]')).toBeFocused();
+});
+
+test.describe("on a touch screen", () => {
+  test.use({ hasTouch: true, viewport: { width: 1280, height: 800 } });
+
+  test("taps close the floating inspector outside it and switch it on another item", async ({ page }) => {
+    await openOverview(page, "&scenario=tower-fault");
+    const heading = inspector(page).getByRole("heading", { level: 2 });
+    await equipment(page, "chiller_plant_2").tap();
+    await expect(heading).toHaveText("Chiller 2");
+    await inspector(page).locator(".inspector__facts").tap();
+    await expect(heading).toHaveText("Chiller 2");
+    await equipment(page, "cooling_towers_4").tap();
+    await expect(heading).toHaveText("Cooling tower 4");
+    // Outside the panel, on the dock's bezel: the inspector and its floating panel close.
+    const at = await emptyDock(page);
+    await page.touchscreen.tap(at.x, at.y);
+    await expect(inspector(page)).toHaveCount(0);
+    await expect(page.locator(".workspace--float")).toHaveCount(0);
+    // Empty drawing, as before this change, closes it as well.
+    await equipment(page, "chiller_plant_2").tap();
+    await expect(heading).toHaveText("Chiller 2");
+    const empty = await emptyDrawing(page);
+    await page.touchscreen.tap(empty.x, empty.y);
+    await expect(inspector(page)).toHaveCount(0);
+  });
+});
+
 test("at 1024 px the panel covers part of the plant: the fit stays, the selection stays in view", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await openOverview(page, "&scenario=tower-fault");
@@ -211,11 +309,12 @@ test("at 1024 px the panel covers part of the plant: the fit stays, the selectio
   await expectComposerInView(page);
 });
 
-test("no serious accessibility violations with the workspace collapsed and the System menu open", async ({ page }) => {
+// The dock's System menu is gone (2026-11-12); the shortcuts list is the shell's remaining overlay.
+test("no serious accessibility violations with the workspace collapsed and the shortcuts list open", async ({ page }) => {
   await openOverview(page);
   await page.getByRole("button", { name: "Collapse workspace" }).click();
-  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("button", { name: "System", exact: true }).click();
-  await expect(page.getByRole("group", { name: "System and installation" })).toBeVisible();
+  await page.keyboard.press("?");
+  await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
   const results = await new AxeBuilder({ page }).analyze();
   const serious = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(" | ")}`)).toEqual([]);

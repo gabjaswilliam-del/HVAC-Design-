@@ -138,7 +138,6 @@ function RecordPanel({
         <ProvenanceTag provenance={m.provenance} runId={m.runId} />
         {m.status === "superseded" && <span className="tag-chip tag-chip--planned">{s.superseded}</span>}
       </p>
-      <p className="kn-note">{s.provenance.explain[m.provenance]}</p>
       {m.body && <p className="kn-body">{m.body}</p>}
       <dl className="kn-facts">
         <dt>{s.panel.occurred}</dt>
@@ -178,8 +177,7 @@ function RecordPanel({
             <dd>
               <button type="button" className="text-button" onClick={() => onInspect(`run:${m.runId}`)}>
                 {m.runId}
-              </button>{" "}
-              <span className="kn-meta">{s.panel.runNote}</span>
+              </button>
             </dd>
           </>
         )}
@@ -263,7 +261,6 @@ function RecordPanel({
       {chain && chain.length > 2 && (
         <section className="kn-panel__section" aria-labelledby="kn-chain-title">
           <h4 id="kn-chain-title">{s.chain(chain.length)}</h4>
-          <p className="kn-meta">{s.chainNote}</p>
           <ol className="kn-history mm-chain">
             {chain.map((c) => {
               const Icon = KIND_ICONS[c.kind];
@@ -303,7 +300,6 @@ function RecordPanel({
           </button>
         </div>
       )}
-      {!local && <p className="kn-note">{s.demoNote}</p>}
       {mode === "correct" && status && (
         <CorrectionForm
           client={client}
@@ -412,7 +408,6 @@ export function LinkPanel({
             </p>
           )}
           {r.error && <Notice tone="warning">{r.error.message}</Notice>}
-          <p className="kn-note">{s.link.note}</p>
         </>
       )}
     </SidePanel>
@@ -428,7 +423,7 @@ function AnchorPanel({ client, id, revision, onInspect, onClose }: { client: Mem
   const records = (r.data?.nodes ?? []).filter((n) => n.occurredAt).sort((a, b) => b.occurredAt!.localeCompare(a.occurredAt!));
   return (
     <SidePanel title={name} subject={id} onClose={onClose} labelledBy="kn-anchor-title">
-      <p className="kn-note">{isRun ? s.panel.runAnchor : s.panel.equipmentAnchor}</p>
+      {isRun && <p className="kn-note">{s.panel.runAnchor}</p>}
       {r.error && <Notice tone="warning">{r.error.message}</Notice>}
       {!r.data && !r.error && (
         <p className="kn-loading" role="status">

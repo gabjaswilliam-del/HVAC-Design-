@@ -1,9 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
-import { Keyboard, Server } from "lucide-react";
 import { useStrings } from "../lib/i18n";
-import { useDismissOutside, useEscapeLayer } from "../components/escape";
-import { navSearch, sectionOf, sections, segmentOf, systemLinks } from "./navigation";
+import { navSearch, sectionOf, sections } from "./navigation";
 
 const SIZE = 40;
 const MAX = 0.3;
@@ -12,32 +10,19 @@ const reduceMotion = () => typeof matchMedia !== "undefined" && matchMedia("(pre
 const phone = () => typeof matchMedia !== "undefined" && matchMedia("(max-width: 760px)").matches;
 
 /**
- * The dock: primary destinations, then Shortcuts and System at its foot. Items
- * magnify near the pointer (transform only), a laminate indicator slides to the
- * current section, and the dock is one tab stop with arrow keys. On a phone it is a
- * bottom tab bar.
+ * The dock: the primary destinations. Items magnify near the pointer (transform only),
+ * a laminate indicator slides to the current section, and the dock is one tab stop with
+ * arrow keys. On a phone it is a bottom tab bar.
  */
-export function Dock({ onShortcuts, shortcutsOpen, inert }: { onShortcuts: () => void; shortcutsOpen: boolean; inert?: boolean }) {
-  const s = useStrings();
-  const n = s.nav;
+export function Dock({ inert }: { inert?: boolean }) {
+  const n = useStrings().nav;
   const location = useLocation();
   const active = sectionOf(location.pathname)?.key;
   const search = navSearch(location.search);
   const nav = useRef<HTMLElement>(null);
   const indicator = useRef<HTMLSpanElement>(null);
   const placed = useRef(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const systemButton = useRef<HTMLButtonElement>(null);
-  const onSystem = systemLinks.some((l) => l.path.slice(1) === segmentOf(location.pathname));
   const [focusIndex, setFocusIndex] = useState<number | null>(null);
-
-  useEffect(() => setMenuOpen(false), [location.pathname]);
-  useEscapeLayer(menuOpen, () => {
-    setMenuOpen(false);
-    systemButton.current?.focus();
-  });
-  useDismissOutside(menuOpen, menuRef, () => setMenuOpen(false), systemButton);
 
   // The indicator follows the current section; it slides only after the first placement.
   useLayoutEffect(() => {
@@ -117,57 +102,6 @@ export function Dock({ onShortcuts, shortcutsOpen, inert }: { onShortcuts: () =>
             </Link>
           </li>
         ))}
-      </ul>
-      <ul className="dock__list dock__list--foot">
-        <li>
-          <button
-            type="button"
-            className="dock__item"
-            aria-label={s.dock.shortcuts}
-            aria-expanded={shortcutsOpen}
-            aria-haspopup="dialog"
-            tabIndex={stop === sections.length ? 0 : -1}
-            onClick={onShortcuts}
-            data-shortcuts-opener
-          >
-            <Keyboard size={20} aria-hidden="true" />
-            <span className="dock__label" aria-hidden="true">
-              {s.dock.shortcuts}
-            </span>
-          </button>
-        </li>
-        <li className="dock__system">
-          <button
-            type="button"
-            ref={systemButton}
-            className="dock__item"
-            aria-label={n.system}
-            aria-expanded={menuOpen}
-            aria-controls="system-menu"
-            aria-current={onSystem ? "page" : undefined}
-            tabIndex={stop === sections.length + 1 ? 0 : -1}
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            <Server size={20} aria-hidden="true" />
-            <span className="dock__label" aria-hidden="true">
-              {n.system}
-            </span>
-          </button>
-          <div id="system-menu" ref={menuRef} className="system-menu" hidden={!menuOpen} role="group" aria-label={n.systemMenu}>
-            <p className="system-menu__status">{n.systemStatus}</p>
-            <ul>
-              {systemLinks.map((l) => (
-                <li key={l.path}>
-                  <Link to={{ pathname: l.path, search }} className="system-menu__link" title={n.plannedTitle(l.planned)}>
-                    <l.icon size={16} aria-hidden="true" />
-                    {n.pages[l.page]}
-                    <span className="tag-chip tag-chip--planned">{n.planned}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </li>
       </ul>
     </nav>
   );

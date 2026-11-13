@@ -145,7 +145,9 @@ Derived from the built implementation in `src/styles/tokens.css`,
 `src/components/components.css`, `src/app/app.css`, `src/app/workspace/workspace.css`
 and `src/features/*/*.css`, after the owner approved Direction A "Permit" in
 Treatment A, Graphite (decisions F1 to F10, 2026-10-05). The product context is in
-`PRODUCT.md` beside this file.
+`PRODUCT.md` beside this file. On 2026-11-12 the owner had the interface simplified,
+with the visual design unchanged: no disclaimers, page leads or how-it-works notes, and
+no Shortcuts or System in the dock (`VERSION_A.md`, "Interface simplified").
 
 ## Overview
 
@@ -160,11 +162,20 @@ dock indicator. Everything else is graphite and type. Tags say what something is
 their form, not their colour:
 
 - filled laminate: attention (an open issue, hung on its equipment or held in the top bar);
-- outline: provenance (Demo data, No language model connected, Offline rules, Simulated
-  tool, Mock simulation service, source=simulation, From the recorded run, Synthetic
-  plant);
+- outline: identification, in a word or two (Simulation on a run's band, Recorded run or
+  Active run, From the assistant, a memory record's provenance, Local knowledge or memory
+  service);
 - dashed outline: planned work that is not built (Planned);
 - away from the drawing, an issue is a severity mark: an eyelet ring and a word.
+
+**Identification, not disclaimers** (owner, 2026-11-12). The interface names what could
+be mistaken for plant telemetry, briefly and where it shows: the deck's data source reads
+"Live demo"; a simulation run carries its Simulation label, its readings and plant
+"Simulated …" headings, its replay "Recorded run" or "Active run"; a run's records in the
+memory graph sit under one sentence saying they are simulated results, not plant
+telemetry. It carries no disclaimers (demo, mock or synthetic data, no language model,
+offline rules, simulated tools), no page leads and no how-it-works notes: Help popovers
+hold the explanations. Warnings, errors and validation stay.
 
 **Colour is state, never decoration.** Hue appears only for equipment and data state,
 pipe media and chart series, always with a word or an icon beside it.
@@ -266,9 +277,9 @@ letting names collide or truncate. Sentence case everywhere; no all-caps labels.
   size or more, otherwise the panel covers part of it, the selection pans into view and
   hung alarms move to the panel's edge. At 760 px and below it is a full-screen sheet.
 - **Plant display**: the drawing fills the display edge to edge (fit padding 12 px).
-  Only three things float over it, each in an empty corner: the view switch (top left),
-  the drawing controls (bottom right, moved left of a floating panel) and the disclosure
-  (bottom left). Measured fits: 99.6% at 1920x1080, 69.0% at 1440x900 docked, 80.8%
+  Only two things float over it, each in an empty corner: the view switch (top left) and
+  the drawing controls (bottom right, moved left of a floating panel). The bottom-left
+  corner holds a note only in CAD Studio's draft preview. Measured fits: 99.6% at 1920x1080, 69.0% at 1440x900 docked, 80.8%
   collapsed, 67.1% at 1366x768, 70.4% at 1280x800, 61.1% at 1024x768.
 - **RAG Graph display** (M7.3): the Knowledge page's RAG Graph fills the display like the
   plant: one slim header row, then the graph to the display's edges (padding 12 px 16 px
@@ -279,9 +290,9 @@ letting names collide or truncate. Sentence case everywhere; no all-caps labels.
   browsed or inspected opens in one column beside it (32% of the display, 300 to 400 px),
   or under it (at most 55% of the height) when the display is under 720 px wide; the
   graph resizes into the room left.
-- **Pages** pad 22 px 26 px and scroll inside the display, and open at their top; the
-  Engineering hub is one column of flat sections separated by hairlines (max 980 px),
-  records a two-column grid of cells (one column at 1180 px and below). Simulation history
+- **Pages** pad 22 px 26 px and scroll inside the display, and open at their top;
+  Engineering is the Simulation workspace (one raised card, then the line with the runs),
+  and an equipment record a two-column grid of cells (one column at 1180 px and below). Simulation history
   and the Simulation replay lay out by the display's own width (container queries, since a
   docked workspace narrows the display): two columns from about 1060 px of display, one
   below, and they make room beside a floating workspace panel instead of sitting under it.
@@ -312,7 +323,7 @@ Depth is physical, not decorative:
   (`inset 0 1px 0 rgb(255 255 255/.07)`). Laminate surfaces carry a stronger sheen.
 - **Float**: only floating layers have a drop shadow: `0 20px 48px rgb(0 0 0/.55),
   0 2px 8px rgb(0 0 0/.4)`; tags `0 6px 14px rgb(0 0 0/.38), 0 1px 2px rgb(0 0 0/.45)`.
-- **Glass** (`rgb(30 34 38/.78)`, blur 20 px) is used only for the plant's three corner
+- **Glass** (`rgb(30 34 38/.78)`, blur 20 px) is used only for the plant's corner
   controls, and becomes the solid raised surface with reduced transparency or without
   backdrop-filter support.
 
@@ -328,7 +339,7 @@ box-shadows, never borders that shift layout. No coloured side stripes.
 
 - **Top bar**: mark; "site / page" as one location (the page name is the h1 and takes
   focus after navigation, except when focus is in the assistant or AI Pilot: a view either
-  opens appears beside it, which keeps focus); the Demo data provenance tag; readouts for Demand, Delivered,
+  opens appears beside it, which keeps focus); readouts for Demand, Delivered,
   Running capacity ("Capacity" below 1440 px) and COP with a balance meter (delivered
   against demand within running capacity, unmet in danger) and an unmet note; More
   readings (a tray with five indicators and the 6-hour outlook link); the attention
@@ -338,12 +349,15 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   details) and Acknowledge (in this browser only, never a single-key shortcut), then
   Locate. New issues swing in once (a fade with reduced motion), pulse their eyelet
   until acknowledged, prefix the page title "(n) Critical ·" and are announced.
-- **Dock**: five sections (Overview, Prediction, Engineering, CAD Studio, Knowledge), then Shortcuts and System. Items magnify up to 1.3x near the
+- **Dock**: five sections (Overview, Prediction, Engineering, CAD Studio, Knowledge) and
+  nothing at its foot: Shortcuts and System were removed (2026-11-12); `?` lists the keys,
+  and the planned System and Installation screens open only at their address. Items magnify up to 1.3x near the
   pointer (transform only), show a laminate name tag on hover or focus, and form one tab
   stop with arrow keys; a laminate indicator slides to the current section.
 - **Deck**: Live demo or Replay (a radio group), play and speed in replay, a 00 to 24
-  timeline, and the only clock, with freshness ("Replay, readings current", or "Newest
-  sample 14:40, 35 min old" in caution). No scenario switch: a simulation's scenario is
+  timeline, and the only clock, with freshness ("Live demo, readings current", or "Newest
+  sample 14:40, 35 min old" in caution). "Live demo" is what names the demo stream at every
+  width (the site name hides below 1180 px). No scenario switch: a simulation's scenario is
   chosen in AI Pilot; the demo telemetry's comes with the address (`?scenario=`) or with a
   conversation's recorded context.
 - **Plant**: equipment nodes are buttons named with their state. Readings: Auto shows
@@ -364,24 +378,24 @@ box-shadows, never borders that shift layout. No coloured side stripes.
 - **State labels**: an icon and a word, colour secondary. Running is a check in a
   circle, Stopped a dashed circle, Fault a warning triangle, Stale a clock.
 - **AI display** (owner change 2026-10-15, replacing the list view): the Overview's second
-  view shows what the assistant retrieved (its `show_on_display` tool): a title with
-  provenance tags, a caption, then a line or bar chart, a table, headline figures, an
-  inline image or a sandboxed page it wrote. Earlier items sit under "Shown earlier";
-  with nothing shown it says nothing has been queried yet. Equipment records are in
-  Engineering.
-- **Engineering hub and records**: a page header (title and description), then
-  Investigations, Equipment records (with search), Simulation history (the run open in AI
-  Pilot, a link to the history, and "Set up a simulation in AI Pilot", which opens it)
-  and CAD and topology as a planned row saying what it needs, with real topology evidence. Records: the trend
-  today across the whole day with a "now" rule, read from 0 against the nameplate rating
-  when there is one, with a caption; operating point against nameplate; measurements;
-  issue timeline; Locate and Ask.
-- **Assistant**: what answers is said in words: the panel's badge reads "No language
-  model connected" (offline rules; "Assistant unavailable" in caution when the service
-  fails), each answer carries "Offline rules" and "Replay paced for demonstration", tools
-  are "Simulated tool", failed tools are caution. An answer arrives as a calm stream: the
+  view shows what the assistant retrieved (its `show_on_display` tool): a title with its
+  "From the assistant" tag, a caption, then a line or bar chart, a table, headline
+  figures, an inline image or a sandboxed page it wrote. Earlier items sit under "Shown
+  earlier"; with nothing shown it says "Nothing on the AI display yet" and offers the
+  assistant. Equipment records are in Engineering.
+- **Engineering and records**: Engineering is the Simulation workspace: one raised card
+  (its icon, the title, "Configure in AI Pilot" or "Open active simulation", and "Open
+  Simulation history"), then a line with the number of runs and "Open latest run RUN-…".
+  Records (`/equipment/:id`): the trend today across the whole day with a "now" rule, read
+  from 0 against the nameplate rating when there is one, with a caption; operating point
+  against nameplate; measurements; issue timeline; Locate and Ask.
+- **Assistant**: the panel's bar holds New conversation, and a badge only when it has
+  something to say: a connected local model ("Local model …") or "Assistant unavailable"
+  in caution when the service fails; the offline rules carry none. There is no notice
+  above the conversation and no context line; an answer is headed by the assistant's name
+  and its time, and a failed tool is caution. An answer arrives as a calm stream: the
   question at once (with its attached files as chips), a quiet "Working" line (three
-  bars), plain step labels folding into one recessed "Used N simulated tools" line, then
+  bars), plain step labels folding into one recessed "Used N tools" line, then
   words fading in (320 ms) behind a still laminate caret. Answers shape themselves to
   their content: paragraphs by default, lists and tables only where they help. The
   conversation draws no charts: a chart is a link, or opens in the main display. A view
@@ -411,11 +425,13 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   recording", then "Transcribing…"; the words join the draft to be read and sent. On
   coarse pointers these controls are 44 px with 8 px between them.
 - **AI Pilot (the operator console, in the workspace)**: the one place a simulation is
-  set up and operated. Its scope line holds the Simulation only, Mock pilot service and
-  Mock simulation service tags and "The pilot never controls physical equipment." It has
-  three phases. **Set-up:** the form from the service's capabilities (Name first, optional,
-  up to 60 characters; scenario, start time, duration, timestep, setpoints), "Start
-  simulation" in laminate and "Start paused" raised, and the recent runs. **Operating:**
+  set up and operated. It has no scope line: the run band's Simulation label, the
+  "Simulated readings" heading and its controls ("Start simulation", "Apply to simulation
+  RUN-…", "Stop simulation") say what it works on. It has three phases. **Set-up:** the
+  form from the service's capabilities (Name first, optional, up to 60 characters;
+  scenario, start time, duration, timestep, chilled-water setpoint) with no helper text
+  (a field shows a message only when its value is refused), "Start simulation" in
+  laminate and "Start paused" raised, and the recent runs. **Operating:**
   the run band, sticky at the console's top: the run's name as its title with the ID
   beside it (Rename edits it in place: Enter saves, Escape cancels), its state as an icon
   and a word (Created a dashed circle, Running play, Paused pause, Stopped a circled stop,
@@ -452,10 +468,11 @@ box-shadows, never borders that shift layout. No coloured side stripes.
 - **Simulation replay** (`/simulation/RUN-…`, the main display; the h1 is Simulation): one
   recorded run, the same view from AI Pilot's result, Simulation history and the
   assistant. It operates nothing. The page header ("Simulation replay" with the Recorded
-  run, Mock simulation service and Mock pilot service tags), "All runs", the run band read
+  run tag; no lead), "All runs", the run band read
   only (name, ID, state, scenario, revision, times; no controls), the Run summary, then the
-  simulated plant on its own recessed display (its provenance note, the pilot's issues seen
-  by then hanging on it) with the **Replay** scrubber under it: one stop per recorded step,
+  simulated plant on its own recessed display under its "Simulated plant at … (simulated
+  time)" heading (the pilot's issues seen by then hanging on it; no note in its corner)
+  with the **Replay** scrubber under it: one stop per recorded step,
   the time and "step n of N" beside it, the run's last step at first; what is chosen on the
   plant shows its readings and what was held then. The results (System COP, demand with
   removed cooling, unmet demand, power, energy; a matched run overlaid in the capacity
@@ -479,12 +496,55 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   opens its replay; the live run's "Live in AI Pilot" opens AI Pilot beside the list.
 - **Trend**: one indicator across today in the main display, the answer to "show me
   COP": its figures (now, average, range, change since midnight), a chart with a "Now"
-  rule, Indicator details, and the other indicators as links. Labelled Demo data and
-  "Telemetry, scenario"; never a simulation.
+  rule, Indicator details, and the other indicators as links. Labelled "Telemetry,
+  scenario"; never a simulation.
+- **CAD Studio** (`/cad`, its own chunk; the open project's name is the h2): an industrial
+  CAD workbench laid out by its own width, not the window's. **Project Library**: the
+  prepared sample pinned (outline "Prepared sample"), then saved projects by last opened,
+  each with a thumbnail drawn from its own data (the sample plant in its media colours; a
+  drawing is a format tile, never a fake preview), its source and date, and its review
+  ("2 open findings", "Reviewed", "No extraction"); search, Import drawing (the one
+  primary action; a drawing dropped anywhere on the page imports too) and a row menu
+  (Rename, Duplicate, Download original, Delete… whose confirmation names what goes). It is
+  the page while no project is open; beside an open one it docks from 1366 px of CAD area,
+  and narrower it starts closed and Projects opens it as a column that narrows the canvas,
+  never over the drawing; on a phone Projects goes back to it. **Toolbar** (44 px): Projects,
+  the name (renamed in place; in File on a phone), "Prepared sample" or the drawing's
+  format, the save state ("Saved 14:32", "Unsaved changes", "Saving…", "Not saved"), Save
+  (laminate only while there are unsaved changes; the sample's first save asks for a name;
+  Ctrl+S), File (Save as…, Duplicate, Download original, Revert changes, Close project),
+  2D | 3D | Compare (a radio group) and Preview in Overview. In 3D, a "Schematic model"
+  tag distinguishes conventional geometry from engineering dimensions. **M3b scene**:
+  the prepared plant's 16 devices, all recorded branches and headers, two bypasses, 13
+  valves and seven sensors in an orthographic isometric view (Corner B). Four cooling
+  towers, three chillers, eight pumps and the lumped data hall use neutral painted steel;
+  pipes retain the four media colours. An engineering grid and equipment-only contact
+  shadows ground the model; no auto-rotation or fly-through. Left-drag orbits through
+  360 degrees, right- or middle-drag pans, and the wheel zooms; Shift+arrow keys orbit
+  and plain arrows pan. A short click selects; a drag beyond the threshold never does.
+  Targets and zoom are bounded, and Fit, Reset isometric and exact Plan are available.
+  Fit centres all projected mesh and visible-label bounds, with breathing room around the
+  data hall and outermost pipes. Selection, recorded-path trace and equipment names stay
+  synchronized with the Inspector and 2D views. Findings stay visible, standby roles are
+  labelled, and the layer menu controls CW, CHW, valves, instruments and names. Colour by
+  Medium and Colour by Review preserve their distinct meanings. Labels and short leaders
+  project and declutter in the same frame as the scene, with direct DOM transforms and no
+  delayed timer or CSS transition. Three.js and the model chunk load only when chosen.
+  WebGL2 absence, failure or context loss shows the 2D drawing. Camera persistence remains outside this approval gate. **Engineering Inspector** (320 px):
+  Findings, then every item of equipment with the review of its connections ("Needs review ·
+  2 inferred connections", "All connections confirmed"); a selection replaces them (‹ Back
+  to findings · n open), with the item's own evidence ("Equipment evidence") and its
+  connection review ("Connections needing review: 2 of 4") as two rows, then its
+  connections and nameplate. A drawing is stored and downloadable, never parsed: its file
+  sheet says "No extraction". Projects persist on the local project service (`cad=local`,
+  explicit Save, a save from a stale tab is refused and can be kept as a copy); without it
+  the review stays in this tab ("This tab only", Save disabled with the reason). Moving the
+  view never marks a project unsaved; the view, selection and divider are saved with it.
+  A saved 3D view reopens in 2D until camera persistence is completed in M4.
 - **Knowledge** (`/knowledge`, the h1 is Knowledge): two systems on one page, **RAG Graph |
   Memory graph**, as raised-and-outlined tabs (arrow keys, Home, End; the address keeps the
-  tab), with the store's provenance tag at the right: Demo library or Demo records, read
-  only, or Local knowledge or memory service. The second tab was named Graph Memory until
+  tab), with the local service's tag at the right when the page uses it (Local knowledge or
+  memory service); the built-in library and records carry none. The second tab was named Graph Memory until
   M7.6; the address stays `kn=memory`, and these notes keep "Graph Memory" for the feature.
   The RAG Graph is the default. The header adds the open system's count as a polite status
   ("128 nodes, 252 relationships"; "12 current records · 1 superseded version · 9 links").
@@ -522,18 +582,17 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   results" above it; going back (or Escape) returns focus to what opened the inspection,
   and the list keeps its place. Everything is in the address, so a citation opens the exact
   passage.
-  The library states the service's capabilities as facts (storage, formats and limit,
-  extraction, vector search, answers) and lists documents with their status as an icon and a
-  word: Indexed in ok; Partly indexed and Failed in caution with the reason, never the alarm
+  The library lists documents with their status as an icon and a word (no list of the
+  service's capabilities): Indexed in ok; Partly indexed and Failed in caution with the reason, never the alarm
   red. Choosing a document focuses its group in the graph. A document's panel lists its
   eight ingestion stages (the indexing diagnostics) and its outline, whose sections open in
   the source reader. Add document, Reindex and Remove… (whose confirmation says what goes
-  with it) exist only with the local service; the demo says why it has none. The passages
+  with it) exist only with the local service; the demo has none. The passages
   are stored passages only: source, section and page, the question's words marked, how each
-  was found (Keyword #n, Graph #n with its path in words, Vector #n when configured) and "No
-  answer is written: no language model is configured"; each has **Show in graph** (its
-  section), and says so when its section is not in the graph view. Ranks and the fusion
-  score are not probabilities. With no question yet, the column explains the search and
+  was found (Keyword #n, Graph #n with its path in words, Vector #n when configured); no
+  answer is written, and nothing says so. Each has **Show in graph** (its
+  section), and says so when its section is not in the graph view. Results carry ranks,
+  never scores. With no question yet, the column explains the search and
   offers three example questions.
 - **Graph explorer** (2D, the knowledge graph's): SVG on a recessed sheet, shapes per type
   in the family colours, laminate for the chosen node or relationship, and what it does not
@@ -723,7 +782,8 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   - **Choosing.** A click on a record inspects it in the column. Its stored links and the
     records they join light up; the rest of the chain those links lead on to stays
     readable; everything else fades. A click on a link opens it in the column (what it
-    joins, its phrase, when it was stored); a run's band or a lane's name shows its records;
+    joins, its phrase, when it was stored); a run's band or a lane's name shows its records
+    (a run's under one sentence: simulated results, not plant telemetry);
     a click on empty space clears. A record in sight stays where it is when chosen (unless
     it or a record linked to it waits for zoom: the view then zooms until they stand
     apart), and opening or closing the column moves nothing; a chosen record the narrower
@@ -766,7 +826,7 @@ box-shadows, never borders that shift layout. No coloured side stripes.
     workspace, with the same search and filters.
   - **A record's panel** says:
     - when it happened and was recorded, and whether it is current or until when it held;
-    - its provenance in a sentence;
+    - its provenance as a tag (no sentence explaining it);
     - its versions;
     - its links in words (Supported by, Resolves…);
     - its linked chain in time ("Linked chain: 7 records", following stored links only).
@@ -793,10 +853,12 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   are hue with a word or a glyph beside them, not accents.
 - Do pair every state colour with a word or an icon. Don't use the alarm red for
   anything but an alarm.
-- Do mark everything that is not live: Demo data, No language model connected, Offline
-  rules, Simulated tool, Mock simulation service, Mock pilot service, Synthetic plant,
-  Planned. Don't fake an upload, a transcription, a result or a service.
-- Do keep the corners of the plant empty except for the three controls. Don't add
+- Do name, in a word or two and where it shows, what could be mistaken for plant
+  telemetry: Live demo, a run's Simulation label and "Simulated …" headings, Recorded run,
+  and Planned for what is not built. Don't add disclaimers, page leads or how-it-works
+  notes (Help holds the explanations), and don't fake an upload, a transcription, a result
+  or a service.
+- Do keep the corners of the plant empty except for its two controls. Don't add
   floating cards over the drawing.
 - Do keep the RAG Graph's controls along its top and bottom edges and its secondary
   content (filters, the legend, help) in popovers that close. Don't print instructions or

@@ -33,8 +33,9 @@ async function open(page: Page, query = "") {
 test("AI Pilot sets up, names and starts a run in one place; the main display stays where the operator left it", async ({ page }) => {
   await open(page);
   const c = pilotConsole(page);
-  for (const tag of ["Simulation only", "Mock pilot service", "Mock simulation service"]) await expect(c.getByText(tag, { exact: true })).toBeVisible();
-  await expect(c).toContainText("The pilot never controls physical equipment.");
+  // No scope tags, mock labels or scope note (2026-11-12); the run band names the simulation (below).
+  for (const tag of ["Simulation only", "Mock pilot service", "Mock simulation service"]) await expect(c.getByText(tag, { exact: true })).toHaveCount(0);
+  await expect(c).not.toContainText("The pilot never controls physical equipment.");
   // Set-up lives in AI Pilot, from the service's capabilities: scenarios included.
   await expect(c.getByLabel("Scenario", { exact: true })).toContainText("Normal operation");
   await expect(c.getByLabel("Scenario", { exact: true })).toContainText("Afternoon peak");
@@ -50,6 +51,7 @@ test("AI Pilot sets up, names and starts a run in one place; the main display st
 
   // The console operates it: the name, the ID, its state and only the controls it allows.
   await expect(consoleBand(page).getByRole("heading", { level: 2 })).toHaveText("Afternoon check RUN-0001");
+  await expect(consoleBand(page).getByText("Simulation", { exact: true })).toBeVisible();
   await expect(consoleState(page)).toHaveText("Paused");
   await expect(consoleBand(page).getByRole("group", { name: "Run controls" }).getByRole("button")).toHaveText(["Resume", "Step", "Stop simulation"]);
   // The form's focus moves to the run's first control.

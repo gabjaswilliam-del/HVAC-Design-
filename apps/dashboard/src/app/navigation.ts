@@ -1,4 +1,4 @@
-import { BookOpen, ChartLine, ClipboardCheck, DraftingCompass, Factory, FilePenLine, Server, type LucideIcon } from "lucide-react";
+import { BookOpen, ChartLine, DraftingCompass, Factory, FilePenLine, type LucideIcon } from "lucide-react";
 import type { Messages } from "../lib/i18n/en";
 import type { NavTarget } from "../lib/contracts/agent";
 
@@ -14,19 +14,13 @@ export interface NavSection {
   match: string[];
 }
 
-// Everyday destinations in the dock; the assistant and pilot live in the
-// workspace, and setup and maintenance in the System menu.
+// Everyday destinations in the dock; the assistant and pilot live in the workspace.
 export const sections: NavSection[] = [
   { key: "overview", path: "/", icon: Factory, match: [""] },
   { key: "analytics", path: "/prediction", icon: ChartLine, match: ["prediction", "trend"] },
   { key: "engineering", path: "/engineering", icon: DraftingCompass, match: ["engineering", "equipment", "simulation"] },
   { key: "cad", path: "/cad", icon: FilePenLine, match: ["cad"] },
   { key: "knowledge", path: "/knowledge", icon: BookOpen, match: ["knowledge"] },
-];
-
-export const systemLinks: { page: PageKey; path: string; icon: LucideIcon; planned: string }[] = [
-  { page: "system", path: "/system", icon: Server, planned: "M7" },
-  { page: "setup", path: "/setup", icon: ClipboardCheck, planned: "M7" },
 ];
 
 /** First path segment: "/equipment/x" and "/equipment" are the same screen. */

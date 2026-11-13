@@ -64,7 +64,6 @@ function Results({ result, list, nav, inGraph }: { result: SearchResult; list: R
           {" · "}
           {m.vector.used ? s.vectors(m.vector.model ?? "") : s.vectorsOff}
         </p>
-        <p className="kn-meta">{s.noAnswer}</p>
         {m.graph.unknownTerms.length > 0 && <p className="kn-meta">{s.unknown(m.graph.unknownTerms.join(", "))}</p>}
       </div>
       {result.results.length === 0 ? (
@@ -85,7 +84,6 @@ function Results({ result, list, nav, inGraph }: { result: SearchResult; list: R
               <Hit key={r.chunkId} hit={r} names={result.names} nav={nav} shown={inGraph.has(r.sectionId)} />
             ))}
           </ol>
-          <p className="kn-meta">{s.fusionNote(result.fusion.k)}</p>
         </>
       )}
     </>

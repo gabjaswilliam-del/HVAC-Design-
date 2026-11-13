@@ -27,14 +27,15 @@ export function useSuggestions() {
 }
 
 /**
- * What answers: a local model, offline rules with no language model connected, or no
- * assistant at all. Said in words, never implied by the absence of a badge.
+ * What answers: a local model, or "Assistant unavailable" when there is no assistant.
+ * The offline rules carry no badge.
  */
 export function EngineBadge({ caps }: { caps: Resource<AgentCapabilities> }) {
   const a = useStrings().agent;
   const c = caps.data;
   if (!c) return caps.error ? <span className="agent-badge agent-badge--off">{a.engine.unavailable}</span> : null;
-  const label = c.connection.state === "connected" ? a.engine.connected(c.model?.id ?? "") : c.connection.state === "offline" ? a.engine.offline : a.engine.unavailable;
+  if (c.connection.state === "offline") return null;
+  const label = c.connection.state === "connected" ? a.engine.connected(c.model?.id ?? "") : a.engine.unavailable;
   return (
     <span className={`agent-badge${c.connection.state === "unavailable" ? " agent-badge--off" : ""}`} title={c.connection.detail} data-engine={c.connection.state}>
       {label}

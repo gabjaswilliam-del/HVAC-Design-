@@ -147,7 +147,6 @@ function Record({ device, site, snapshot, issues }: { device: Device; site: Site
             ))}
             {device.nameplate.length === 0 && <p className="record__muted">{s.inspector.noNameplate}</p>}
           </div>
-          {device.nameplate.length > 0 && <p className="record__muted">{r.synthetic}</p>}
         </div>
 
         <div className="record__cell">
@@ -175,7 +174,6 @@ function Record({ device, site, snapshot, issues }: { device: Device; site: Site
               })}
             </tbody>
           </table>
-          <p className="record__muted">{s.inspector.qualityHint}</p>
         </div>
 
         <div className="record__cell">

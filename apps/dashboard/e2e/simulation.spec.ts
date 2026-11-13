@@ -40,7 +40,8 @@ async function openReplay(page: Page, runId: string, query = "") {
 test("Engineering opens the live monitor after launch and exits to history after completion", async ({ page }) => {
   await page.goto("/engineering?simSpeed=fast");
   const main = page.getByRole("main");
-  await expect(main.getByRole("heading", { name: "How a simulation works" })).toBeVisible();
+  // No "How a simulation works" guide (2026-11-12): the workspace leads straight to its actions.
+  await expect(main.getByRole("heading", { name: "How a simulation works" })).toHaveCount(0);
   await expect(main.getByRole("link", { name: "Open Simulation history" })).toBeVisible();
   await main.getByRole("button", { name: "Configure in AI Pilot" }).click();
   const run = await startRun(page, { paused: true, hours: "1 h", step: "15 min" });
@@ -68,7 +69,7 @@ test("Engineering opens the live monitor after launch and exits to history after
 test("an empty history says so and points to AI Pilot, where runs start", async ({ page }) => {
   await openHistory(page);
   await expect(page.getByText("No simulations have been run yet.")).toBeVisible();
-  await expect(page.getByText("Mock simulation service", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Mock simulation service", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("main").getByRole("button", { name: /Start simulation|Create run/ })).toHaveCount(0);
   // Runs are set up in AI Pilot, beside the history, not on another page.
   await page.getByRole("button", { name: "Start one in AI Pilot" }).click();
@@ -110,11 +111,15 @@ test("the archive lists every run, newest first; a run opens the same read-only 
   // The pilot's condensed summary lives in AI Pilot; the replay itself is charts.
   await expect(page.getByRole("region", { name: `Run summary, ${first}` })).toHaveCount(0);
   await expect(replay(page).getByRole("region", { name: "Results" })).toBeVisible();
-  await expect(page.locator(".sim-plant__box .stage-note")).toContainText(`Mock simulation ${first}, not site telemetry.`);
+  // The simulated plant is named by its heading; no note in its corner (2026-11-12).
+  await expect(replay(page).getByRole("heading", { name: /^Simulated plant at .* \(simulated time\)$/ })).toBeVisible();
+  await expect(page.locator(".sim-plant__box .stage-note")).toHaveCount(0);
   for (const name of ["System COP", "Cooling demand and removed cooling", "Unmet demand", "Plant electrical power", "Electrical energy since start"]) {
     await expect(page.locator(".sim-results").getByRole("img", { name: new RegExp(`^${name}( \\(|$)`) })).toBeVisible(); // a unitless chart has no "( )"
   }
-  await expect(page.getByText(/the forecasting service supports telemetry sources only/)).toBeVisible();
+  // No placeholder for a forecast this build does not draw.
+  await expect(page.getByRole("heading", { name: "Forecast for this run" })).toHaveCount(0);
+  await expect(page.getByText(/the forecasting service supports/)).toHaveCount(0);
   // The pilot's findings and the events are part of the record; both sit in folds.
   await replay(page).locator(".replay-fold summary", { hasText: "Issues" }).click();
   await expect(replay(page).getByRole("navigation", { name: "Issues" })).toBeVisible();
@@ -180,7 +185,8 @@ test("matched runs compare automatically, and a typed address can open a compari
   await expect(page.locator(".sim-compare")).toContainText("Baseline chilled-water setpoints 9 and 7 °C");
   // Choosing "No comparison" turns the overlay off; choosing it again brings it back.
   await page.getByLabel("Compare with").selectOption("");
-  await expect(page.locator(".sim-compare")).toContainText("Listed runs have the same scenario");
+  await expect(page.locator(".sim-compare")).not.toContainText(`${third} used`);
+  await expect(page.locator(".sim-compare")).not.toContainText("Listed runs have the same scenario");
   await page.getByLabel("Compare with").selectOption(first);
   await expect(page.locator(".sim-compare")).toContainText(`${third} used`);
 

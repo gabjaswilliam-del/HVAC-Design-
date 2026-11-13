@@ -31,7 +31,7 @@ test("with nothing queried it says so and offers the assistant", async ({ page }
   await page.goto("/?view=display");
   await expect(page.getByRole("radio", { name: "AI display" })).toHaveAttribute("aria-checked", "true");
   await expect(aiDisplay(page)).toContainText("Nothing on the AI display yet");
-  await expect(aiDisplay(page)).toContainText("Nothing has been queried");
+  await expect(aiDisplay(page)).not.toContainText("Nothing has been queried");
   await aiDisplay(page).getByRole("button", { name: "Ask the assistant" }).click();
   await expect(page.getByRole("complementary", { name: "AI assistant" })).toBeVisible();
 });
@@ -63,7 +63,7 @@ test("each kind of content is drawn, and earlier items are one step away", async
   await earlier.selectOption("d-line");
   await expect(aiDisplay(page).getByRole("img", { name: /Plant power today/ })).toBeVisible();
   await expect(aiDisplay(page)).toContainText("Plant power today, for the test.");
-  await expect(aiDisplay(page)).toContainText("Demo data");
+  await expect(aiDisplay(page)).not.toContainText("Demo data");
 
   await aiDisplay(page).getByRole("button", { name: "Clear" }).click();
   await expect(aiDisplay(page)).toContainText("Nothing on the AI display yet");

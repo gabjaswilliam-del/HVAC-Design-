@@ -29,21 +29,19 @@ function groupParts(parts: TurnPart[]) {
 
 /**
  * A run of tool calls: open while it is the latest activity, folded to one line once the
- * answer begins, open again on request. Simulated tools are named as such in its head.
+ * answer begins, open again on request.
  */
 function ToolGroup({ tools, startOpen }: { tools: ToolPart[]; startOpen: boolean }) {
   const a = useStrings().agent;
   const [choice, setChoice] = useState<boolean | null>(null);
   const open = choice ?? startOpen;
   const listId = useId();
-  const simulated = tools.every((t) => t.simulated);
   const failed = tools.filter((t) => t.status === "error").length;
   return (
     <div className="agent-activity">
       <button type="button" className="agent-activity__head" aria-expanded={open} aria-controls={listId} onClick={() => setChoice(!open)}>
         {open ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
-        {simulated && <span className="agent-activity__mark" aria-hidden="true" />}
-        <span>{tools.some((t) => t.status === "running") ? a.usingTools(simulated) : a.usedTools(tools.length, simulated)}</span>
+        <span>{tools.some((t) => t.status === "running") ? a.usingTools(false) : a.usedTools(tools.length, false)}</span>
         {failed > 0 && <span className="agent-activity__failed">{a.toolsFailed(failed)}</span>}
       </button>
       <ul id={listId} className="agent-activity__list" hidden={!open}>
@@ -79,7 +77,6 @@ function ToolRow({ part }: { part: ToolPart }) {
           <dt>{a.toolName}</dt>
           <dd>
             <code>{part.tool}</code>
-            {part.simulated && `, ${a.simulatedTool.toLowerCase()}`}
           </dd>
           <dt>{a.arguments}</dt>
           <dd>
@@ -274,8 +271,7 @@ export function TurnView({ turn, site, context }: { turn: Turn; site: SiteBundle
       </div>
       <div className="agent-turn__answer">
         <span className="agent-turn__who">
-          {a.assistant} <span className="agent-badge" title={a.offlineTitle}>{a.offline}</span>
-          <span className="agent-turn__paced">{a.paced}</span>
+          {a.assistant}
           <span className="agent-turn__time num">
             {formatTime(turn.at, site.site.timezone)} {site.site.timezoneLabel}
           </span>

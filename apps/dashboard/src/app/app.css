@@ -120,12 +120,6 @@
   outline-offset: 3px;
   border-radius: var(--radius-chip);
 }
-.topbar__demo {
-  min-height: 24px;
-  padding: 0 10px 0 7px;
-  gap: 7px;
-  font-size: var(--type-caption);
-}
 
 /* Readouts: the four values that summarise the plant, cut into the bezel. */
 .readouts {
@@ -504,7 +498,7 @@
 }
 
 /* Dock -------------------------------------------------------------------------- */
-/* Above the deck: its labels and the System menu open over the deck and the display. */
+/* Above the deck: its labels open over the deck and the display. */
 .dock {
   grid-area: dock;
   position: relative;
@@ -564,10 +558,6 @@
     inset 0 0 0 1px rgb(0 0 0 / 0.5),
     0 1px 0 rgb(255 255 255 / 0.06);
 }
-.dock__item[aria-expanded="true"] {
-  background: rgb(0 0 0 / 0.32);
-  color: var(--text-1);
-}
 .dock__label {
   position: absolute;
   left: calc(100% + 12px);
@@ -604,9 +594,6 @@
   opacity: 1;
   transform: translate(0, -50%) scale(calc(1 / var(--s)));
 }
-.dock__item[aria-expanded="true"] .dock__label {
-  opacity: 0;
-}
 .dock__indicator {
   position: absolute;
   left: 3px;
@@ -617,55 +604,6 @@
   background: var(--laminate);
   transform: translateY(var(--ind-y, 0px));
   transition: transform 420ms var(--ease);
-}
-.dock__system {
-  position: relative;
-}
-.system-menu {
-  position: absolute;
-  left: calc(100% + 10px);
-  bottom: 0;
-  z-index: var(--z-popover);
-  width: 260px;
-  padding: var(--space-2);
-  border-radius: var(--radius-container);
-  background: var(--raised) linear-gradient(180deg, rgb(255 255 255 / 0.045), transparent 65%);
-  box-shadow:
-    var(--shadow-float),
-    var(--edge),
-    inset 0 0 0 1px var(--hairline-strong);
-  animation: tray-in var(--motion-base) var(--ease) both;
-}
-.system-menu[hidden] {
-  display: none;
-}
-.system-menu__status {
-  margin: 4px 6px 8px;
-  color: var(--text-3);
-  font-size: var(--type-caption);
-}
-.system-menu ul {
-  display: grid;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.system-menu__link {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: 34px;
-  padding: 0 8px;
-  border-radius: var(--radius-control);
-  color: var(--text-1);
-  text-decoration: none;
-}
-.system-menu__link:hover {
-  background: var(--hover);
-}
-.system-menu__link .tag-chip {
-  margin-left: auto;
 }
 
 /* The display: the plant or the page, recessed in the bezel ------------------------ */
@@ -1118,7 +1056,6 @@
     flex-direction: row;
     justify-content: space-around;
   }
-  .dock__list--foot,
   .dock__indicator {
     display: none;
   }
@@ -1172,8 +1109,7 @@
   .ack,
   .dock__item,
   .tray,
-  .keys,
-  .system-menu {
+  .keys {
     border: 1px solid CanvasText;
   }
   .dock__item[aria-current="page"] {

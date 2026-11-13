@@ -173,7 +173,6 @@ export function ProposalDecision({ issue, run, timeZone }: { issue: PilotIssue; 
                 className="button button--primary button--small"
                 aria-disabled={Boolean(blocked) || Boolean(busy) || undefined}
                 aria-busy={busy === `apply:${issue.id}` || undefined}
-                aria-describedby={`decide-note-${issue.id}`}
                 data-pilot-control="apply"
                 onClick={() => {
                   if (blocked || busy) return;
@@ -188,7 +187,6 @@ export function ProposalDecision({ issue, run, timeZone }: { issue: PilotIssue; 
                 className="button button--small"
                 aria-disabled={Boolean(blocked) || Boolean(busy) || undefined}
                 aria-busy={busy === `decline:${issue.id}` || undefined}
-                aria-describedby={`decide-note-${issue.id}`}
                 data-pilot-control="decline"
                 onClick={() => {
                   if (blocked || busy) return;
@@ -201,9 +199,6 @@ export function ProposalDecision({ issue, run, timeZone }: { issue: PilotIssue; 
             </div>
           )}
           {blocked && blocked !== "declined" && <p className="pilot__muted">{p.applyBlocked[blocked]}</p>}
-          <p id={`decide-note-${issue.id}`} className="pilot__muted pilot-decision__note">
-            {p.decideNote}
-          </p>
         </>
       ) : issue.advisory ? (
         <p className="pilot-advisory">
@@ -414,7 +409,6 @@ export function IssueDetail({ issue, run, devices, timeZone, latestScan }: { iss
               blocked && <span className="pilot__muted">{p.applyBlocked[blocked]}</span>
             )}
           </div>
-          <p className="pilot__muted">{p.applyNote}</p>
         </section>
       )}
 

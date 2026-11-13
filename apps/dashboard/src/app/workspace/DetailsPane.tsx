@@ -1,18 +1,24 @@
 import { ChevronDown, Info } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import { StateLabel } from "../../components/StateLabel";
+import { useClickOutside } from "../../components/escape";
 import { EquipmentInspector } from "../../features/equipment";
 import { KpiDetailsPanel, sceneMatchesTopology } from "../../features/monitoring";
 import { ISSUES_KPI } from "../../features/monitoring/kpiDefinitions";
-import { operating, useOperating } from "../operatingContext";
+import { getOperating, operating, useOperating } from "../operatingContext";
 import { useIssues, usePlantSnapshot, useSite } from "../site";
 import { useShowOnPlant } from "../useShowOnPlant";
 
+/** The drawing's readings select their equipment on a click, as the equipment does. */
+const SELECTS_EQUIPMENT = ".tag-wrap--selectable";
+
 /**
  * Details in the workspace: the equipment inspector or a plant indicator, whichever
- * is open. "Locate" centres the item on the Overview's drawing from any screen.
+ * is open. "Locate" centres the item on the Overview's drawing from any screen. A click on
+ * plain space outside the workspace (`panel`) closes the inspector; a control keeps its
+ * own action, so another item on the drawing replaces it.
  */
-export function DetailsPane({ restoreFocus }: { restoreFocus: (...selectors: string[]) => void }) {
+export function DetailsPane({ restoreFocus, panel }: { restoreFocus: (...selectors: string[]) => void; panel: React.RefObject<HTMLElement | null> }) {
   const site = useSite();
   const snapshot = usePlantSnapshot();
   const issues = useIssues();
@@ -20,6 +26,10 @@ export function DetailsPane({ restoreFocus }: { restoreFocus: (...selectors: str
   const kpiKey = useOperating((x) => x.kpiKey);
   const detailsFocus = useOperating((x) => x.detailsFocus);
   const showOnPlant = useShowOnPlant();
+  useClickOutside(Boolean(selectedId) && !kpiKey, panel, () => {
+    // The click's own handler may already have closed it (the floating panel's empty drawing).
+    if (getOperating().selectedId) operating.select(null);
+  }, SELECTS_EQUIPMENT);
   if (!site.data) return null;
   const bundle = site.data;
   const locate = (id: string) => showOnPlant(id, false);

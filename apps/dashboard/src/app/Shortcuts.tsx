@@ -57,7 +57,7 @@ export function useShortcuts(toggleList: () => void) {
   }, [navigate]);
 }
 
-/** The list of shortcuts, opened from the dock or with `?`. */
+/** The list of shortcuts, opened with `?`. */
 export function Shortcuts({ open, onClose }: { open: boolean; onClose: () => void }) {
   const s = useStrings();
   const k = s.keys;
@@ -71,8 +71,7 @@ export function Shortcuts({ open, onClose }: { open: boolean; onClose: () => voi
     opener.current = document.activeElement;
     dialog.current?.focus();
     return () => {
-      const back = opener.current instanceof HTMLElement && opener.current.isConnected ? opener.current : document.querySelector<HTMLElement>("[data-shortcuts-opener]");
-      back?.focus();
+      if (opener.current instanceof HTMLElement && opener.current.isConnected) opener.current.focus();
     };
   }, [open]);
 

@@ -184,7 +184,6 @@ export function DocumentPanel({
           </>
         )}
       </div>
-      {!local && <p className="kn-note">{s.library.demoNote}</p>}
       {confirming && (
         <Confirm
           message={s.doc.confirmRemove(d.title, d.chunkCount)}

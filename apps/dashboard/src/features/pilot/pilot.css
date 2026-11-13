@@ -394,18 +394,6 @@
 .pilot-console[hidden] {
   display: none;
 }
-.pilot-console__scope {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 8px;
-  margin: 0;
-}
-.pilot-console__note {
-  flex: 1 1 100%;
-  color: var(--text-3);
-  font-size: var(--type-caption);
-}
 .pilot-console__body {
   display: grid;
   gap: var(--space-3);
@@ -572,9 +560,6 @@ button.pilot-row[aria-pressed="true"] {
 .pilot-decision__done {
   color: var(--text-2);
   font-weight: 600;
-}
-.pilot-decision__note {
-  font-size: var(--type-caption);
 }
 /* Why: the pilot's investigation and its newest evidence, under the decision. */
 .pilot-decision__why {

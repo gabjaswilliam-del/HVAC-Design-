@@ -14,7 +14,8 @@ async function open(page: Page, url = "/prediction") {
 
 test("starts with an empty chart and Predict, and states the method plainly", async ({ page }) => {
   await open(page, "/prediction?time=12:00");
-  await expect(page.getByText(/not a trained AI model/)).toBeVisible();
+  // No notice paragraph (2026-11-12): the method is stated in the figures once predicted.
+  await expect(page.getByText(/not a trained AI model/)).toHaveCount(0);
   await expect(chart(page)).toBeVisible();
   await expect(page.getByText("Press Predict to forecast the cooling load from 12:00")).toBeVisible();
   await expect(figures(page)).toHaveCount(0);

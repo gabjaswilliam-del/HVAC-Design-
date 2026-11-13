@@ -1,1 +1,1 @@
-export { CadStudioPage } from "./CadStudioPage";
+export { CadStudioPage, CadStudioPage as default } from "./CadStudioPage";

@@ -36,7 +36,6 @@ export function AiDisplay({ timeZone }: { timeZone: string }) {
         <div className="ai-display__empty">
           <Presentation size={28} aria-hidden="true" />
           <h2>{s.emptyTitle}</h2>
-          <p>{s.emptyBody}</p>
           <button type="button" className="button" onClick={() => operating.openWorkspace("assistant")}>
             <MessageSquare size={15} aria-hidden="true" />
             {s.ask}
@@ -52,11 +51,6 @@ export function AiDisplay({ timeZone }: { timeZone: string }) {
         <div className="ai-display__title">
           <h2 id={`${id}-title`}>{item.title}</h2>
           <span className="tag-chip tag-chip--notice">{s.fromAssistant}</span>
-          {item.source.demo && (
-            <span className="tag-chip tag-chip--demo" title={s.demoTitle}>
-              {s.demo}
-            </span>
-          )}
           <span className="ai-display__time num">{s.shownAt(formatTime(item.shownAt, timeZone))}</span>
         </div>
         <div className="ai-display__controls">
@@ -156,17 +150,14 @@ function Content({ item, timeZone }: { item: DisplayItem; timeZone: string }) {
       return <img className="ai-display__image" src={c.src} alt={c.alt} />;
     case "html":
       return (
-        <>
-          <iframe
-            className="ai-display__frame"
-            title={s.htmlTitle(item.title)}
-            sandbox="allow-scripts"
-            referrerPolicy="no-referrer"
-            srcDoc={SANDBOX_HEAD + c.html}
-            style={{ height: c.height ?? 480 }}
-          />
-          <p className="ai-display__note">{s.htmlNote}</p>
-        </>
+        <iframe
+          className="ai-display__frame"
+          title={s.htmlTitle(item.title)}
+          sandbox="allow-scripts"
+          referrerPolicy="no-referrer"
+          srcDoc={SANDBOX_HEAD + c.html}
+          style={{ height: c.height ?? 480 }}
+        />
       );
   }
 }

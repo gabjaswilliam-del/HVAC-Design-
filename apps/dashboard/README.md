@@ -6,10 +6,10 @@ prototype. Milestones 0 to 7.6 are in this directory: shell, artwork, fixture da
 layer, interactive monitoring with KPI details, cooling prediction and equipment pages,
 scripted AI assistant, simulation and AI pilot on labelled mock services, and the
 knowledge workspace. Everything runs on labelled demo data except the knowledge
-workspace, which can use the local knowledge and memory service in
-`apps/api/local_server.py`; nothing else is connected to a backend. CAD Studio
-(`/cad`, 2026-10-17) is a fixture-only review interface with no CAD parser or
-backend.** Milestones and acceptance evidence: [VERSION_A.md](VERSION_A.md). See
+workspace and CAD Studio, which can use their local services in
+`apps/api/local_server.py`. CAD Studio stores uploaded drawings without parsing them;
+only its prepared sample is reviewable. Its M0–M3b workbench and complete interactive
+schematic 3D plant are in the working tree awaiting visual approval before M4.** Milestones and acceptance evidence: [VERSION_A.md](VERSION_A.md). See
 [Running the prototype](#running-the-version-a-prototype).
 Implement your assigned surface in the folder linked below. Build one coherent
 application, not separate dashboards per feature.

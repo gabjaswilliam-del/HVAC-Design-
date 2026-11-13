@@ -6,8 +6,8 @@ import type { RunDetail } from "../../lib/contracts/simulation";
 
 const READINGS = ["plant:cop", "plant:cooling_demand_kw", "plant:cooling_delivered_kw", "plant:unmet_kw", "plant:power_kw"] as const;
 
-/** The live run's newest simulated readings as figures, with their source beside them, in
- *  AI Pilot's console (three to a row under its own heading level). */
+/** The live run's newest simulated readings as figures, in AI Pilot's console (three to a
+ *  row under its own heading level). */
 export function LiveReadings({ run, site, timeZone }: { run: RunDetail; site: SiteBundle; timeZone: string }) {
   const s = useStrings();
   const t = s.pilotLive;
@@ -20,7 +20,6 @@ export function LiveReadings({ run, site, timeZone }: { run: RunDetail; site: Si
         <h3 id={id} className="pilot__h">
           {frame ? t.readingsAt(formatTime(frame.at, timeZone)) : t.readings}
         </h3>
-        <span className="tag-chip tag-chip--notice">{s.simulation.resultsSource(run.runId)}</span>
       </div>
       <dl className="pilot-readings__grid">
         {READINGS.map((key) => {

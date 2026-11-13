@@ -20,8 +20,8 @@ test("Engineering is a hub: investigations, records, Simulation, then CAD as a p
   await expect(page.locator(".hub .page__head")).toContainText("Investigations, equipment records, simulation and CAD for this plant.");
   const headings = page.locator(".hub__section h2");
   await expect(headings).toHaveText(["Investigations", "Equipment records", "Simulation history", "CAD and topology"]);
-  // M6: Simulation is a labelled mock service; runs start in AI Pilot and are kept in the history.
-  await expect(page.locator("#hub-simulation")).toContainText("Mock simulation service");
+  // M6: runs start in AI Pilot and are kept in the history; no mock-service tag (2026-11-12).
+  await expect(page.locator("#hub-simulation")).not.toContainText("Mock simulation service");
   await expect(page.locator("#hub-simulation")).toContainText("No simulation is running.");
   await expect(page.locator("#hub-simulation").getByRole("link", { name: "Open Simulation history" })).toHaveAttribute("href", "/simulation");
   await expect(page.locator("#hub-simulation").getByRole("button", { name: "Set up a simulation in AI Pilot" })).toBeVisible();

@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Link } from "react-router";
-import { Beaker, Crosshair, MessageSquareText, PanelRight, X } from "lucide-react";
+import { Crosshair, MessageSquareText, PanelRight, X } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import { formatNumber, formatReading, formatTime, siteDayStart } from "../../lib/format";
 import { useResource, type Resource } from "../../lib/api/useResource";
@@ -90,9 +90,6 @@ export function KpiDetailsPanel({ kpiKey, site, snapshot, issues, onClose, onLoc
           <X size={18} />
         </button>
       </div>
-      <p className="kpi-panel__synthetic">
-        <Beaker size={14} aria-hidden="true" /> {p.synthetic}
-      </p>
       {KPI_QUESTIONS[kpiKey] && (
         <button type="button" className="button button--small kpi-panel__ask" onClick={() => operating.askAssistant(KPI_QUESTIONS[kpiKey])}>
           <MessageSquareText size={14} aria-hidden="true" />
@@ -263,12 +260,7 @@ function IndicatorBody({
       {(text?.definition || inputs.length > 0) && (
         <Section title={p.definition}>
           {text?.definition && <p className="kpi-panel__text">{text.definition}</p>}
-          {inputs.length > 0 && (
-            <>
-              <ReadingsTable keys={inputs} site={site} snapshot={snapshot} />
-              <p className="inspector__muted">{p.definitionNote}</p>
-            </>
-          )}
+          {inputs.length > 0 && <ReadingsTable keys={inputs} site={site} snapshot={snapshot} />}
         </Section>
       )}
 
@@ -293,7 +285,6 @@ function IndicatorBody({
           ) : (
             <p className="inspector__muted">{p.noShortfallToday}</p>
           )}
-          <p className="inspector__muted">{p.capacityNote}</p>
         </Section>
       )}
 
@@ -415,10 +406,7 @@ function IssuesBody({
         {s.issues.firstSeen} {formatTime(i.firstSeen, tz)}, {i.status === "resolved" ? p.resolvedAt : p.lastSeen.toLowerCase()}{" "}
         {formatTime(i.lastSeen, tz)} {tzLabel}
       </p>
-      <p className="kpi-panel__text">
-        <span className="kpi-panel__label">{p.scenarioText}: </span>
-        {i.summary}
-      </p>
+      <p className="kpi-panel__text">{i.summary}</p>
       {i.status !== "resolved" && (
         <>
           <h4 className="kpi-panel__subhead">{p.affected}</h4>

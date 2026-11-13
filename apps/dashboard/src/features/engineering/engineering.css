@@ -334,14 +334,11 @@
 }
 
 .engineering-simulation__intro :is(h2, p),
-.engineering-simulation__guide h2,
-.engineering-simulation__steps :is(h3, p),
 .engineering-simulation__note {
   margin: 0;
 }
 
-.engineering-simulation__icon,
-.engineering-simulation__step-label {
+.engineering-simulation__icon {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -362,26 +359,6 @@
   gap: 10px 16px;
 }
 
-.engineering-simulation__steps {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
-  gap: 12px;
-  list-style: none;
-  padding: 0;
-  margin: 12px 0 0;
-}
-
-.engineering-simulation__steps li {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  padding: 16px;
-  border: 1px solid var(--hairline-strong);
-  border-radius: 10px;
-}
-
-.engineering-simulation__steps p,
-.engineering-simulation__step-label,
 .engineering-simulation__note {
   color: var(--text-2);
 }

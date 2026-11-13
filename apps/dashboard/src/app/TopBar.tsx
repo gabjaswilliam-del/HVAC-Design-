@@ -75,9 +75,6 @@ export function TopBar({ phone, inert }: { phone: boolean; inert?: boolean }) {
             {title}
           </h1>
         </div>
-        <span className="tag-chip tag-chip--demo topbar__demo" title={s.dataMode.demoDescription}>
-          {s.dataMode.demo}
-        </span>
       </div>
       {site.data ? <Readouts site={site.data} snapshot={snapshot.data} failed={Boolean(snapshot.error)} /> : <div />}
       {site.data ? <Attention site={site.data} title={title} /> : <div className="attention" />}
@@ -227,10 +224,7 @@ function Readouts({ site, snapshot, failed }: { site: SiteBundle; snapshot?: Sna
               <Outlook site={site} onOpen={() => setTray(false)} />
             </div>
             <div className="tray__foot">
-              <span>
-                {stale && snapshot?.latestSampleAt && `${t.staleNote(formatTime(snapshot.latestSampleAt, tz))} `}
-                {t.outlookNote}
-              </span>
+              <span>{stale && snapshot?.latestSampleAt && t.staleNote(formatTime(snapshot.latestSampleAt, tz))}</span>
               <Link className="link" to="/prediction" onClick={() => setTray(false)}>
                 {t.openForecast}
               </Link>

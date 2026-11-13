@@ -75,8 +75,6 @@ export function Library({
           </button>
         )}
       </div>
-      {!local && <p className="kn-note">{s.library.demoNote}</p>}
-      {status.data && <Capabilities status={status.data} />}
       {status.error && !status.data && <Notice tone="warning">{s.library.statusFailed(status.error.message)}</Notice>}
       {adding && status.data && (
         <UploadForm
@@ -137,44 +135,6 @@ export function Library({
         </table>
       )}
     </SidePanel>
-  );
-}
-
-/** What this service does and does not do, as facts with their state. */
-function Capabilities({ status }: { status: KnowledgeStatus }) {
-  const s = useKnowledgeStrings().rag.capabilities;
-  const formats = status.formats.filter((f) => f.available).map((f) => f.extensions.join(" ")).join(", ");
-  const pdf = status.formats.find((f) => f.mediaType === "application/pdf");
-  return (
-    <dl className="context-bar kn-caps">
-      <div>
-        <dt>{s.storage}</dt>
-        <dd>{status.storage.persistent ? s.persistent(status.storage.engine) : s.demoStore}</dd>
-      </div>
-      <div>
-        <dt>{s.formats}</dt>
-        <dd>
-          {formats} · {s.limit(Math.round(status.maxBytes / 1048576))}
-          {pdf && !pdf.available && (
-            <span className="kn-meta kn-meta--caution" title={pdf.reason}>
-              {s.pdfOff}
-            </span>
-          )}
-        </dd>
-      </div>
-      <div>
-        <dt>{s.extraction}</dt>
-        <dd title={status.extraction.model.reason}>{s.ruleBased(status.extraction.vocabulary)}</dd>
-      </div>
-      <div>
-        <dt>{s.vectors}</dt>
-        <dd title={status.embeddings.reason}>{status.embeddings.available ? s.vectorsOn(status.embeddings.model ?? "") : s.notConfigured}</dd>
-      </div>
-      <div>
-        <dt>{s.answers}</dt>
-        <dd title={status.answers.reason}>{s.noAnswers}</dd>
-      </div>
-    </dl>
   );
 }
 

@@ -205,7 +205,6 @@ export function EquipmentInspector({
         ) : (
           <p className="inspector__muted">{s.quality.unavailable}</p>
         )}
-        {metrics.length > 0 && <p className="inspector__hint">{t.qualityHint}</p>}
       </section>
 
       {metrics.length > 0 && snapshot && <Trend site={site} at={snapshot.at} metrics={metrics} />}
@@ -290,7 +289,6 @@ export function EquipmentInspector({
         <RouterLink className="link" to="/prediction">
           {t.siteForecast}
         </RouterLink>
-        . {t.siteForecastNote}
       </p>
     </aside>
   );

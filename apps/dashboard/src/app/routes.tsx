@@ -13,6 +13,8 @@ import { SimulationView } from "../features/pilot";
 
 // The Knowledge workspace (Graph RAG, Graph Memory and their graph explorers) is its own chunk.
 const KnowledgePage = lazy(() => import("../features/knowledge"));
+// CAD Studio is its own chunk too; its review lives in a session store, so leaving the page keeps it.
+const CadStudioPage = lazy(() => import("../features/cad-studio"));
 
 // ponytail: shared "not available yet" state for screens built in later milestones; each is replaced when it lands.
 function PlannedScreen({ page }: { page: PageKey }) {
@@ -88,8 +90,14 @@ export const router = createBrowserRouter([
       { path: "simulation", element: <HistoryPage /> },
       { path: "simulation/:runId", element: <SimulationView /> },
       { path: "trend", element: <TrendPage /> },
-      // The shell keeps CAD Studio mounted across navigation.
-      { path: "cad", element: null },
+      {
+        path: "cad",
+        element: (
+          <Suspense fallback={<PageLoading />}>
+            <CadStudioPage />
+          </Suspense>
+        ),
+      },
       {
         path: "knowledge",
         element: (

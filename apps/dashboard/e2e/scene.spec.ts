@@ -16,8 +16,9 @@ test("scene states are named in words; missing values read Unavailable, never ze
   await expect(scene.locator('[data-equipment-id="chiller_plant_3"]')).toContainText("Stopped");
   await expect(scene.getByText("Unavailable")).toHaveCount(3); // pump 3 Hz and kW, return-header pressure
   await expect(scene.locator(".tag--stale")).toHaveCount(1);
-  await expect(page.getByText("Synthetic plant", { exact: true })).toBeVisible();
-  await expect(page.getByText("Not a customer site or a simulation.")).toBeVisible();
+  // No provenance note in the plant's corner (2026-11-12).
+  await expect(page.locator(".stage-note")).toHaveCount(0);
+  await expect(page.getByText("Synthetic plant", { exact: true })).toHaveCount(0);
 
   await page.goto("/?scenario=tower-fault&read=all");
   await expect(viewport(page).locator('[data-equipment-id="cooling_towers_4"]')).toContainText("Fault");

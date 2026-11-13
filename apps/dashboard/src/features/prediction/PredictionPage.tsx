@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { useSearchParams } from "react-router";
-import { BrainCircuit, Info, Pin, X } from "lucide-react";
+import { BrainCircuit, Pin, X } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import { formatNumber, formatTime } from "../../lib/format";
 import { ApiError } from "../../lib/api/client";
@@ -109,13 +109,6 @@ function PredictionContent({ site }: { site: SiteBundle }) {
 
   return (
     <div className="page prediction">
-      <div className="page__head">
-        <p className="page__notice">
-          <Info size={16} aria-hidden="true" />
-          {t.notice}
-        </p>
-      </div>
-
       {current?.linked && (
         <Notice tone="info" action={{ label: t.clear, onClick: clear }}>
           <Pin size={14} aria-hidden="true" /> {t.pinned(`${formatTime(current.forecast.asOf, tz)} ${tzLabel}`)}
@@ -264,7 +257,7 @@ function PredictionChart({ r, site }: { r: ForecastResult; site: SiteBundle }) {
         <Figure label={t.logged} value={t.loggedValue(err.logged, err.total)} />
         <Figure label={t.mae} value={err.maeKw === null ? "–" : `${formatNumber(err.maeKw, 0)} kWt`} />
         <Figure label={t.mape} value={err.mapePct === null ? "–" : `${formatNumber(err.mapePct, 1)} %`} />
-        <Figure label={t.method} value={r.model ? t.methodValue(r.model.artifactId) : "–"} note={t.methodNote} small />
+        <Figure label={t.method} value={r.model ? t.methodValue(r.model.artifactId) : "–"} small />
       </dl>
     </>
   );

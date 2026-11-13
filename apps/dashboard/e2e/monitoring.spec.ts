@@ -163,9 +163,9 @@ test("5: selection highlights connected pipelines and the inspector shows detail
   // Details show the plant as the Overview does: at rest until the simulation runs.
   await expect(panel.getByText("Stopped")).toBeVisible();
   await expect(panel.locator('[data-metric="chiller_plant_2:load_pct"]')).toContainText("%");
-  // The third column is the signal (data quality), labelled as not equipment health.
+  // The third column is the signal (data quality), with no explanatory line (2026-11-12).
   await expect(panel.getByRole("columnheader", { name: "Signal" })).toBeVisible();
-  await expect(panel.getByText("Signal is data quality, not equipment health.")).toBeVisible();
+  await expect(panel.getByText("Signal is data quality, not equipment health.")).toHaveCount(0);
   await expect(panel.getByRole("heading", { name: "Connections" })).toBeVisible();
   await expect(panel.getByRole("heading", { name: "Related issues" })).toBeVisible();
   await expect(panel.getByText("Inferred").first()).toBeVisible();
@@ -384,7 +384,7 @@ test("the outlook in More readings links to the exact forecast", async ({ page }
   await open(page);
   await page.getByRole("button", { name: "More readings" }).click();
   const tray = page.getByRole("region", { name: "More readings" });
-  await expect(tray.getByText("Outlook is a demo baseline, not a trained model.")).toBeVisible();
+  await expect(tray.getByText("Outlook is a demo baseline, not a trained model.")).toHaveCount(0);
   const outlook = tray.getByRole("link", { name: /Outlook, 6 h: peak at/ });
   await expect(outlook).toHaveAttribute("href", /^\/prediction\?forecast=fc-normal-/);
   await page.keyboard.press("Escape");

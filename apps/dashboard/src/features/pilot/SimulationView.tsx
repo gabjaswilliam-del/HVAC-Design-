@@ -9,7 +9,7 @@ import { heldAt, isFinal, matchedRuns, type PilotIssue, type RunDetail } from ".
 import { Notice } from "../../components/Notice";
 import { TimeSeriesChart, type ChartSeries } from "../../components/TimeSeriesChart";
 import { motion } from "../../lib/motion";
-import { pilotClient, simulationClient, simulationPace, useDataClient } from "../../app/dataClient";
+import { pilotClient, simulationClient, simulationPace } from "../../app/dataClient";
 import { targetPath } from "../../app/navigation";
 import { showInPilot } from "../../app/openTarget";
 import { useOperating } from "../../app/operatingContext";
@@ -131,14 +131,7 @@ function RunReplay({ runId }: { runId: string }) {
           <span className="tag-chip tag-chip--notice" data-provenance={live ? "simulation" : "recorded"}>
             {live ? v.liveRun : v.recorded}
           </span>
-          <span className="tag-chip tag-chip--demo" title={caps?.service.engine}>
-            {v.mock}
-          </span>
-          <span className="tag-chip tag-chip--demo" title={p.mockTitle}>
-            {p.mock}
-          </span>
         </div>
-        <p className="page__sub">{live ? v.liveLead : v.replayLead}</p>
         {live && (!pilotOpen || sim.runId !== runId || sim.composing) && (
           <button type="button" className="button sim__open-pilot" onClick={() => {
             showInPilot({ type: "pilot", runId });
@@ -459,10 +452,8 @@ function ReplayResults({
       <section className="sim-section sim-results" aria-labelledby="sim-results-title">
         <div className="sim-section__head">
           <h2 id="sim-results-title">{live ? v.liveResults : v.results}</h2>
-          <span className="tag-chip tag-chip--notice">{v.resultsSource(run.runId)}</span>
         </div>
         <p className="sim-empty">{v.noResults}</p>
-        <ForecastSupport />
       </section>
     );
   const at = r.times[step] ?? r.times.at(-1)!;
@@ -499,7 +490,6 @@ function ReplayResults({
             {v.locating(located.id, located.throughout)}
           </span>
         )}
-        <span className="tag-chip tag-chip--notice">{v.resultsSource(run.runId)}</span>
       </div>
       <dl className="sim-summary sim-results__now">
         <div>
@@ -555,7 +545,7 @@ function ReplayResults({
             </select>
           </div>
           <p id={`${id}-compare-note`} className="sim-muted">
-            {cmp ? <Comparison run={run} other={cmp} timeZone={timeZone} /> : candidates.length ? v.compareHint(run.configRevision) : v.compareNoneMatched}
+            {cmp ? <Comparison run={run} other={cmp} timeZone={timeZone} /> : !candidates.length && v.compareNoneMatched}
           </p>
         </div>
       )}
@@ -582,7 +572,6 @@ function ReplayResults({
       <Chart title={v.energyChart}>
         <TimeSeriesChart title={v.energyChart} series={[...compared("energy", cmp?.results.energyKwh ?? []), line("energy", v.thisRun(run.runId), r.energyKwh)]} unit="kWh" decimals={0} yMin={0} {...chart} />
       </Chart>
-      <ForecastSupport />
     </section>
   );
 }
@@ -608,26 +597,5 @@ function Comparison({ run, other, timeZone }: { run: RunDetail; other: RunDetail
       )}{" "}
       {s.compareDiff(run.config.chwSetpointC, other.config.chwSetpointC, applied(run), applied(other))}
     </>
-  );
-}
-
-/** The forecast panel would read source=simulation; the forecasting service says whether it can. */
-function ForecastSupport() {
-  const s = useStrings().simulation;
-  const client = useDataClient();
-  const caps = useResource("forecast-capabilities", "simulation", (signal) => client.getForecastCapabilities({ signal }));
-  const sources = caps.data?.sources ?? [];
-  // ponytail: when a forecasting service supports simulation sources, draw the prediction
-  // feature's forecast panel here with source=simulation, this run's ID and its cutoff.
-  const text = !caps.data
-    ? caps.error?.message ?? s.forecastLoading
-    : sources.includes("simulation")
-      ? s.forecastNotShown
-      : s.forecastUnsupported(sources.join(", "));
-  return (
-    <div className="sim-forecast">
-      <h3>{s.forecast}</h3>
-      <p>{text}</p>
-    </div>
   );
 }

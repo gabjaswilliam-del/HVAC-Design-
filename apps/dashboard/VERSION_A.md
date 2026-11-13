@@ -22,6 +22,8 @@ exercise.
 | M7.1 | The knowledge graph in 3D (react-force-graph-3d), with the 2D view kept | Built 2026-10-09 at the owner's request; committed by the owner in `cd94b78` (2026-10-10) |
 | M7.2 | The 3D knowledge graph as planetary systems: one per document, spacious, with group focus | Built 2026-10-16 at the owner's request; uncommitted, awaiting the owner's review |
 | — | CAD Studio fixture UI; Installation and System | CAD Studio built 2026-10-17 as uncommitted fixture-only UI; separate Topology/Review sections removed by owner decision. Side-by-side Drawing/Compare canvases with synchronized pan/zoom and an accessible draggable divider, upload placeholder, smooth finding location, whole-equipment review colors, on-canvas connection highlighting, compact evidence inspector, actionable fixture port resolution, persistent Findings and a draft Overview preview are implemented; Installation and System planned |
+| — | Interface simplified: disclaimers, page leads, how-it-works notes and the dock's Shortcuts and System removed, design unchanged | Done 2026-11-12 at the owner's request; uncommitted, awaiting the owner's review (last section) |
+| M0–M3b | CAD Studio architecture, persistent projects, Industrial CAD Workbench and complete interactive schematic 3D plant | Implemented in the working tree; awaiting visual approval before M4 (last section) |
 | M8 | Hardening, full test suite, DGX validation, documentation | Planned |
 
 ## M2: data foundation
@@ -2049,3 +2051,218 @@ Limits:
 - The RAG Graph's 3D view also keeps three.js's default near plane. It was not changed or
   checked for the same breakup (decision 34).
 - Real devices, other browsers and a discrete GPU were not checked.
+
+## Interface simplified (2026-11-12)
+
+The owner's request: a minimal cleanup, not a redesign. Remove long explanatory text (how
+features work, implementation limits, technical detail for developers, repeated
+disclaimers, how the simulation works, whether data is generated, mocked or simulated),
+the demo, mock and simulation disclaimers, and the dock's two bottom-left controls,
+Keyboard shortcuts and System; simplify AI Pilot's set-up form and the assistant. Keep the
+visual design, the functional controls, operational warnings and validation, and concise
+identification where synthetic readings could be taken for plant telemetry. Nothing in the
+backend, the fixtures, the services or the simulation logic changed.
+
+Uncommitted, awaiting the owner's review. Done in two passes the same day: the cleanup,
+then the owner's decisions on it (tests, CSS, these notes, identification).
+
+**Controls removed.**
+- The dock's Keyboard shortcuts and System buttons, and the System menu (its status line
+  and links to the planned System and Installation screens). The dock holds the five
+  sections; the phone's tab bar is unchanged.
+- Kept: the shortcuts list, which `?` still opens; `/system` and `/setup`, reachable at
+  their address only.
+
+**Text removed**, by surface:
+- Top bar: the Demo data tag; "Outlook is a demo baseline, not a trained model." under
+  More readings.
+- Overview: the plant's bottom-left "Synthetic plant" note. Indicator details: "Synthetic
+  scenario value…", "Inputs as reported by the backend…", "Running capacity is the rated
+  capacity…", the "Scenario description (synthetic):" label, and the demand definition's
+  sentences about synthetic load and live-site measurement.
+- AI Pilot: the scope line (Simulation only, Mock pilot service, Mock simulation service,
+  "The pilot never controls physical equipment."), the hint above the findings, the
+  Apply/Decline note and the source=simulation tag. Set-up form: the scenario description,
+  the name and setpoint hints, the topology line, Known model limits and the monitoring
+  paragraph.
+- Simulation screens: Engineering's tags, lead and "How a simulation works" guide; the
+  history's tag and lead; the replay's and monitor's mock tags, leads, source=simulation
+  tags, compare hint and "Forecast for this run" placeholder; the corrections notes; the
+  simulated plant's corner note.
+- Assistant: the notice above the conversation, the context line, the "No language model
+  connected" badge, "Offline rules" and "Replay paced for demonstration" on answers, and
+  "simulated" in "Used N tools", in a tool's details and as the hatched mark. The full
+  page's "Simulated tools" panel is "Tools".
+- Prediction, Trend, equipment: the prediction notice and the Chronos note; "(demo fixture,
+  not a trained model)"; Trend's Demo data tag and lead; "(synthetic design data)" and
+  "Nameplate values are synthetic design data."; "Signal is data quality, not equipment
+  health."; the site-wide forecast note.
+- AI display: the Demo data tag, the empty state's hint, the sandbox note.
+- CAD Studio: the Synthetic sample and Demo extraction tags, the entry lead, "No CAD parser
+  connected", "· Parser not connected", the source drawing's watermark.
+- Knowledge: the "Demo library/records, read only" tag (the local service's tag stays);
+  the demo notes in the library, a document and a memory record; the library's list of
+  capabilities; "No answer is written…"; the rank-fusion note; in the memory graph's panels
+  the provenance sentence, "(a simulation, not plant telemetry)", the chain and link notes
+  and the equipment's lead.
+
+**What stays, and why.**
+- Identification in a word or two where synthetic readings could be taken for plant
+  telemetry. The deck's "Live demo": the site name "Synthetic demo plant" hides below
+  1180 px, so this is what names the demo stream at every width ("Live" in the first pass,
+  back to "Live demo" in the second). A run's Simulation label and its "Simulated …"
+  headings; Recorded run and Active run. In the memory graph, a run's panel keeps "Records
+  from this simulation run: simulated results, not plant telemetry." (removed in the first
+  pass, restored in the second: nothing else in that panel says its records are
+  simulated).
+- Warnings, errors and validation; status and empty messages; the acknowledgement's
+  tooltip ("Acknowledged in this browser only; not recorded at the site"); tooltips that say
+  what a control does; the "Uncalibrated spread" legend.
+- Help popovers (they also describe the canvases to screen readers) and text for assistive
+  technology only, such as the CAD canvas's name "Synthetic source drawing".
+- Fixture data, not edited here: the site name, "Demo …" document titles, memory records'
+  Demo provenance (a filter too), the assistant's answers.
+- The catalogs: no key was removed from `en.ts` or `knowledge.ts`, so local translation
+  overlays still compile. Five `en.ts` values lost a qualifier: "Tools", "Seasonal-profile
+  baseline", "Nameplate" (two) and the demand definition.
+
+**CSS removed**, rules used only by removed elements: `.topbar__demo`; the dock's
+`[aria-expanded]` states, `.dock__system`, `.system-menu*` and the phone's
+`.dock__list--foot`; `.agent-notice`, `.agent-context`, `.agent-turn__paced`,
+`.agent-activity__mark`; `.pilot-console__scope`, `.pilot-console__note`,
+`.pilot-decision__note`; `.sim-form__meta`, `.sim-form__limits`, `.sim-forecast`;
+`.engineering-simulation__guide`, `__steps`, `__step-label`; `.kpi-panel__synthetic`,
+`.kpi-panel__label`; `.kn-caps`; `.ai-display__empty p`; `.cad-watermark`, `.cad-entry p`,
+`.cad-entry > small`. Kept: `.page__notice` (shared with `.page__lead`), `.tag-chip--demo`
+(memory provenance), `.stage-note` (CAD Studio's draft preview), `.inspector__hint` and
+`.ai-display__note` (still used). Added: `.assistant-panel__new { margin-left: auto }`, so
+New conversation stays at the right when no badge precedes it.
+
+Checked: 22 screenshots before and after the CSS removal (1440x900 and a 390 px phone). The
+15 without motion are byte-identical; the 7 with motion (running equipment, an alarm's
+pulse) differ as much between two runs of the same code.
+
+**Tests.**
+- Vitest: `CadStudioPage.test.tsx`, two expectations now check that the parser notes are
+  absent.
+- Playwright, 14 specs (`overlap.spec.ts` already skips a missing corner note): an
+  assertion on removed text now checks that the text is absent.
+  Where the text identified something, the identification that stays is checked instead:
+  the deck's "Live demo" on every screen and on a phone, a run band's Simulation label, the
+  simulated plant's heading. Removed controls: the navigation test opens the planned
+  screens at their address, the dock's arrow keys wrap over its five sections and Enter
+  opens one, and the accessibility check with an overlay open uses the shortcuts list. No
+  other assertion changed.
+- The three assistant tests that need a long answer to outgrow the conversation while it
+  streams (`askLong`): without the notice (86.5 px) and the context line (18 px) the
+  conversation is 121 px taller, measured by putting both back in the page, and at 760 px
+  the answer ended before it had outgrown it by 120 px. At 640 px the conversation is
+  358 px tall again, as before; 9 of 9 repeated runs passed. The behaviour under test
+  (following, Jump to latest, keys, reduced motion) did not change.
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | Pass |
+| `npm test` (Vitest) | 215 of 215 (23 files) |
+| `npm run build`, `npm run build:demo` | Pass; main JS 955.54 kB and 961.01 kB, main CSS 124.38 kB (128.10 kB before); the existing over-500 kB warning |
+| `npm run e2e` (Playwright) | 249 passed, 15 failed, 6 skipped, none left unrun. Before this change: 238, 17, 6 and 9 |
+
+The 15 failures all failed before this change, at the same assertions: `agent.spec` 143,
+191 and 766 (answers that open the AI display; the conversation count),
+`display.spec:51`, `equipment.spec:16`, `monitoring.spec:395`, the six in `overlap.spec`
+(the same collisions), `scene.spec:30`, and `shell.spec` 156 and 168. Of the earlier 17,
+`knowledge-local.spec:142` passes now, because its failing assertions read the removed
+capabilities list (they now check that it is absent), so the nine local tests behind it
+in serial mode run, and pass; the intermittent Escape test (`knowledge.spec:713`) passed
+in this run.
+
+Still open:
+- `M6_HANDOFF.md` describes the removed labels and the dock's System menu. It was not
+  edited: it is the agents' start-here file.
+- `DESIGN.md`'s Run summary bullet, and the Run summary in its replay bullet, describe a
+  view PR #1 removed (`fabdb63`), not this change.
+- tcy's newer commit on `personal/tcy` (`3598976`, not merged) edits `AppShell.tsx`,
+  `Dock.tsx`, `TopBar.tsx` and `PlantViewport.tsx`, which this change edits too.
+
+
+## CAD Studio M0–M3b (2026-11-13)
+
+The existing uncommitted CAD implementation now includes the complete interactive prepared
+plant, verified in the actual application. M3a was reviewed and extended rather than replaced.
+This is the M3b approval gate, not a claim that M4, M5 or commissioning is complete.
+
+- **M0 — architecture.** CAD Studio is lazy-loaded and its session survives navigation
+  without a hidden CAD canvas. The Overview no longer inherits duplicate SVG definitions or
+  colours from CAD. The modular Project Library, session store, workbench and inspector are
+  preserved.
+- **M1 — persistent project service.** The local WSGI API composes `CadProjectService` and
+  `CadStore`: SQLite metadata and saved state, original DWG/DXF bytes on disk outside the
+  repository, schema validation, revision conflicts, crash-safe writes and unreferenced-file
+  cleanup. Create/import, Save, Save As, Reopen, Rename, Duplicate, Delete, Revert and exact
+  original download are implemented and exercised. `--cad-dir` and `HVAC_CAD_DIR` select the
+  storage folder.
+- **M2 — Industrial CAD Workbench.** Project landing/library, responsive toolbar, 2D source,
+  synchronized Compare, findings, evidence and connection review, draft Overview preview,
+  and accessible Engineering Inspector are integrated. Uploaded drawings remain explicitly
+  `No extraction`; only the prepared sample is reviewable.
+- **M3a — integrated rendering foundation.** The existing plain Three.js engine, lazy model
+  chunk, selection silhouette, Inspector synchronization, orthographic isometric Corner-B
+  camera and safe 2D fallback are preserved. The renderer draws only on change and disposes
+  its resources and context on unmount.
+- **M3b — complete interactive plant.** All 16 prepared devices, 31 branch connections,
+  four headers, two bypasses, 13 valves and seven sensors are mapped to their actual topology
+  entities. Four cooling towers, three chillers, four CW pumps, four CHW pumps and the lumped
+  data hall use schematic equipment geometry, neutral steel, existing media colours, an
+  engineering grid and equipment-only contact shadows. Standby roles are labelled; the hall
+  remains one load rather than independently modelled server equipment.
+- **Camera and inspection.** Left-drag provides continuous 360-degree orbit; right- or
+  middle-drag pans; the wheel zooms. Shift+arrows orbit and plain arrows pan. Elevation,
+  target and zoom are bounded, with Fit, Reset isometric and exact Plan controls. Fit uses
+  all projected mesh and visible-label bounds, centres the complete content with breathing
+  room, and preserves Corner B. A short click selects equipment; a drag beyond the pointer
+  threshold never selects accidentally. Re-selecting an active preset works after manual
+  movement. Recorded-path trace, finding focus, shared 2D/3D/Compare selection, five
+  visibility layers and Colour by Medium/Review are implemented. Unknown links do not
+  establish unsupported paths, open findings remain visible, and the unused Conflict review
+  colour is not introduced.
+- **Frame-synchronized labels.** Camera matrices are updated before each render and before
+  label projection. Equipment names and leaders use direct DOM transforms and declutter in
+  the same render frame, not a delayed timer, CSS transition or per-frame React update.
+  Rendering and label work stop when camera movement stops.
+- **Boundary.** Geometry and heights are schematic conventions derived from the prepared
+  topology and 2D layout, not parsed CAD dimensions or engineering scale. No automatic
+  rotation, fly-through or equipment animation is used. A saved 3D view safely reopens in
+  2D until M4. M4/M5 remain unstarted: complete workspace/URL/camera persistence and project
+  package export/import.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | Pass across the dashboard |
+| `npm test` (Vitest) | **245 passed in 29 files**, including complete topology/equipment mapping, pipe routing, camera bounds, trace, labels, fitting and preset requests |
+| Focused CAD backend tests | **28 passed** |
+| Complete `python -B -m unittest discover -s tests` | **91 passed**; the registered local Python 3.14 has no `pytest`, so a full pytest run was not available locally |
+| CAD Playwright | **23 passed after the viewport refinements**: project CRUD/restart/conflicts, Overview collision/lazy loading, full plant at 1440×900, 1920×1080 and 1280×800, centered Fit, left-drag orbit, right/middle pan, wheel zoom, click/drag separation, per-frame label attachment, trace, findings, layers, colours, 2D/3D/Compare selection, WebGL2 absence, context loss/recreation, existing touch behavior and axe serious/critical checks |
+| Complete Playwright (pre-refinement baseline) | **268 passed, 16 failed, 6 skipped** of 290. The 16 are the same pre-existing non-CAD failures documented above; all CAD tests passed. The refined implementation then passed the complete 23-test CAD suite |
+| `npm run build`, `npm run build:demo` | Pass. CAD Studio 61.94 kB JS (19.05 kB gzip) and 28.24 kB CSS (5.90 kB gzip); `Plant3DCanvas` 30.43 kB JS (11.40 kB gzip), loaded on demand |
+| M3b complete-scene baseline, software WebGL | Click-to-first-frame, including lazy loading, **3,422.7 ms**; initial **189 draw calls / 29,010 triangles**. All five unmounts released their contexts; **0 active contexts** after each. Precise heap after GC: **17.47 MB before, 16.89 MB after** those cycles |
+| Viewport refinement, same renderer | Fit-center error **0 px** at 1440×900 and 1920×1080, including after interaction. Actual left-mouse 360° orbit return error **0°**. Twelve zoom operations: median **15.05 ms**, p95/max **20.5 ms**. Label work: median **0.5 ms**, p95/max **1.1 ms** per frame. **0 frame mismatches, detached leader segments or trailing label updates**; no extra idle frames |
+| Renderer used for measurements | ANGLE Vulkan **SwiftShader** in headless Chromium, not a hardware GPU. Desktop 1440×900, 1920×1080 and 1280×800 were exercised; existing mobile regression checks were preserved, with no new mobile-specific optimization or real-hardware testing |
+| DGX Spark | **Not completed.** SSH authentication failed with `Permission denied (publickey,password)` |
+
+Actual application screenshots from the optimized demo build are retained outside Git under
+`.playwright-mcp/m3b/final/`: `isometric-1440.png`, `orbit-90.png`, `elevation-low.png`,
+`elevation-high.png`, `trace-chiller-2.png`, `workspace-1440.png`, `finding-cw-pump-4.png`,
+`plan.png`, `laptop-1280.png`, `desktop-1920.png`, and `webgl-fallback.png`.
+`performance.json` contains the measurements and `git-status.txt` the complete working-tree
+status. No hardware-GPU comparison is implied. The viewport refinement evidence is under
+`.playwright-mcp/m3b/refinement/`: `fit-1440.png`, `fit-1920.png`, `fit-after-interaction.png`,
+`left-drag-orbit.png`, `full-orbit.png`, `vertical-orbit.png`, `right-drag-pan.png`,
+`wheel-zoom.png`, `equipment-selection.png`, its own `performance.json`, and the actual
+`mouse-interactions.webm` recording.
+
+**Approval required before M4:** visual acceptance of the complete plant, centered Fit,
+left-mouse orbit, frame-synchronized labels, trace/finding behavior and 2D fallback. M4 camera/workspace/URL persistence, M5 project
+packages and M6 release hardening were not started. Arbitrary DWG/DXF parsing remains future
+work; uploaded files are stored and downloadable, not automatically rendered or extracted.
