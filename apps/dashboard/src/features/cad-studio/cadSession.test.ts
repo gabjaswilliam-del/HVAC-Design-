@@ -2,57 +2,29 @@ import { afterEach, describe, expect, it } from "vitest";
 import { demoScene, demoTopology } from "../../fixtures/demoPlant";
 import { ApiError } from "../../lib/api/client";
 import type { CadProjectsClient } from "../../lib/api/cadProjects";
-import type { ProjectState, ProjectSummary } from "../../lib/contracts/cadProject";
-import { cad, isDirty, openFindings } from "./cadSession";
+import { memoryCadProjects } from "../../lib/api/cadProjectsMemory";
+import type { ProjectState } from "../../lib/contracts/cadProject";
+import { cad, compareSides, isDirty, openFindings, referenceId, WORKING } from "./cadSession";
 
 afterEach(() => cad.reset());
 
 const unknownLink = demoTopology.links.find((link) => link.evidence === "unknown")!;
 const STEPS = 3;
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+const dwg = (name: string, body = "AC1032 drawing") => new File([body], name);
 
-/** An in-memory project service with the real one's revision rules. */
-function fakeService() {
-  const projects = new Map<string, { summary: ProjectSummary; state: ProjectState }>();
-  let next = 0;
+/** The tab's own project service, with every call recorded. */
+function service() {
+  const client = memoryCadProjects();
   const calls: string[] = [];
-  const now = () => new Date(Date.UTC(2026, 10, 13, 10, next)).toISOString();
-  const make = (name: string, state: ProjectState, source: ProjectSummary["source"]) => {
-    const id = `cadp_${(++next).toString(16).padStart(16, "0")}`;
-    const summary: ProjectSummary = { id, name, createdAt: now(), modifiedAt: now(), lastOpenedAt: now(), revision: 1, source, review: state.review ? { openFindings: openFindings(state.review.topology) } : null };
-    projects.set(id, { summary, state });
-    return { project: summary, state };
-  };
-  const client: CadProjectsClient = {
-    status: async () => ({ available: true, schemaVersion: 1, limits: { maxUploadBytes: 64 << 20, maxStateBytes: 1 << 20, maxNameLength: 120, extensions: ["dwg", "dxf"] } }),
-    list: async () => [...projects.values()].map((p) => p.summary),
-    create: async ({ name, state, sceneRevision, configRevision }) => (calls.push("create"), make(name, state, { kind: "sample", sampleId: "water-cooled-plant", sceneRevision, configRevision })),
-    upload: async (file) => (calls.push("upload"), make(file.name, { schemaVersion: 1, workspace: { view: "drawing", selection: null, compareSplit: 50, layers: { cw: true, chw: true, valves: true, instruments: true, names: true }, colourBy: "medium" }, review: null }, { kind: "upload", original: { name: file.name, extension: "dwg", sizeBytes: file.size, sha256: "0".repeat(64), available: true } })),
-    open: async (id) => {
-      const p = projects.get(id)!;
-      return { project: p.summary, state: p.state };
-    },
-    save: async (id, { expectedRevision, state }) => {
-      calls.push(`save@${expectedRevision}`);
-      const p = projects.get(id)!;
-      if (p.summary.revision !== expectedRevision) throw new ApiError("CONFLICT", "changed elsewhere", false);
-      p.summary = { ...p.summary, revision: p.summary.revision + 1 };
-      p.state = state;
-      return p.summary;
-    },
-    rename: async (id, name, expectedRevision) => {
-      const p = projects.get(id)!;
-      if (p.summary.revision !== expectedRevision) throw new ApiError("CONFLICT", "changed elsewhere", false);
-      p.summary = { ...p.summary, name, revision: p.summary.revision + 1 };
-      return p.summary;
-    },
-    copy: async (id, name, saved) => (calls.push("copy"), make(name, saved?.state ?? projects.get(id)!.state, projects.get(id)!.summary.source)),
-    remove: async (id) => void projects.delete(id),
-    originalUrl: (id) => `/api/cad/v1/projects/${id}/original`,
-  };
-  return { client, projects, calls };
+  const spied = Object.fromEntries(
+    Object.entries(client).map(([name, fn]) => [name, (...args: unknown[]) => (calls.push(name === "save" ? `save@${(args[1] as { expectedRevision: number }).expectedRevision}` : name), (fn as (...a: unknown[]) => unknown)(...args))]),
+  ) as unknown as CadProjectsClient;
+  cad.useClient(spied);
+  return { client, calls };
 }
 
-describe("CAD session, demo mode", () => {
+describe("CAD session: the prepared sample's review", () => {
   it("replays the sample's extraction once; reopening it resumes the same review", () => {
     cad.request({ kind: "sample" }, STEPS);
     expect(cad.current().screen).toBe("extract");
@@ -79,42 +51,32 @@ describe("CAD session, demo mode", () => {
     expect(isDirty(cad.current())).toBe(false);
   });
 
-  it("imports drawings into this tab; with unsaved changes it asks before opening one", async () => {
+  it("locating a finding shows the drawing with the review open, and asks the viewport to move once per request", () => {
     cad.request({ kind: "sample" }, STEPS);
-    cad.select({ kind: "link", id: unknownLink.id });
-    cad.setEvidence("confirmed");
-    await cad.importFiles([new File(["AC1032"], "floor-a.dwg"), new File(["0\nSECTION"], "floor-b.dxf")], STEPS);
-    expect(cad.current().drawings.map((d) => d.file.name)).toEqual(["floor-a.dwg", "floor-b.dxf"]);
-    expect(cad.current().discard).toEqual({ kind: "drawing", key: "file:0" });
-    expect(cad.current().project?.key).toBe("sample");
-    cad.confirmDiscard(STEPS);
-    expect(cad.current().project).toMatchObject({ kind: "drawing", name: "floor-a.dwg", original: { extension: "dwg", sizeBytes: 6 } });
-  });
-
-  it("reissues an already-selected camera preset for toolbar and canvas controls", () => {
-    cad.setPreset("plan");
-    expect(cad.current()).toMatchObject({ preset: "plan", presetRevision: 1 });
-    cad.setPreset("plan");
-    expect(cad.current()).toMatchObject({ preset: "plan", presetRevision: 2 });
-  });
-
-  it("locating a finding shows Compare and asks the viewport to move, once per request", () => {
-    cad.request({ kind: "sample" }, STEPS);
-    cad.setView("drawing");
+    cad.setTab("compare");
     cad.locateFinding({ kind: "device", id: "chiller_plant_1" }, "chiller_plant_1");
     cad.locateFinding({ kind: "device", id: "chiller_plant_1" }, "chiller_plant_1");
-    expect(cad.current()).toMatchObject({ view: "compare", locate: { id: "chiller_plant_1", nonce: 2 } });
+    expect(cad.current()).toMatchObject({ tab: "drawing", reviewOpen: true, viewing: null, locate: { id: "chiller_plant_1", nonce: 2 } });
+  });
+
+  it("layers, colours and the source view never change the review or make it dirty", () => {
+    cad.request({ kind: "sample" }, STEPS);
+    cad.setLayer("cw", false);
+    cad.setColourBy("review");
+    cad.setSourceCompare(true);
+    expect(cad.current()).toMatchObject({ layers: { cw: false }, colourBy: "review", sourceCompare: true });
+    expect(isDirty(cad.current())).toBe(false);
   });
 });
 
-describe("CAD session, local project service", () => {
+describe("CAD session: projects on a project service", () => {
   it("the first save creates the project; later saves carry its revision; a stale save is a conflict", async () => {
-    const service = fakeService();
-    cad.useClient(service.client);
+    const { client, calls } = service();
     cad.request({ kind: "sample" }, STEPS);
     cad.skip(STEPS);
     cad.select({ kind: "link", id: unknownLink.id });
     cad.setEvidence("confirmed");
+    cad.setSourceCompare(true);
     cad.placement.compareSplit = 60;
 
     await cad.save("Plant review A");
@@ -122,18 +84,17 @@ describe("CAD session, local project service", () => {
     expect(first).toMatchObject({ name: "Plant review A", kind: "sample" });
     expect(first.id).toMatch(/^cadp_/);
     expect(isDirty(cad.current())).toBe(false);
-    const stored = service.projects.get(first.id!)!;
-    expect(stored.summary.source).toEqual({ kind: "sample", sampleId: "water-cooled-plant", sceneRevision: demoScene.sceneRevision, configRevision: demoTopology.configRevision });
+    const stored = await client.open(first.id!);
+    expect(stored.project.source).toEqual({ kind: "sample", sampleId: "water-cooled-plant", sceneRevision: demoScene.sceneRevision, configRevision: demoTopology.configRevision });
     expect(stored.state.workspace).toMatchObject({ view: "compare", compareSplit: 60, selection: { kind: "link", id: unknownLink.id } });
-    expect(stored.summary.review).toEqual({ openFindings: openFindings(demoTopology) - 1 });
+    expect(stored.project.review).toEqual({ openFindings: openFindings(demoTopology) - 1 });
 
     cad.setEvidence("inferred");
     await cad.save();
-    expect(service.calls).toContain("save@1");
+    expect(calls).toContain("save@1");
     expect(cad.current().project?.summary?.revision).toBe(2);
 
-    const stale = service.projects.get(first.id!)!;
-    stale.summary = { ...stale.summary, revision: 9 }; // saved from another tab
+    await client.rename(first.id!, "Renamed elsewhere", 2); // another tab
     cad.setEvidence("unknown");
     await cad.save();
     expect(cad.current().failure).toMatchObject({ conflict: true });
@@ -141,8 +102,7 @@ describe("CAD session, local project service", () => {
   });
 
   it("Save As makes a new project with the unsaved review; rename and delete follow the open one", async () => {
-    const service = fakeService();
-    cad.useClient(service.client);
+    const { client } = service();
     cad.request({ kind: "sample" }, STEPS);
     await cad.save("Original");
     const original = cad.current().project!.id!;
@@ -153,7 +113,7 @@ describe("CAD session, local project service", () => {
     expect(branch.id).not.toBe(original);
     expect(branch.name).toBe("Branch");
     expect(isDirty(cad.current())).toBe(false);
-    expect(service.projects.get(original)!.state.review?.topology.links.find((l) => l.id === unknownLink.id)?.evidence).toBe("unknown");
+    expect((await client.open(original)).state.review?.topology.links.find((l) => l.id === unknownLink.id)?.evidence).toBe("unknown");
 
     await cad.rename("Branch 2");
     expect(cad.current().project?.name).toBe("Branch 2");
@@ -164,11 +124,9 @@ describe("CAD session, local project service", () => {
     expect(cad.current().library.projects.map((p) => p.id)).toEqual([original]);
   });
 
-  it("opening a saved project restores its review, view, selection, divider and viewport", async () => {
-    const service = fakeService();
-    cad.useClient(service.client);
+  it("opening a saved project restores its review, selection, divider and viewport", async () => {
+    service();
     cad.request({ kind: "sample" }, STEPS);
-    cad.setView("drawing");
     cad.select({ kind: "device", id: "chiller_plant_2" });
     cad.placement.viewports.drawing = { view: { k: 2, x: -100, y: -50 }, box: { w: 800, h: 600 } };
     await cad.save("Saved view");
@@ -178,49 +136,176 @@ describe("CAD session, local project service", () => {
     expect(cad.current().library.projects.map((p) => p.id)).toEqual([id]);
 
     cad.request({ kind: "saved", id }, STEPS);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(cad.current()).toMatchObject({ screen: "studio", view: "drawing", selection: { kind: "device", id: "chiller_plant_2" } });
+    await settle();
+    expect(cad.current()).toMatchObject({ screen: "studio", tab: "drawing", sourceCompare: false, selection: { kind: "device", id: "chiller_plant_2" } });
     expect(cad.placement.restore).toEqual({ view: "drawing", cx: 250, cy: 175, scale: 2 });
   });
 
-  it("keeps selection across views and reopens a saved model view safely on 2D", async () => {
-    const service = fakeService();
-    cad.useClient(service.client);
+  it("an older project saved in the removed 3D view reopens on the 2D drawing; its source comparison is kept", async () => {
+    const { client } = service();
     cad.request({ kind: "sample" }, STEPS);
-    cad.select({ kind: "device", id: "chiller_plant_1" });
-    cad.setView("model");
-    expect(cad.current()).toMatchObject({ view: "model", selection: { kind: "device", id: "chiller_plant_1" } });
-    cad.setView("compare");
-    expect(cad.current()).toMatchObject({ view: "compare", selection: { kind: "device", id: "chiller_plant_1" } });
-    cad.setView("model");
-    await cad.save("Model view");
+    await cad.save("Legacy");
     const id = cad.current().project!.id!;
-    expect(service.projects.get(id)!.state.workspace.view).toBe("model");
-    cad.close();
+    const saved = (await client.open(id)).state;
+    const legacy = (view: "model" | "compare"): ProjectState => ({
+      ...saved,
+      workspace: { ...saved.workspace, view, model: { target: [0, 1, 0], azimuth: 45, polar: 35, zoom: 1 }, drawing: { cx: 10, cy: 20, scale: 1.5 } },
+    });
+    await client.save(id, { expectedRevision: 1, state: legacy("model"), openFindings: 0 });
+    cad.close(true);
     cad.request({ kind: "saved", id }, STEPS);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(cad.current()).toMatchObject({ screen: "studio", view: "drawing", selection: { kind: "device", id: "chiller_plant_1" } });
+    await settle();
+    expect(cad.current()).toMatchObject({ screen: "studio", tab: "drawing", sourceCompare: false });
+    expect(cad.placement.restore).toEqual({ view: "drawing", cx: 10, cy: 20, scale: 1.5 });
+    await cad.save();
+    expect((await client.open(id)).state.workspace).not.toHaveProperty("model");
+
+    await client.save(id, { expectedRevision: 3, state: legacy("compare"), openFindings: 0 });
+    cad.close(true);
+    cad.request({ kind: "saved", id }, STEPS);
+    await settle();
+    expect(cad.current()).toMatchObject({ tab: "drawing", sourceCompare: true });
+    expect(cad.placement.restore).toMatchObject({ view: "source" });
   });
 
-  it("keeps M3b layer and finding behavior in session without changing the review or making it dirty", () => {
+  it("an uploaded drawing opens as a stored file, its version 1, with no reference chosen", async () => {
+    const { calls } = service();
+    await cad.importFiles([dwg("mech.dwg")]);
+    await settle();
+    expect(calls.filter((c) => c === "upload")).toHaveLength(1);
+    expect(cad.current().project).toMatchObject({ kind: "drawing", name: "mech", original: { available: true } });
+    expect(cad.current().history.versions.map((v) => v.number)).toEqual([1]);
+    expect(referenceId(cad.current())).toBeNull();
+    expect(isDirty(cad.current())).toBe(false);
+  });
+
+  it("uploads never discard unsaved review work without asking", async () => {
+    service();
     cad.request({ kind: "sample" }, STEPS);
-    cad.setView("model");
-    cad.setLayer("cw", false);
-    cad.setColourBy("review");
-    cad.setPreset("plan");
-    expect(cad.current()).toMatchObject({ view: "model", layers: { cw: false }, colourBy: "review", preset: "plan" });
-    expect(isDirty(cad.current())).toBe(false);
-    cad.locateFinding({ kind: "device", id: "cooling_water_pump_4" }, "cooling_water_pump_4");
-    expect(cad.current()).toMatchObject({ view: "model", selection: { kind: "device", id: "cooling_water_pump_4" } });
-    expect(cad.current().locate?.nonce).toBe(1);
+    cad.select({ kind: "link", id: unknownLink.id });
+    cad.setEvidence("confirmed");
+    await cad.importFiles([dwg("floor-a.dwg"), dwg("floor-b.dxf", "0\nSECTION")]);
+    expect(cad.current().library.projects.map((p) => p.name).sort()).toEqual(["floor-a", "floor-b"]);
+    expect(cad.current().discard).toMatchObject({ kind: "saved" });
+    expect(cad.current().project?.key).toBe("sample");
+    cad.confirmDiscard(STEPS);
+    await settle();
+    expect(cad.current().project).toMatchObject({ kind: "drawing", name: "floor-a", original: { extension: "dwg" } });
   });
 
-  it("an uploaded drawing opens as a stored file with no review", async () => {
-    const service = fakeService();
-    cad.useClient(service.client);
-    await cad.importFiles([new File(["AC1032"], "mech.dwg")], STEPS);
-    expect(service.calls).toEqual(["upload"]);
-    expect(cad.current().project).toMatchObject({ kind: "drawing", name: "mech.dwg", original: { available: true } });
+  it("one upload workflow: drawings only, as projects or as versions that never move the reference", async () => {
+    service();
+    await cad.upload([dwg("plant.dwg"), new File(["%PDF"], "spec.pdf")], "projects");
+    await settle();
+    expect(cad.current().project).toMatchObject({ name: "plant" });
+    expect(cad.current().failure?.message).toBe("Only DWG and DXF drawings can be uploaded. Not uploaded: spec.pdf.");
+    const [v1] = cad.current().history.versions;
+    await cad.setReference(v1.id);
+    cad.setTab("compare");
+    await cad.upload([dwg("plant-b.DXF", "0\nSECTION"), new File(["x"], "photo.png")], "revision");
+    expect(cad.current().tab).toBe("history");
+    expect(cad.current().history.versions.map((v) => v.number)).toEqual([1, 2]);
+    expect(referenceId(cad.current())).toBe(v1.id);
+    expect(cad.current().failure?.message).toMatch(/photo\.png/);
+    expect(cad.current().library.projects).toHaveLength(1);
+  });
+
+  it("refuses files that are not DWG or DXF", async () => {
+    service();
+    await cad.importFiles([new File(["%PDF"], "notes.pdf")]);
+    expect(cad.current().failure?.message).toMatch(/DWG and DXF/);
+    expect(cad.current().project).toBeNull();
+  });
+});
+
+describe("CAD session: history, the approved reference and Compare", () => {
+  it("saving a version freezes the review; the reference is chosen explicitly and never moved by a new version", async () => {
+    service();
+    cad.request({ kind: "sample" }, STEPS);
+    await cad.saveVersion("Plant review");
+    const [v1] = cad.current().history.versions;
+    expect(v1).toMatchObject({ number: 1, source: { kind: "review" }, review: { openFindings: openFindings(demoTopology) } });
+    expect(referenceId(cad.current())).toBeNull();
+
+    await cad.setReference(v1.id);
+    expect(referenceId(cad.current())).toBe(v1.id);
+
+    cad.select({ kind: "link", id: unknownLink.id });
+    cad.setEvidence("confirmed");
+    await cad.saveVersion();
+    await cad.uploadRevision(dwg("rev-c.dwg"));
+    expect(cad.current().history.versions.map((v) => v.number)).toEqual([1, 2, 3]);
+    expect(referenceId(cad.current())).toBe(v1.id);
+    expect(cad.current().project?.summary?.versions).toBe(3);
+
+    // Compare: the approved reference against the working review, unless chosen otherwise.
+    expect(compareSides(cad.current())).toEqual({ reference: v1.id, target: WORKING });
+    const v2 = cad.current().history.versions[1];
+    cad.compareWith(v2.id);
+    expect(cad.current().tab).toBe("compare");
+    expect(compareSides(cad.current())).toEqual({ reference: v1.id, target: v2.id });
+    await cad.loadReview(v2.id);
+    expect(cad.current().reviews[v2.id]?.links.find((l) => l.id === unknownLink.id)?.evidence).toBe("confirmed");
+    const upload = cad.current().history.versions[2];
+    await cad.loadReview(upload.id);
+    expect(cad.current().reviews[upload.id]).toBeNull();
+  });
+
+  it("a reference change from a stale tab is refused, and clearing it is explicit", async () => {
+    const { client } = service();
+    cad.request({ kind: "sample" }, STEPS);
+    await cad.saveVersion("Plant review");
+    await cad.saveVersion();
+    const [v1, v2] = cad.current().history.versions;
+    const id = cad.current().project!.id!;
+    await client.rename(id, "Elsewhere", cad.current().project!.summary!.revision);
+    await cad.setReference(v2.id);
+    expect(cad.current().failure).toMatchObject({ conflict: true });
+    expect(referenceId(cad.current())).toBeNull();
+    cad.close(true);
+    cad.request({ kind: "saved", id }, STEPS);
+    await settle();
+    await cad.setReference(v1.id);
+    expect(referenceId(cad.current())).toBe(v1.id);
+    await cad.setReference(null);
+    expect(referenceId(cad.current())).toBeNull();
+  });
+
+  it("viewing a saved version is read-only: its evidence cannot be edited", async () => {
+    service();
+    cad.request({ kind: "sample" }, STEPS);
+    await cad.saveVersion("Plant review");
+    const [v1] = cad.current().history.versions;
+    cad.viewVersion(v1.id);
+    expect(cad.current()).toMatchObject({ tab: "drawing", viewing: v1.id });
+    cad.select({ kind: "link", id: unknownLink.id });
+    cad.setEvidence("confirmed");
+    cad.resolvePort(demoTopology.unconnectedPorts[0], "chiller_plant_2");
     expect(isDirty(cad.current())).toBe(false);
+    cad.viewVersion(null);
+    expect(cad.current().viewing).toBeNull();
+  });
+
+  it("duplicating a project keeps its history and the same approved reference", async () => {
+    const { client } = service();
+    await cad.importFiles([dwg("plant.dwg")]);
+    await settle();
+    await cad.uploadRevision(dwg("plant-b.dwg", "AC1032 revision B"));
+    const [, v2] = cad.current().history.versions;
+    await cad.setReference(v2.id);
+    const id = cad.current().project!.id!;
+    await cad.duplicate(id, "Plant copy");
+    const copy = cad.current().library.projects.find((p) => p.name === "Plant copy")!;
+    const versions = await client.versions(copy.id);
+    expect(versions.map((v) => v.number)).toEqual([1, 2]);
+    expect(copy.referenceVersionId).toBe(versions[1].id);
+    expect(copy.referenceVersionId).not.toBe(v2.id);
+  });
+
+  it("the tab's service refuses stale writes like the local one", async () => {
+    const client = memoryCadProjects();
+    const made = await client.upload(dwg("a.dwg"));
+    await expect(client.setReference(made.project.id, null, 7)).rejects.toBeInstanceOf(ApiError);
+    await expect(client.version(made.project.id, "cadv_0000000000000000")).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });

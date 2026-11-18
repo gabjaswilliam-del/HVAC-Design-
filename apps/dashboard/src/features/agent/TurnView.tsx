@@ -1,6 +1,5 @@
-import { useId, useState } from "react";
 import { useNavigate } from "react-router";
-import { ChevronDown, ChevronRight, CircleAlert, CircleCheck, Crosshair, FileText, Highlighter, LoaderCircle, PanelRight, PanelsTopLeft, Presentation, SquareMousePointer } from "lucide-react";
+import { Crosshair, FileText, Highlighter, PanelRight, PanelsTopLeft, Presentation, SquareMousePointer } from "lucide-react";
 import { useStrings } from "../../lib/i18n";
 import type { AgentContext, DataView, Turn, TurnPart, WorkspaceAction } from "../../lib/contracts/agent";
 import type { SiteBundle } from "../../lib/contracts";
@@ -12,87 +11,6 @@ import { applyAction, openInContext, openTarget, showOnDisplay } from "../../app
 import { targetPath } from "../../app/navigation";
 import { wasApplied } from "./conversationSession";
 import { Prose } from "./Prose";
-
-type ToolPart = Extract<TurnPart, { type: "tool" }>;
-
-/** Consecutive tool calls form one activity group; text and views stand alone. */
-function groupParts(parts: TurnPart[]) {
-  const out: ({ type: "tools"; tools: ToolPart[] } | Exclude<TurnPart, ToolPart>)[] = [];
-  for (const p of parts) {
-    const last = out.at(-1);
-    if (p.type !== "tool") out.push(p);
-    else if (last?.type === "tools") last.tools.push(p);
-    else out.push({ type: "tools", tools: [p] });
-  }
-  return out;
-}
-
-/**
- * A run of tool calls: open while it is the latest activity, folded to one line once the
- * answer begins, open again on request.
- */
-function ToolGroup({ tools, startOpen }: { tools: ToolPart[]; startOpen: boolean }) {
-  const a = useStrings().agent;
-  const [choice, setChoice] = useState<boolean | null>(null);
-  const open = choice ?? startOpen;
-  const listId = useId();
-  const failed = tools.filter((t) => t.status === "error").length;
-  return (
-    <div className="agent-activity">
-      <button type="button" className="agent-activity__head" aria-expanded={open} aria-controls={listId} onClick={() => setChoice(!open)}>
-        {open ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
-        <span>{tools.some((t) => t.status === "running") ? a.usingTools(false) : a.usedTools(tools.length, false)}</span>
-        {failed > 0 && <span className="agent-activity__failed">{a.toolsFailed(failed)}</span>}
-      </button>
-      <ul id={listId} className="agent-activity__list" hidden={!open}>
-        {tools.map((t) => (
-          <ToolRow key={t.callId} part={t} />
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/** One step: what it is doing, then Complete or Failed with the tool's own summary; the
- *  tool name and arguments open beneath. */
-function ToolRow({ part }: { part: ToolPart }) {
-  const a = useStrings().agent;
-  const [open, setOpen] = useState(false);
-  const running = part.status === "running";
-  const [doing, done] = a.toolSteps[part.tool] ?? a.toolStep(part.tool);
-  const Icon = running ? LoaderCircle : part.status === "ok" ? CircleCheck : CircleAlert;
-  const statusWord = running ? a.toolRunning : part.status === "ok" ? a.toolOk : a.toolError;
-  return (
-    <li className={`agent-tool agent-tool--${part.status}`} data-tool={part.tool} data-tool-status={part.status}>
-      <button type="button" className="agent-tool__head" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-        <Icon size={14} aria-hidden="true" className={running ? "agent-tool__icon agent-tool__spin" : "agent-tool__icon"} />
-        <span className="agent-tool__label">{running ? doing : done}</span>
-        <span className={running ? "visually-hidden" : "agent-tool__status"}>{statusWord}</span>
-        {open ? <ChevronDown size={13} aria-hidden="true" className="agent-tool__more" /> : <ChevronRight size={13} aria-hidden="true" className="agent-tool__more" />}
-        <span className="visually-hidden">{open ? a.toolHideDetails : a.toolDetails}</span>
-      </button>
-      {part.summary && <p className="agent-tool__summary">{part.summary}</p>}
-      {open && (
-        <dl className="agent-tool__details">
-          <dt>{a.toolName}</dt>
-          <dd>
-            <code>{part.tool}</code>
-          </dd>
-          <dt>{a.arguments}</dt>
-          <dd>
-            {Object.entries(part.args).map(([k, v]) => (
-              <div key={k}>
-                <span className="agent-tool__arg">{k}</span> {String(v)}
-              </div>
-            ))}
-          </dd>
-          <dt>{a.result}</dt>
-          <dd>{part.summary ?? statusWord}</dd>
-        </dl>
-      )}
-    </li>
-  );
-}
 
 /** Between steps: a quiet working line, never a narration of reasoning. */
 function Working() {
@@ -241,17 +159,18 @@ function DisplayLine({ item }: { item: DisplayItem }) {
 }
 
 /**
- * One question and its answer as it arrives: the question at once, a working line until
- * the first step, the tool activity, then the answer streaming in; typed views and the
- * views the assistant opened follow, each rendered from its own typed payload.
+ * One question and its answer as it arrives: the question at once, a working line while the
+ * assistant works, then the answer streaming in; typed views and the views the assistant
+ * opened follow, each rendered from its own typed payload. Tool calls stay in the turn (and
+ * the agent map shows them); the conversation does not repeat them.
  */
 export function TurnView({ turn, site, context }: { turn: Turn; site: SiteBundle; context: AgentContext }) {
   const s = useStrings();
   const a = s.agent;
   const running = turn.status === "running";
-  const groups = groupParts(turn.parts);
+  const shown = turn.parts.filter((p): p is Exclude<TurnPart, { type: "tool" }> => p.type !== "tool");
   const tail = turn.parts.at(-1);
-  const working = running && (!tail || tail.type === "view" || tail.type === "action" || tail.type === "display" || (tail.type === "tool" && tail.status !== "running"));
+  const working = running && tail?.type !== "text";
   return (
     <article className="agent-turn" data-turn-status={turn.status} aria-busy={running || undefined}>
       <div className="agent-turn__prompt">
@@ -276,10 +195,8 @@ export function TurnView({ turn, site, context }: { turn: Turn; site: SiteBundle
             {formatTime(turn.at, site.site.timezone)} {site.site.timezoneLabel}
           </span>
         </span>
-        {groups.map((g, i) => {
-          const last = i === groups.length - 1;
-          if (g.type === "tools") return <ToolGroup key={i} tools={g.tools} startOpen={last && turn.status !== "complete"} />;
-          if (g.type === "text") return <Prose key={i} text={g.text} streaming={running && last} />;
+        {shown.map((g, i) => {
+          if (g.type === "text") return <Prose key={i} text={g.text} streaming={running && g === tail} />;
           if (g.type === "action") return <ActionLine key={i} turnId={turn.id} action={g.action} context={context} />;
           if (g.type === "display") return <DisplayLine key={i} item={g.item} />;
           return <ViewBlock key={i} view={g.view} site={site} context={context} />;

@@ -140,6 +140,27 @@ class Api(unittest.TestCase):
         status, err = self.call("GET", f"{CAD}/projects/{sample['project']['id']}/original")
         self.assertEqual((status, err["error"]["code"]), (404, "NOT_FOUND"))
 
+    def test_version_history_and_the_reference_routes(self):
+        _, made = self.upload(DWG, "Plant A.dwg")
+        pid = made["project"]["id"]
+        status, added = self.call("POST", f"{CAD}/projects/{pid}/versions/upload", raw=DXF, query="name=rev-b.dxf", content_type=OCTETS)
+        self.assertEqual((status, added["version"]["number"], added["project"]["versions"]), (201, 2, 2))
+        status, listed = self.call("GET", f"{CAD}/projects/{pid}/versions")
+        self.assertEqual((status, [v["number"] for v in listed["versions"]]), (200, [1, 2]))
+        vid = added["version"]["id"]
+        _, headers, out = self.request("GET", f"{CAD}/projects/{pid}/versions/{vid}/original")
+        self.assertEqual((out, headers["Content-Disposition"].split(";")[1].strip()), (DXF, 'filename="rev-b.dxf"'))
+        status, chosen = self.call("POST", f"{CAD}/projects/{pid}/reference", {"versionId": vid, "expectedRevision": 1})
+        self.assertEqual((status, chosen["project"]["referenceVersionId"]), (200, vid))
+        status, review = self.call("POST", f"{CAD}/projects/{pid}/versions", {"review": TOPOLOGY, "openFindings": 0})
+        self.assertEqual((status, review["version"]["source"], review["project"]["referenceVersionId"]), (201, {"kind": "review"}, vid))
+        status, one = self.call("GET", f"{CAD}/projects/{pid}/versions/{review['version']['id']}")
+        self.assertEqual((status, one["review"]), (200, TOPOLOGY))
+        status, err = self.call("POST", f"{CAD}/projects/{pid}/versions/upload", raw=DWG, query="name=x.dwg", content_type="application/json")
+        self.assertEqual((status, err["error"]["code"]), (415, "UNSUPPORTED"))
+        status, err = self.call("POST", f"{CAD}/projects/{NO_PROJECT}/versions/upload", raw=DWG, query="name=x.dwg", content_type=OCTETS)
+        self.assertEqual((status, err["error"]["code"]), (404, "NOT_FOUND"))
+
     def test_upload_checks(self):
         cases = [
             (415, "UNSUPPORTED", dict(raw=DWG, query="name=plant.dwg", content_type="application/json")),

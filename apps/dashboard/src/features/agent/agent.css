@@ -241,120 +241,7 @@
   }
 }
 
-/* Tool activity: one recessed group per run of calls, folded once the answer begins.
-   The striped mark is the "simulated" provenance mark; a failure is caution, never the
-   alarm red. ----------------------------------------------------------------------- */
-.agent-activity {
-  border-radius: var(--radius-control);
-  background: rgb(0 0 0 / 0.18);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-  font-size: var(--type-caption);
-  animation: agent-rise var(--motion-base) var(--ease) both;
-}
-.agent-activity__head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  padding: 6px var(--space-2);
-  border: 0;
-  border-radius: var(--radius-control);
-  background: none;
-  color: var(--text-2);
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background-color var(--motion-fast) var(--ease),
-    color var(--motion-fast) var(--ease);
-}
-.agent-activity__head:hover {
-  background: var(--hover);
-  color: var(--text-1);
-}
-.agent-activity__head > svg {
-  flex: none;
-  color: var(--text-3);
-}
-.agent-activity__failed {
-  margin-left: auto;
-  color: var(--caution);
-  font-weight: 600;
-}
-.agent-activity__list {
-  display: grid;
-  gap: 1px;
-  margin: 0;
-  padding: 2px 0 4px;
-  list-style: none;
-  box-shadow: inset 0 1px 0 var(--hairline);
-}
-.agent-activity__list[hidden] {
-  display: none;
-}
-.agent-tool {
-  animation: agent-rise var(--motion-base) var(--ease) both;
-}
-.agent-tool__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 5px var(--space-2);
-  border: 0;
-  border-radius: var(--radius-control);
-  background: none;
-  color: var(--text-1);
-  text-align: left;
-  cursor: pointer;
-}
-.agent-tool__head:hover {
-  background: var(--hover);
-}
-.agent-tool__icon,
-.agent-tool__more {
-  flex: none;
-  color: var(--text-3);
-}
-.agent-tool--ok .agent-tool__icon {
-  color: var(--ok);
-}
-.agent-tool--error .agent-tool__icon,
-.agent-tool--error .agent-tool__status {
-  color: var(--caution);
-}
-.agent-tool--error .agent-tool__status {
-  font-weight: 600;
-}
-.agent-tool__label {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.agent-tool__status {
-  color: var(--text-3);
-  font-size: var(--type-micro);
-}
-.agent-tool__summary {
-  margin: 0;
-  padding: 0 var(--space-2) 5px 30px;
-  color: var(--text-2);
-}
-.agent-tool__details {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  box-shadow: inset 0 1px 0 var(--hairline);
-  font-size: var(--type-micro);
-}
-.agent-tool__details dt {
-  color: var(--text-3);
-}
-.agent-tool__details dd {
-  margin: 0 0 var(--space-1);
-  overflow-wrap: anywhere;
-}
-.agent-tool__arg {
-  color: var(--text-1);
-}
+/* The composer's busy spinner. */
 .agent-tool__spin {
   animation: agent-spin 1s linear infinite;
 }
@@ -752,7 +639,478 @@
     padding: var(--space-2);
   }
 }
+/* Agent map: an answer's agents as a tree, in a large modal -------------------- */
+/* The composer's Agent map control, left of Send: a 36 px pill on a faint green-tinted dark
+   ground with a low-contrast green hairline; icon, label and a round count badge, each with
+   its own space. While subagents run, a small green dot sits on the icon's corner and the
+   badge turns green. The bar is a container: a narrow composer keeps icon, dot and count and
+   drops the words before anything could crowd Send. */
+.agent-composer__bar {
+  container-type: inline-size;
+  min-height: 36px;
+}
+/* Send and Stop take the pill's height, so the row reads as one. */
+.agent-composer__bar > .button {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+}
+.agent-map-button {
+  --pill-green: var(--ok);
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 5px 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pill-green) 5%, #1c2024);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pill-green) 20%, var(--hairline-strong));
+  color: var(--text-1);
+  font: 500 var(--type-body) / 1 var(--font-sans);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease),
+    box-shadow var(--motion-fast) var(--ease),
+    transform var(--motion-fast) var(--ease);
+}
+.agent-map-button:hover {
+  background: color-mix(in srgb, var(--pill-green) 9%, #22272c);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pill-green) 34%, var(--hairline-strong));
+}
+.agent-map-button:active {
+  transform: scale(0.97);
+}
+/* Open: the map is showing. */
+.agent-map-button[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--pill-green) 12%, #22272c);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pill-green) 48%, transparent);
+}
+.agent-map-button:focus-visible {
+  outline: 2px solid var(--text-1);
+  outline-offset: 2px;
+}
+.agent-map-button__icon {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  color: var(--text-2);
+}
+.agent-map-button__label {
+  padding-right: 2px;
+}
+.agent-map-button__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.07);
+  color: var(--text-2);
+  font-size: var(--type-caption);
+  font-weight: 700;
+}
+.agent-map-button__dot {
+  position: absolute;
+  top: -2px;
+  right: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  /* A ring in the pill's colour separates the dot from the icon's strokes. */
+  box-shadow: 0 0 0 2px #1d2325;
+}
+.agent-map-button[data-state="running"] {
+  background: color-mix(in srgb, var(--pill-green) 9%, #1c2024);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pill-green) 36%, transparent);
+}
+.agent-map-button[data-state="running"] .agent-map-button__icon {
+  color: var(--text-1);
+}
+.agent-map-button[data-state="running"] .agent-map-button__dot {
+  background: var(--pill-green);
+  animation: agent-map-pulse 2.6s var(--ease-io) infinite;
+}
+.agent-map-button[data-state="running"] .agent-map-button__count {
+  background: color-mix(in srgb, var(--pill-green) 20%, transparent);
+  color: #8fe6b2;
+}
+/* Waiting only: a hollow grey dot, no green. */
+.agent-map-button[data-state="queued"] .agent-map-button__dot {
+  background: #1d2325;
+  box-shadow: 0 0 0 2px #1d2325, inset 0 0 0 1.5px var(--text-3);
+}
+@keyframes agent-map-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+@container (max-width: 300px) {
+  .agent-map-button {
+    padding-left: 11px;
+  }
+  .agent-map-button__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+.agent-map {
+  --map-live: #7aa2f7;
+  --map-line: #3a4048;
+  --map-card: #1e2227;
+  width: min(1180px, calc(100vw - 48px));
+  height: min(820px, calc(100dvh - 48px));
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text-1);
+  box-shadow: var(--shadow-float);
+}
+.agent-map[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  animation: agent-rise var(--motion-base) var(--ease);
+}
+.agent-map::backdrop {
+  background: rgb(8 10 12 / 0.64);
+}
+.agent-map__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 14px 14px 14px 20px;
+  box-shadow: inset 0 -1px 0 var(--hairline);
+}
+.agent-map__heading {
+  min-width: 0;
+}
+.agent-map__heading h2 {
+  font-size: var(--type-section);
+  font-weight: 700;
+}
+.agent-map__prompt {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--type-caption);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-map__counts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 14px;
+  color: var(--text-2);
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+.agent-map__live {
+  color: var(--map-live);
+}
+.agent-map__muted {
+  color: var(--text-3);
+  font-weight: 400;
+}
+.agent-map__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  min-height: 0;
+}
+
+/* The tree: graphite with a faint dot grid. Cards sit at the places agentLayout.ts computes;
+   one SVG behind them draws the stubs, spines and branches as 1 px right angles. */
+.agent-map__stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+.agent-map__canvas {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  background-color: #15181c;
+  background-image: radial-gradient(rgb(255 255 255 / 0.045) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+.agent-map__space {
+  position: relative;
+  /* Room for the zoom controls below the last card. */
+  margin-bottom: 56px;
+}
+.agent-map__plane {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+.agent-map__edges {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.agent-map__edges path {
+  fill: none;
+  stroke: var(--map-line);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+.agent-map__card {
+  position: absolute;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  /* The right side leaves room for a branch's fold control on the edge. */
+  padding: 0 18px 0 11px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 10px;
+  background: var(--map-card);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease), border-color var(--motion-fast) var(--ease);
+}
+.agent-map__card[data-kind="task"] {
+  background: #20252b;
+  border-color: #4a525c;
+}
+.agent-map__card:hover {
+  border-color: #59616b;
+  background: #242a30;
+}
+.agent-map__card[aria-pressed="true"] {
+  border-color: var(--map-live);
+  background: #212a36;
+  box-shadow: 0 0 0 1px var(--map-live);
+}
+.agent-map__card:focus-visible,
+.agent-map__toggle:focus-visible {
+  outline: 2px solid var(--text-1);
+  outline-offset: 2px;
+}
+/* The kind icon in a small tile, its status dot on the tile's corner. */
+.agent-map__kind {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.05);
+  color: var(--text-2);
+}
+.agent-map__card[data-kind="agent"] .agent-map__kind {
+  color: #b9c9f5;
+  background: rgb(122 162 247 / 0.1);
+}
+.agent-map__kind .agent-map__dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  box-shadow: 0 0 0 2px var(--map-card);
+}
+.agent-map__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.agent-map__dot[data-status="running"] {
+  background: var(--map-live);
+  animation: agent-map-pulse 2.6s var(--ease-io) infinite;
+}
+.agent-map__dot[data-status="complete"] {
+  background: var(--ok);
+}
+.agent-map__dot[data-status="error"] {
+  background: var(--danger);
+}
+.agent-map__dot[data-status="queued"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--text-3);
+}
+.agent-map__kind .agent-map__dot[data-status="queued"] {
+  background: var(--map-card);
+  box-shadow: 0 0 0 2px var(--map-card), inset 0 0 0 1.5px var(--text-3);
+}
+.agent-map__text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.agent-map__name {
+  overflow: hidden;
+  font-size: var(--type-body);
+  font-weight: 650;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-map__line {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--type-caption);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-map__meta {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  color: var(--text-2);
+  font-size: var(--type-micro);
+  white-space: nowrap;
+}
+.agent-map__meta:empty {
+  display: none;
+}
+/* A branch's fold control, centred on its right edge where the connector leaves. */
+.agent-map__toggle {
+  position: absolute;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  border: 1px solid #4a525c;
+  border-radius: 999px;
+  background: #1b1f24;
+  color: var(--text-2);
+  font: 700 10.5px / 1 var(--font-sans);
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+}
+.agent-map__toggle[aria-expanded="false"] {
+  transform: translate(-6px, -50%);
+  color: var(--text-1);
+}
+.agent-map__toggle:hover {
+  border-color: var(--text-3);
+  background: #262c33;
+  color: var(--text-1);
+}
+.agent-map__zoom {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgb(27 31 36 / 0.94);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong), 0 6px 18px rgb(0 0 0 / 0.35);
+}
+.agent-map__zoom .icon-button {
+  width: 30px;
+  height: 30px;
+}
+.agent-map__zoom .num {
+  min-width: 42px;
+  color: var(--text-2);
+  font-size: var(--type-caption);
+  text-align: center;
+}
+
+/* The selected agent's details. */
+.agent-map__details {
+  min-height: 0;
+  overflow: auto;
+  padding: 20px;
+  box-shadow: inset 1px 0 0 var(--hairline);
+}
+.agent-map__details-kind {
+  margin-bottom: 4px;
+  color: var(--text-3);
+  font-size: var(--type-micro);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.agent-map__details-name {
+  font-size: var(--type-section);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.agent-map__details-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+.agent-map__error {
+  margin-top: var(--space-3);
+  padding: 8px 10px;
+  border-radius: var(--radius-chip);
+  background: rgb(240 72 78 / 0.12);
+  color: #f7a3a6;
+  font-size: var(--type-caption);
+}
+.agent-map__facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px 14px;
+  margin: var(--space-4) 0 0;
+  font-size: var(--type-caption);
+}
+.agent-map__facts dt {
+  color: var(--text-3);
+}
+.agent-map__facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .agent-map {
+    width: 100vw;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+  .agent-map__head {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 6px;
+  }
+  .agent-map__counts {
+    grid-row: 2;
+    justify-content: flex-start;
+  }
+  .agent-map__body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 0.8fr);
+  }
+  .agent-map__details {
+    box-shadow: inset 0 1px 0 var(--hairline);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .agent-map[open],
+  .agent-map__dot,
+  .agent-map-button__dot,
   .agent-tool__spin,
   .agent-working__meter i,
   .agent-voice__dot,

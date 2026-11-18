@@ -11,7 +11,11 @@ Serves three separate contracts, all JSON except a CAD drawing's raw bytes:
     /api/cad/v1         status, projects, projects/upload (the drawing's raw bytes),
                         projects/{id} (PUT saves, DELETE), projects/{id}/open,
                         projects/{id}/rename, projects/{id}/copy,
-                        projects/{id}/original (the drawing's exact bytes)
+                        projects/{id}/original (the drawing's exact bytes),
+                        projects/{id}/versions (GET, POST a frozen review),
+                        projects/{id}/versions/upload (a revision's raw bytes),
+                        projects/{id}/versions/{versionId}[/original],
+                        projects/{id}/reference (choose the approved reference)
 
 Knowledge and memory each have their own SQLite file in the data directory (default: the
 repository's ignored `var/`), so documents and memories never share a store. CAD projects
@@ -66,6 +70,8 @@ log = logging.getLogger("hvac.local_api")
 KNOWLEDGE = "/api/knowledge/v1"
 MEMORY = "/api/memory/v1"
 CAD = "/api/cad/v1"
+# A new project's drawing, or a new version's: the request body is the drawing's raw bytes.
+RAW_UPLOAD = re.compile(rf"{CAD}/projects(?:/[^/]+/versions)?/upload")
 MAX_UPLOAD_BODY = 28 * 1024 * 1024  # a 20 MB document as base64 JSON
 MAX_BODY = 64 * 1024
 MAX_CAD_BODY = MAX_STATE_BYTES + MAX_BODY  # a saved state with its request
@@ -142,6 +148,12 @@ def routes(knowledge: KnowledgeService, memory: MemoryService, wake: Callable[[]
         ("POST", rf"{CAD}/projects/([^/]+)/copy", lambda m, q, b: (201, projects().copy(m[1], b))),
         ("DELETE", rf"{CAD}/projects/([^/]+)", lambda m, q, b: (200, projects().delete(m[1]))),
         ("GET", rf"{CAD}/projects/([^/]+)/original", lambda m, q, b: (200, Download(*projects().original(m[1])))),
+        ("GET", rf"{CAD}/projects/([^/]+)/versions", lambda m, q, b: (200, projects().versions(m[1]))),
+        ("POST", rf"{CAD}/projects/([^/]+)/versions", lambda m, q, b: (201, projects().add_review_version(m[1], b))),
+        ("POST", rf"{CAD}/projects/([^/]+)/versions/upload", lambda m, q, b: (201, projects().upload_version(m[1], q.get("name"), b))),
+        ("GET", rf"{CAD}/projects/([^/]+)/versions/([^/]+)", lambda m, q, b: (200, projects().version(m[1], m[2]))),
+        ("GET", rf"{CAD}/projects/([^/]+)/versions/([^/]+)/original", lambda m, q, b: (200, Download(*projects().version_original(m[1], m[2])))),
+        ("POST", rf"{CAD}/projects/([^/]+)/reference", lambda m, q, b: (200, projects().set_reference(m[1], b))),
     ]
     return [(method, re.compile(pattern + "/?"), fn) for method, pattern, fn in table]
 
@@ -204,7 +216,7 @@ def create_app(knowledge: KnowledgeService, memory: MemoryService, *, cad: CadPr
                 raise ServiceError("NOT_FOUND", f"No {method} route for {path}.")
             query = {k: v[-1] for k, v in parse_qs(environ.get("QUERY_STRING", "")).items()}
             body: Any = None
-            if method == "POST" and path.rstrip("/") == f"{CAD}/projects/upload":
+            if method == "POST" and RAW_UPLOAD.fullmatch(path.rstrip("/")):
                 body = upload_body(environ)
             elif method in ("POST", "PUT"):
                 length = int(environ.get("CONTENT_LENGTH") or 0)

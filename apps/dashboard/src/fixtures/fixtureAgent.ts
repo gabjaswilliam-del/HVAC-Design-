@@ -46,6 +46,9 @@ const noPilot: PilotReader = { getState: notConnected, getRunSummary: notConnect
 
 class Cancelled extends Error {}
 
+/** The harness's name for the agent that answers a turn. */
+const ROOT_AGENT = "AI Assistant";
+
 const store = new Map<string, Conversation>();
 const cancelled = new Set<string>();
 let seeded: Promise<void> | null = null;
@@ -149,6 +152,12 @@ async function runTurn(conv: Conversation, message: AgentMessage, opts: AgentFix
   // A cancelled turn starts no new pause: it reaches its next check at once.
   const pause = (ms: number) => (cancelled.has(turnId) ? Promise.resolve() : pauseTurn(turnId, ms));
   record({ type: "turn_start", turnId, prompt, at: conv.context.at });
+  // The demo answers with one agent, the offline responder: no others are started, and with
+  // no language model there are no tokens to report, so none are sent.
+  const agentId = nextId("agent");
+  record({ type: "agent_start", agentId, parentId: null, name: ROOT_AGENT, task: prompt || undefined, at: new Date().toISOString() });
+  const endAgent = (status: "complete" | "cancelled" | "error", error?: string) =>
+    record({ type: "agent_end", agentId, status, at: new Date().toISOString(), ...(error ? { error } : {}) });
   try {
     const env = await envFor(conv.context, opts);
     await pause(vary(300) * scale); // a moment before the first step
@@ -160,16 +169,16 @@ async function runTurn(conv: Conversation, message: AgentMessage, opts: AgentFix
       async tool(name: ToolName, args: Record<string, string | number>) {
         check();
         const callId = nextId("call");
-        record({ type: "tool_call", callId, tool: name, args, simulated: true });
+        record({ type: "tool_call", callId, tool: name, args, simulated: true, agentId, at: new Date().toISOString() });
         await pause(vary(TOOL_MS[name]) * scale);
         check();
         let value: unknown = null;
         try {
           const out = await (tools[name] as (env: ToolEnv, a: unknown) => Promise<{ value: unknown; summary: string }>)(env, args);
-          record({ type: "tool_result", callId, status: "ok", summary: out.summary });
+          record({ type: "tool_result", callId, status: "ok", summary: out.summary, at: new Date().toISOString() });
           value = out.value;
         } catch (e) {
-          record({ type: "tool_result", callId, status: "error", summary: e instanceof Error ? e.message : String(e) });
+          record({ type: "tool_result", callId, status: "error", summary: e instanceof Error ? e.message : String(e), at: new Date().toISOString() });
         }
         await pause(vary(90) * scale);
         return value as never;
@@ -200,20 +209,27 @@ async function runTurn(conv: Conversation, message: AgentMessage, opts: AgentFix
         // The same tool a local model would call (MCP `show_on_display`); not simulated: it
         // really draws on the operator's AI display.
         const callId = nextId("call");
-        record({ type: "tool_call", callId, tool: SHOW_ON_DISPLAY_TOOL.name, args: { title: request.title, kind: request.content.kind }, simulated: false });
+        record({ type: "tool_call", callId, tool: SHOW_ON_DISPLAY_TOOL.name, args: { title: request.title, kind: request.content.kind }, simulated: false, agentId, at: new Date().toISOString() });
         await pause(vary(160) * scale);
         check();
         const item: DisplayItem = { ...request, id: nextId("display"), shownAt: new Date().toISOString(), source: { kind: "assistant", conversationId: conv.id, demo: true } };
-        record({ type: "tool_result", callId, status: "ok", summary: `Shown on the AI display: ${request.title}.` });
+        record({ type: "tool_result", callId, status: "ok", summary: `Shown on the AI display: ${request.title}.`, at: new Date().toISOString() });
         record({ type: "display", item });
       },
     };
     await respond(host);
     check();
+    endAgent("complete");
     record({ type: "turn_end", status: "complete" });
   } catch (e) {
-    if (e instanceof Cancelled) record({ type: "turn_end", status: "cancelled" });
-    else record({ type: "turn_end", status: "error", error: { code: "SCRIPT_FAILED", message: e instanceof Error ? e.message : String(e) } });
+    if (e instanceof Cancelled) {
+      endAgent("cancelled");
+      record({ type: "turn_end", status: "cancelled" });
+    } else {
+      const message = e instanceof Error ? e.message : String(e);
+      endAgent("error", message);
+      record({ type: "turn_end", status: "error", error: { code: "SCRIPT_FAILED", message } });
+    }
   } finally {
     cancelled.delete(turnId);
   }

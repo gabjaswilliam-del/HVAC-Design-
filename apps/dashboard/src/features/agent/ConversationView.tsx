@@ -9,6 +9,7 @@ import { Notice } from "../../components/Notice";
 import { operating, useOperating } from "../../app/operatingContext";
 import { useAgentContext } from "../../app/site";
 import { TurnView } from "./TurnView";
+import { AgentMapButton } from "./AgentMap";
 import { session, sessionTurns, turnKey, useSession, wasApplied } from "./conversationSession";
 import { useVoiceInput } from "./voice";
 
@@ -424,6 +425,7 @@ export function ConversationView({ site, conversationId, onConversationChange, s
               </button>
             )}
           </span>
+          <AgentMapButton turns={turns} title={conversation?.title} />
           {streaming ? (
             <button
               type="button"

@@ -1,19 +1,24 @@
 /**
- * The 2D views: the synthetic source drawing, and Compare (source beside extraction) in one
- * shared pan and zoom with an accessible 25–75 % divider. Each view keeps where it was left in
- * the session's placement, so leaving CAD Studio and coming back restores it.
+ * The 2D drawing: the reviewed plant on an engineering sheet, the synthetic source drawing beside
+ * it, and the comparison canvases (two synchronized panes, or one with layers). Every canvas
+ * shares one viewport: wheel and keyboard zoom, drag to pan, Fit, and an accessible 25–75 %
+ * divider between panes. Each view keeps where it was left in the session's placement, so
+ * leaving CAD Studio and coming back restores it.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { GripVertical, Minus, Plus, Scan } from "lucide-react";
-import type { SceneLayout, Topology } from "../../lib/contracts";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { GripVertical } from "lucide-react";
+import type { Link, LinkEnd, SceneLayout, Topology } from "../../lib/contracts";
+import type { WorkspaceState } from "../../lib/contracts/cadProject";
 import { demoTopology } from "../../fixtures/demoPlant";
 import { useStrings } from "../../lib/i18n";
 import { PlantScene } from "../monitoring/scene/PlantScene";
-import { spriteGeometry } from "../monitoring/scene/geometry";
+import { portPosition, spriteGeometry } from "../monitoring/scene/geometry";
 import { SpriteDefs } from "../monitoring/scene/materials";
 import { centerOn, clampView, fitView, keepCenter, zoomAt, type Size, type View } from "../monitoring/scene/panZoom";
-import { cad, type LocateRequest, type Selection, type StudioView } from "./cadSession";
-import { deviceIds, deviceReviewState, type ReviewState } from "./review";
+import { cad, type LocateRequest, type Place, type Selection } from "./cadSession";
+import type { ChangeKind } from "./diff";
+import { deviceIds, deviceReviewState, evidenceReviewState, type ReviewState } from "./review";
+import { ViewportContext, type DrawingTool } from "./ViewportContext";
 
 const DRAG_THRESHOLD = 4;
 const ZOOM_STEP = 1.25;
@@ -27,29 +32,74 @@ export const previewReadings = {
   values: {},
 };
 
-export function SyntheticDrawing({ scene, selectedId, locate, onSelect }: {
-  scene: SceneLayout;
-  selectedId: string | null;
-  locate: LocateRequest;
-  onSelect: (id: string) => void;
-}) {
-  const copy = useStrings().cad;
+export interface SceneProps {
+  topology: Topology;
+  selection: Selection;
+  onSelect?: (id: string) => void;
+  onSelectLink?: (id: string) => void;
+  layers: WorkspaceState["layers"];
+  colourBy: WorkspaceState["colourBy"];
+  traceIds?: ReadonlySet<string>;
+  findingIds?: ReadonlySet<string>;
+}
+
+/** The sheet: paper with a fine and a coarse grid (outlines only). */
+export function TechnicalGrid({ scene }: { scene: SceneLayout }) {
+  const id = `cad-grid-${useId().replace(/:/g, "")}`;
   return (
-    <CadViewport scene={scene} locate={locate} ariaLabel={copy.sourceDrawingLabel} className="cad-sheet" place="drawing">
-      <DrawingLayer scene={scene} selectedId={selectedId} onSelect={onSelect} />
-    </CadViewport>
+    <g className="cad-grid" aria-hidden="true">
+      <rect width={scene.width} height={scene.height} className="cad-grid__paper" />
+      <defs>
+        <pattern id={`${id}-minor`} width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" className="cad-grid__minor" /></pattern>
+        <pattern id={`${id}-major`} width="200" height="200" patternUnits="userSpaceOnUse"><path d="M 200 0 L 0 0 0 200" fill="none" className="cad-grid__major" /></pattern>
+      </defs>
+      <rect width={scene.width} height={scene.height} fill={`url(#${id}-minor)`} />
+      <rect width={scene.width} height={scene.height} fill={`url(#${id}-major)`} />
+    </g>
   );
 }
 
-function DrawingLayer({ scene, selectedId, onSelect }: {
-  scene: SceneLayout;
-  selectedId: string | null;
-  onSelect?: (id: string) => void;
-}) {
+/** The reviewed plant, drawn by the shared plant artwork without telemetry. */
+export function EngineeringScene({ topology, selection, onSelect, onSelectLink, layers, colourBy, traceIds, findingIds, scene, grid = true }: SceneProps & { scene: SceneLayout; grid?: boolean }) {
+  const copy = useStrings().cad;
+  const selectedId = selection?.kind === "device" ? selection.id : selection?.kind === "port" ? selection.deviceId : null;
+  const activeLink = selection?.kind === "link" ? topology.links.find((link) => link.id === selection.id) : undefined;
+  const reviewStates = colourBy === "review" ? Object.fromEntries(topology.devices.map((device) => [device.id, deviceReviewState(device.id, topology)])) as Record<string, ReviewState> : undefined;
+  const reviewLabels = reviewStates ? Object.fromEntries(Object.entries(reviewStates).map(([id, state]) => [id, copy.reviewStates[state]])) : undefined;
+  const reviewLinkStates = colourBy === "review" ? Object.fromEntries(topology.links.map((link) => [link.id, evidenceReviewState(link.evidence)])) : undefined;
+  return (
+    <>
+      <SpriteDefs />
+      {grid && <TechnicalGrid scene={scene} />}
+      <PlantScene
+        topology={{ ...topology, devices: topology.devices.map((device) => ({ ...device, label: copy.equipmentName(device.id, device.label) })) }}
+        layout={scene}
+        readings={previewReadings}
+        selectedId={selectedId}
+        selectedLinkId={activeLink?.id}
+        highlightIds={activeLink ? deviceIds(activeLink) : []}
+        reviewStates={reviewStates}
+        reviewLabels={reviewLabels}
+        reviewLinkStates={reviewLinkStates}
+        traceIds={traceIds}
+        findingIds={findingIds}
+        layers={layers}
+        heavyHeaders
+        showTags={false}
+        showStates={colourBy === "review"}
+        onSelect={onSelect}
+        onSelectLink={onSelectLink}
+        pipeLabel={(link) => `${copy.connection}: ${link.id}`}
+      />
+    </>
+  );
+}
+
+/** The synthetic source drawing: the sheet's outlines, as a drafter would have drawn them. */
+function SourceLayer({ scene, selectedId, onSelect }: { scene: SceneLayout; selectedId: string | null; onSelect?: (id: string) => void }) {
   return (
     <g className="cad-drawing-layer">
-      <defs><pattern id="cad-grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" /></pattern></defs>
-      <rect width="100%" height="100%" fill="url(#cad-grid)" />
+      <TechnicalGrid scene={scene} />
       {Object.entries(scene.buses).flatMap(([id, groups]) => groups.map((points, index) => (
         <polyline key={`${id}-${index}`} points={points.map((point) => point.join(",")).join(" ")} />
       )))}
@@ -66,7 +116,10 @@ function DrawingLayer({ scene, selectedId, onSelect }: {
             tabIndex={onSelect ? 0 : undefined}
             onClick={onSelect ? () => onSelect(id) : undefined}
             onKeyDown={onSelect ? (event) => {
-              if (event.key === "Enter" || event.key === " ") onSelect(id);
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onSelect(id);
+              }
             } : undefined}
           >
             <rect width={geometry.width} height={geometry.height} />
@@ -78,65 +131,133 @@ function DrawingLayer({ scene, selectedId, onSelect }: {
   );
 }
 
-export function CompareView({ topology, scene, selection, locate, onSelect }: {
-  topology: Topology;
-  scene: SceneLayout;
-  selection: Selection;
-  locate: LocateRequest;
-  onSelect: (id: string) => void;
-}) {
+/** The reviewed drawing on its own: the Drawing view's canvas. */
+export function SyntheticDrawing({ scene, locate, toolbar, ...props }: SceneProps & { scene: SceneLayout; locate: LocateRequest; toolbar?: ReactNode }) {
   const copy = useStrings().cad;
-  const selectedId = selection?.kind === "device" ? selection.id : selection?.kind === "port" ? selection.deviceId : null;
-  const activeLink = selection?.kind === "link" ? topology.links.find((link) => link.id === selection.id) : undefined;
-  const reviewStates = Object.fromEntries(
-    topology.devices.map((device) => [device.id, deviceReviewState(device.id, topology)]),
-  ) as Record<string, ReviewState>;
-  const reviewLabels = Object.fromEntries(
-    Object.entries(reviewStates).map(([id, state]) => [id, copy.reviewStates[state]]),
+  return (
+    <CadViewport scene={scene} locate={locate} ariaLabel={copy.editableSceneLabel} className="cad-sheet" place="drawing" toolbar={toolbar}>
+      <EngineeringScene {...props} scene={scene} />
+    </CadViewport>
   );
+}
 
+/** The synthetic source drawing beside the extraction, in one pan and zoom. */
+export function SourceCompareView({ scene, locate, toolbar, ...props }: SceneProps & { scene: SceneLayout; locate: LocateRequest; toolbar?: ReactNode }) {
+  const copy = useStrings().cad;
+  const selectedId = props.selection?.kind === "device" ? props.selection.id : props.selection?.kind === "port" ? props.selection.deviceId : null;
   return (
     <CadViewport
       scene={scene}
       locate={locate}
       ariaLabel={copy.compareDrawingLabel}
-      className="cad-compare-view"
-      place="compare"
-      secondary={(
-        <>
-          <rect className="cad-extraction-bg" width={scene.width} height={scene.height} />
-          <SpriteDefs />
-          <PlantScene
-            topology={{ ...topology, devices: topology.devices.map((device) => ({ ...device, label: copy.equipmentName(device.id, device.label) })) }}
-            layout={scene}
-            readings={previewReadings}
-            selectedId={selectedId}
-            selectedLinkId={activeLink?.id}
-            highlightIds={activeLink ? deviceIds(activeLink) : []}
-            reviewStates={reviewStates}
-            reviewLabels={reviewLabels}
-            showTags={false}
-            onSelect={onSelect}
-          />
-        </>
-      )}
+      className="cad-sheet"
+      place="source"
+      toolbar={toolbar}
+      paneLabels={[copy.sourceSide, copy.extractedSide]}
+      paneNames={[copy.sourceDrawingLabel, copy.editableSceneLabel]}
+      secondary={<EngineeringScene {...props} scene={scene} />}
     >
-      <DrawingLayer scene={scene} selectedId={null} />
+      <SourceLayer scene={scene} selectedId={selectedId} onSelect={props.onSelect} />
     </CadViewport>
   );
 }
 
-function CadViewport({ scene, locate, ariaLabel, className, place, children, secondary }: {
+type XY = [number, number];
+const endPoint = (end: LinkEnd, scene: SceneLayout): XY | null => {
+  if (!("device" in end)) return null;
+  const node = scene.nodes[end.device];
+  if (!node) return null;
+  const p = portPosition(node.kind, end.port, node, node.flip);
+  return [p.x, p.y];
+};
+/** A connection's path on the sheet, as the plant artwork draws it. */
+export function linkPoints(link: Link, scene: SceneLayout): XY[] {
+  const start = endPoint(link.from, scene);
+  const end = endPoint(link.to, scene);
+  return [...(start ? [start] : []), ...(scene.links[link.id] ?? []), ...(end ? [end] : [])];
+}
+const pointsAttr = (points: XY[]) => points.map((p) => p.join(",")).join(" ");
+const midpoint = (points: XY[]): XY => {
+  if (points.length < 2) return points[0] ?? [0, 0];
+  const a = points[Math.floor((points.length - 1) / 2)], b = points[Math.floor((points.length - 1) / 2) + 1];
+  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+};
+
+/**
+ * What changed, drawn over a scene: connections as coloured runs (a removed one dashed, at
+ * the reference's place), equipment as an outline, and ports as rings. Each change carries a
+ * revision triangle, so the marks never rely on colour alone.
+ */
+export function DiffLayer({ scene, links, devices, ports, show = ["added", "removed", "changed"] }: {
+  scene: SceneLayout;
+  links: { link: Link; kind: ChangeKind }[];
+  devices: { id: string; kind: ChangeKind }[];
+  ports: { device: string; port: string; kind: ChangeKind }[];
+  show?: ChangeKind[];
+}) {
+  const visible = (kind: ChangeKind) => show.includes(kind);
+  const delta = ([x, y]: XY, kind: ChangeKind, key: string) => (
+    <g key={`d-${key}`} className={`cad-diff__delta cad-diff--${kind}`} transform={`translate(${x} ${y - 44})`}>
+      <path d="M 0 -22 L 24 18 L -24 18 Z" />
+      <text y="12" textAnchor="middle">{kind === "added" ? "+" : kind === "removed" ? "−" : "~"}</text>
+    </g>
+  );
+  return (
+    <g className="cad-diff" aria-hidden="true">
+      {links.filter(({ kind }) => visible(kind)).map(({ link, kind }) => {
+        const points = linkPoints(link, scene);
+        if (points.length < 2) return null;
+        return (
+          <g key={link.id} className={`cad-diff__link cad-diff--${kind}`} data-diff={kind} data-link-id={link.id}>
+            <polyline className="cad-diff__halo" points={pointsAttr(points)} />
+            <polyline className="cad-diff__run" points={pointsAttr(points)} />
+            {delta(midpoint(points), kind, link.id)}
+          </g>
+        );
+      })}
+      {devices.filter(({ kind }) => visible(kind)).map(({ id, kind }) => {
+        const node = scene.nodes[id];
+        if (!node) return null;
+        const g = spriteGeometry[node.kind];
+        return (
+          <g key={id} className={`cad-diff__device cad-diff--${kind}`} data-diff={kind} data-device-id={id}>
+            <rect x={node.x - 10} y={node.y - 10} width={g.width + 20} height={g.height + 20} rx={8} />
+            {delta([node.x + g.width + 4, node.y + 18], kind, id)}
+          </g>
+        );
+      })}
+      {ports.filter(({ kind }) => visible(kind)).map(({ device, port, kind }) => {
+        const at = endPoint({ device, port }, scene);
+        if (!at) return null;
+        return (
+          <g key={`${device}:${port}`} className={`cad-diff__port cad-diff--${kind}`} data-diff={kind}>
+            <circle cx={at[0]} cy={at[1]} r={22} />
+            {delta(at, kind, `${device}:${port}`)}
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+export function CadViewport({ scene, locate, ariaLabel, className, place, children, secondary, toolbar, paneLabels, paneNames }: {
   scene: SceneLayout;
   locate: LocateRequest;
   ariaLabel: string;
   className: string;
   /** The view this viewport shows: where it was left is kept under this key. */
-  place: StudioView;
+  place: Place;
   children: ReactNode;
+  /** A second pane beside the first, in the same pan and zoom. */
   secondary?: ReactNode;
+  toolbar?: ReactNode;
+  /** The panes' visible labels and accessible names. */
+  paneLabels?: [ReactNode, ReactNode];
+  paneNames?: [string, string];
 }) {
   const copy = useStrings().cad;
+  const [tool, setTool] = useState<DrawingTool>("select");
+  const [spacePan, setSpacePan] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const paneRef = useRef<HTMLDivElement>(null);
   const [split, setSplit] = useState(() => cad.placement.compareSplit);
@@ -191,7 +312,7 @@ function CadViewport({ scene, locate, ariaLabel, className, place, children, sec
     const observer = new ResizeObserver(([entry]) => updateBox(entry.contentRect.width, entry.contentRect.height));
     observer.observe(element);
     return () => observer.disconnect();
-  }, [secondary, updateBox]);
+  }, [!!secondary, updateBox]);
 
   const stopMotion = () => {
     setLocating(false);
@@ -204,6 +325,7 @@ function CadViewport({ scene, locate, ariaLabel, className, place, children, sec
     const onWheel = (event: WheelEvent) => {
       const current = latest.current;
       if (!current.box) return;
+      if (event.target instanceof Element && event.target.closest(".cad-float")) return;
       event.preventDefault();
       stopMotion();
       const pane = secondary && event.target instanceof Element ? event.target.closest(".cad-compare-pane") : null;
@@ -213,7 +335,7 @@ function CadViewport({ scene, locate, ariaLabel, className, place, children, sec
     };
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => element.removeEventListener("wheel", onWheel);
-  }, [scene.width, scene.height, secondary]);
+  }, [scene.width, scene.height, !!secondary]);
 
   useEffect(() => {
     // A request already applied (before this view was left) does not move a restored view again.
@@ -238,7 +360,10 @@ function CadViewport({ scene, locate, ariaLabel, className, place, children, sec
   const fit = () => box && apply(fitView(canvas, box));
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || (event.target as Element).closest(".cad-zoom, .cad-status-legend")) return;
+    if ((event.target as Element).closest(".cad-float")) return;
+    const wantsPan = event.button === 1 || (event.button === 0 && (tool === "pan" || spacePan || event.pointerType === "touch"));
+    if (!wantsPan) return;
+    event.preventDefault();
     suppressClick.current = false;
     drag.current = { x: event.clientX, y: event.clientY, view, moved: false, id: event.pointerId };
   };
@@ -263,6 +388,11 @@ function CadViewport({ scene, locate, ariaLabel, className, place, children, sec
   };
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget || !box) return;
+    if (event.key === " ") {
+      event.preventDefault();
+      setSpacePan(true);
+      return;
+    }
     const pan = (dx: number, dy: number) => apply(clampView({ ...view, x: view.x + dx, y: view.y + dy }, canvas, box));
     const actions: Record<string, () => void> = {
       "+": () => zoomCentre(ZOOM_STEP), "=": () => zoomCentre(ZOOM_STEP), "-": () => zoomCentre(1 / ZOOM_STEP), "0": fit,
@@ -273,8 +403,8 @@ function CadViewport({ scene, locate, ariaLabel, className, place, children, sec
       actions[event.key]();
     }
   };
-  const percent = Math.round(view.k * 100);
   const transform = `translate(${view.x}px, ${view.y}px) scale(${view.k})`;
+  const group = (content: ReactNode) => box && <g className={`cad-canvas-group${locating ? " is-locating" : ""}`} style={{ transform }}>{content}</g>;
   const resizeSplit = (clientX: number) => {
     const rect = boxRef.current?.getBoundingClientRect();
     if (!rect || rect.width < 1) return;
@@ -282,104 +412,88 @@ function CadViewport({ scene, locate, ariaLabel, className, place, children, sec
   };
 
   return (
-    <div
-      ref={boxRef}
-      className={`cad-viewport ${className}`}
-      role="group"
-      tabIndex={0}
-      aria-label={ariaLabel}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-      onClickCapture={(event) => {
-        if (suppressClick.current) {
-          suppressClick.current = false;
-          event.stopPropagation();
-        }
-      }}
-      onKeyDown={onKeyDown}
-    >
-      {secondary ? (
-        <div className="cad-compare-panes" style={{ gridTemplateColumns: `${split}% ${100 - split}%` }}>
-          <div ref={paneRef} className="cad-compare-pane cad-compare-pane--source">
-            <span className="cad-compare-label">{copy.sourceSide}</span>
-            <svg className="cad-review-canvas cad-review-canvas--source" role="group" aria-label={copy.sourceDrawingLabel}>
-              {box && <g className={`cad-canvas-group${locating ? " is-locating" : ""}`} style={{ transform }}>{children}</g>}
-            </svg>
-          </div>
-          <div className="cad-compare-pane cad-compare-pane--extraction">
-            <span className="cad-compare-label">{copy.extractedSide}</span>
-            <svg className="cad-review-canvas cad-review-canvas--extraction" role="group" aria-label={copy.editableSceneLabel}>
-              {box && <g className={`cad-canvas-group${locating ? " is-locating" : ""}`} style={{ transform }}>{secondary}</g>}
-            </svg>
-          </div>
-        </div>
-      ) : (
-        <svg className="cad-review-canvas cad-review-canvas--source" role="group" aria-label={copy.sourceDrawingLabel}>
-          {box && <g className={`cad-canvas-group${locating ? " is-locating" : ""}`} style={{ transform }}>{children}</g>}
-        </svg>
-      )}
-
-      {secondary && (
-        <div
-          className="cad-compare-splitter"
-          role="separator"
-          aria-label={copy.resizeComparison}
-          aria-orientation="vertical"
-          aria-valuemin={25}
-          aria-valuemax={75}
-          aria-valuenow={Math.round(split)}
-          tabIndex={0}
-          style={{ left: `${split}%` }}
-          onPointerDown={(event) => {
+    <ViewportContext.Provider value={{ zoomLevel: view.k, zoomIn: () => zoomCentre(ZOOM_STEP), zoomOut: () => zoomCentre(1 / ZOOM_STEP), fit, tool, setTool }}>
+      <div
+        ref={boxRef}
+        className={`cad-viewport ${className}`}
+        role="group"
+        tabIndex={0}
+        aria-label={ariaLabel}
+        data-tool={tool}
+        data-space-pan={spacePan ? "true" : undefined}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onClickCapture={(event) => {
+          if (suppressClick.current) {
+            suppressClick.current = false;
             event.stopPropagation();
-            splitDrag.current = event.pointerId;
-            event.currentTarget.setPointerCapture(event.pointerId);
-          }}
-          onPointerMove={(event) => {
-            if (splitDrag.current === event.pointerId) resizeSplit(event.clientX);
-          }}
-          onPointerUp={(event) => {
-            if (splitDrag.current === event.pointerId) splitDrag.current = null;
-          }}
-          onPointerCancel={() => { splitDrag.current = null; }}
-          onKeyDown={(event) => {
-            const actions: Record<string, () => void> = {
-              ArrowLeft: () => commitSplit(Math.max(25, split - 5)),
-              ArrowRight: () => commitSplit(Math.min(75, split + 5)),
-              Home: () => commitSplit(25),
-              End: () => commitSplit(75),
-            };
-            if (actions[event.key]) {
-              event.preventDefault();
-              event.stopPropagation();
-              actions[event.key]();
-            }
-          }}
-        >
-          <span aria-hidden="true"><GripVertical size={14} /></span>
+          }
+        }}
+        onKeyDown={onKeyDown}
+        onKeyUp={(event) => { if (event.key === " ") setSpacePan(false); }}
+        onBlur={() => setSpacePan(false)}
+      >
+        <div className="cad-viewport__stage">
+          {secondary ? (
+            <div className="cad-compare-panes" style={{ gridTemplateColumns: `${split}% ${100 - split}%` }}>
+              <div ref={paneRef} className="cad-compare-pane cad-compare-pane--a">
+                {paneLabels && <span className="cad-compare-label">{paneLabels[0]}</span>}
+                <svg className="cad-review-canvas cad-review-canvas--a" role="group" aria-label={paneNames?.[0]}>{group(children)}</svg>
+              </div>
+              <div className="cad-compare-pane cad-compare-pane--b">
+                {paneLabels && <span className="cad-compare-label">{paneLabels[1]}</span>}
+                <svg className="cad-review-canvas cad-review-canvas--b" role="group" aria-label={paneNames?.[1]}>{group(secondary)}</svg>
+              </div>
+            </div>
+          ) : (
+            <svg className="cad-review-canvas">{group(children)}</svg>
+          )}
+
+          {secondary && (
+            <div
+              className="cad-compare-splitter"
+              role="separator"
+              aria-label={copy.resizeComparison}
+              aria-orientation="vertical"
+              aria-valuemin={25}
+              aria-valuemax={75}
+              aria-valuenow={Math.round(split)}
+              tabIndex={0}
+              style={{ left: `${split}%` }}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                splitDrag.current = event.pointerId;
+                event.currentTarget.setPointerCapture(event.pointerId);
+              }}
+              onPointerMove={(event) => {
+                if (splitDrag.current === event.pointerId) resizeSplit(event.clientX);
+              }}
+              onPointerUp={(event) => {
+                if (splitDrag.current === event.pointerId) splitDrag.current = null;
+              }}
+              onPointerCancel={() => { splitDrag.current = null; }}
+              onKeyDown={(event) => {
+                const actions: Record<string, () => void> = {
+                  ArrowLeft: () => commitSplit(Math.max(25, split - 5)),
+                  ArrowRight: () => commitSplit(Math.min(75, split + 5)),
+                  Home: () => commitSplit(25),
+                  End: () => commitSplit(75),
+                };
+                if (actions[event.key]) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  actions[event.key]();
+                }
+              }}
+            >
+              <span aria-hidden="true"><GripVertical size={14} /></span>
+            </div>
+          )}
         </div>
-      )}
-
-      <div className="cad-zoom" role="toolbar" aria-label={copy.zoomControls}>
-        <button type="button" onClick={() => zoomCentre(1 / ZOOM_STEP)} aria-label={copy.zoomOut} title={copy.zoomOut}><Minus size={14} aria-hidden="true" /></button>
-        <output aria-label={`${copy.zoomLevel} ${percent}%`}>{percent}%</output>
-        <button type="button" onClick={() => zoomCentre(ZOOM_STEP)} aria-label={copy.zoomIn} title={copy.zoomIn}><Plus size={14} aria-hidden="true" /></button>
-        <button type="button" onClick={fit} aria-label={copy.fitDrawing} title={copy.fitDrawing}><Scan size={14} aria-hidden="true" /></button>
+        {toolbar}
       </div>
-      {secondary && <EvidenceLegend />}
-    </div>
-  );
-}
-
-function EvidenceLegend() {
-  const copy = useStrings().cad;
-  return (
-    <div className="cad-status-legend" aria-label={copy.reviewStatus}>
-      {(["confirmed", "review", "conflict", "unknown"] as const).map((status) => (
-        <span key={status}><i className={`is-${status}`} />{copy.reviewStates[status]}</span>
-      ))}
-    </div>
+    </ViewportContext.Provider>
   );
 }

@@ -1,37 +1,39 @@
-/** A drawing project: what the file is and where its original is. No extraction exists, so there is no preview. */
+/** An uploaded drawing: what the file is and where its original is. It is never parsed, so there is no preview. */
 import { Download } from "lucide-react";
+import type { ReactNode } from "react";
 import { useStrings } from "../../lib/i18n";
-import { cad, useCadSession } from "./cadSession";
-import { downloadFile } from "./ProjectLibrary";
 import { formatBytes } from "./review";
 import { Thumbnail } from "./Thumbnail";
 
-const date = (iso: string) => new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
+export const dateTime = (iso: string) => new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
 
-export function FileSheet() {
+export interface DrawingFile {
+  name: string;
+  extension: string;
+  sizeBytes: number;
+  available: boolean;
+  addedAt?: string;
+  /** Where the exact original downloads from (null: missing). */
+  url: string | null;
+}
+
+export function FileSheet({ file, caption }: { file: DrawingFile; caption?: ReactNode }) {
   const copy = useStrings().cad;
-  const { project } = useCadSession();
-  const original = project?.original;
-  if (!project || !original) return null;
   const sheet = copy.fileSheet;
-  const stored = project.id && original.available ? cad.originalUrl(project.id) : null;
   return (
     <section className="cad-file" aria-labelledby="cad-file-title">
       <div className="cad-file__card">
-        <Thumbnail extension={original.extension} />
-        <h3 id="cad-file-title">{original.name}</h3>
-        <span className="tag-chip">{copy.noExtraction}</span>
+        <Thumbnail extension={file.extension} />
+        {caption}
+        <h3 id="cad-file-title">{file.name}</h3>
+        <span className="cad-tag">{copy.noExtraction}</span>
         <dl className="cad-file__facts">
-          <div><dt>{sheet.format}</dt><dd>{copy.format(original.extension)}</dd></div>
-          <div><dt>{sheet.size}</dt><dd>{formatBytes(original.sizeBytes)}</dd></div>
-          {project.summary && <div><dt>{sheet.added}</dt><dd>{date(project.summary.createdAt)}</dd></div>}
-          <div><dt>{sheet.original}</dt><dd>{project.id ? (original.available ? sheet.stored : sheet.missing) : sheet.thisTab}</dd></div>
+          <div><dt>{sheet.format}</dt><dd>{copy.format(file.extension)}</dd></div>
+          <div><dt>{sheet.size}</dt><dd>{formatBytes(file.sizeBytes)}</dd></div>
+          {file.addedAt && <div><dt>{sheet.added}</dt><dd>{dateTime(file.addedAt)}</dd></div>}
+          <div><dt>{sheet.original}</dt><dd>{file.available ? sheet.stored : sheet.missing}</dd></div>
         </dl>
-        {stored ? (
-          <a className="button" href={stored} download={original.name}><Download size={15} aria-hidden="true" />{copy.downloadOriginal}</a>
-        ) : original.file ? (
-          <button type="button" className="button" onClick={() => downloadFile(original.file!)}><Download size={15} aria-hidden="true" />{copy.downloadOriginal}</button>
-        ) : null}
+        {file.url && <a className="cad-button" href={file.url} download={file.name}><Download size={15} aria-hidden="true" />{copy.downloadOriginal}</a>}
       </div>
     </section>
   );

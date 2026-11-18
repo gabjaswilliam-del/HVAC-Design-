@@ -466,12 +466,115 @@ class Store(Case):
         db = sqlite3.connect(self.root / "projects.sqlite3")
         try:
             self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], len(cad_store.MIGRATIONS))
-            self.assertEqual(len(cad_store.MIGRATIONS), 1)
+            self.assertEqual(len(cad_store.MIGRATIONS), 2)
             db.execute("PRAGMA user_version = 99")
         finally:
             db.close()
         with self.assertRaisesRegex(RuntimeError, "schema version 99"):
             CadStore(self.root)
+
+
+class Versions(Case):
+    REVIEW = {"topology": {"devices": [{"id": "chiller_1"}], "links": [{"id": "l1"}], "created": []}}
+
+    def test_an_upload_is_version_1_and_no_reference_is_chosen(self):
+        made = self.upload()["project"]
+        self.assertEqual((made["versions"], made["referenceVersionId"]), (1, None))
+        [v1] = self.cad.versions(made["id"])["versions"]
+        self.assertEqual((v1["number"], v1["source"]["kind"], v1["source"]["original"]["name"]), (1, "upload", "Plant A.dwg"))
+        self.assertEqual(self.cad.version(made["id"], v1["id"])["review"], None)
+        sample = self.sample()["project"]
+        self.assertEqual((sample["versions"], self.cad.versions(sample["id"])["versions"]), (0, []))
+
+    def test_a_new_revision_never_moves_the_reference_and_keeps_every_original(self):
+        made = self.upload()["project"]
+        v1 = self.cad.versions(made["id"])["versions"][0]
+        chosen = self.cad.set_reference(made["id"], {"versionId": v1["id"], "expectedRevision": 1})["project"]
+        self.assertEqual((chosen["referenceVersionId"], chosen["revision"]), (v1["id"], 2))
+        revision = DWG + b"rev B"
+        added = self.cad.upload_version(made["id"], "Plant A rev B.dwg", io.BytesIO(revision))
+        self.assertEqual((added["version"]["number"], added["project"]["versions"]), (2, 2))
+        self.assertEqual((added["project"]["referenceVersionId"], added["project"]["revision"]), (v1["id"], 2))
+        self.assertEqual(len(self.files()), 2)
+        for version, data in ((v1, DWG), (added["version"], revision)):
+            f, name = self.cad.version_original(made["id"], version["id"])
+            with f:
+                self.assertEqual(f.read(), data)
+        f, _ = self.cad.original(made["id"])  # the project's own original is the first upload
+        with f:
+            self.assertEqual(f.read(), DWG)
+        self.refused("UNSUPPORTED", lambda: self.cad.upload_version(made["id"], "notes.pdf", io.BytesIO(DWG)))
+        self.refused("UNSUPPORTED", lambda: self.cad.upload_version(made["id"], "plant.dxf", io.BytesIO(DWG)), "DXF")
+        self.refused("NOT_FOUND", lambda: self.cad.upload_version(NO_PROJECT, "x.dwg", io.BytesIO(DWG)))
+        self.assertEqual(len(self.files()), 2)
+
+    def test_reviews_are_frozen_and_the_reference_is_chosen_explicitly(self):
+        sample = self.sample()["project"]
+        first = self.cad.add_review_version(sample["id"], {"review": self.REVIEW, "openFindings": 3})
+        second = self.cad.add_review_version(sample["id"], {"label": "After review", "review": {"topology": {"devices": [], "links": [], "created": []}}, "openFindings": 0})
+        self.assertEqual((first["version"]["number"], second["version"]["number"], second["version"]["label"]), (1, 2, "After review"))
+        self.assertEqual(second["project"]["referenceVersionId"], None)
+        self.assertEqual(self.cad.version(sample["id"], first["version"]["id"])["review"], self.REVIEW)
+        self.assertEqual(first["version"]["review"], {"openFindings": 3})
+        self.refused("NOT_FOUND", lambda: self.cad.version_original(sample["id"], first["version"]["id"]), "review")
+        self.cad.set_reference(sample["id"], {"versionId": first["version"]["id"], "expectedRevision": 1})
+        self.refused("CONFLICT", lambda: self.cad.set_reference(sample["id"], {"versionId": None, "expectedRevision": 1}))
+        cleared = self.cad.set_reference(sample["id"], {"versionId": None, "expectedRevision": 2})["project"]
+        self.assertIsNone(cleared["referenceVersionId"])
+        other = self.upload()["project"]
+        other_v1 = self.cad.versions(other["id"])["versions"][0]["id"]
+        self.refused("NOT_FOUND", lambda: self.cad.set_reference(sample["id"], {"versionId": other_v1, "expectedRevision": 3}))
+        self.refused("NOT_FOUND", lambda: self.cad.version(sample["id"], "cadv_nope"))
+        self.refused("INVALID_REQUEST", lambda: self.cad.add_review_version(sample["id"], {"review": {"topology": []}, "openFindings": 0}), "topology")
+        self.refused("INVALID_REQUEST", lambda: self.cad.add_review_version(sample["id"], {"review": self.REVIEW}), "openFindings")
+        self.refused("INVALID_REQUEST", lambda: self.cad.add_review_version(sample["id"], {"label": " ", "review": self.REVIEW, "openFindings": 0}), "label")
+
+    def test_copies_keep_the_history_and_deleting_keeps_shared_originals(self):
+        made = self.upload()["project"]
+        added = self.cad.upload_version(made["id"], "rev B.dwg", io.BytesIO(DWG + b"B"))["version"]
+        self.cad.set_reference(made["id"], {"versionId": added["id"], "expectedRevision": 1})
+        copy = self.cad.copy(made["id"], {"name": "Copy"})["project"]
+        copied = self.cad.versions(copy["id"])["versions"]
+        self.assertEqual([v["number"] for v in copied], [1, 2])
+        self.assertNotIn(added["id"], [v["id"] for v in copied])
+        self.assertEqual(copy["referenceVersionId"], copied[1]["id"])
+        self.assertEqual(len(self.files()), 2)
+        self.cad.delete(made["id"])
+        self.assertEqual(len(self.files()), 2)  # the copy still needs both originals
+        self.cad.delete(copy["id"])
+        self.assertEqual(self.files(), [])
+
+    def test_versions_survive_a_restart_and_the_sweep(self):
+        made = self.upload()["project"]
+        self.cad.upload_version(made["id"], "rev B.dwg", io.BytesIO(DWG + b"B"))
+        before = self.cad.versions(made["id"])
+        self.restart()  # the startup sweep keeps originals only versions reference
+        self.assertEqual(self.cad.versions(made["id"]), before)
+        self.assertEqual(len(self.files()), 2)
+
+    def test_a_database_from_before_versions_is_upgraded_in_place(self):
+        self.store.close()
+        legacy = Path(self.tmp.name) / "legacy"
+        (legacy / "originals").mkdir(parents=True)
+        db = sqlite3.connect(legacy / "projects.sqlite3")
+        for statement in cad_store.MIGRATIONS[0]:
+            db.execute(statement)
+        sha = hashlib.sha256(DWG).hexdigest()
+        (legacy / "originals" / sha[:2]).mkdir()
+        (legacy / "originals" / sha[:2] / sha).write_bytes(DWG)
+        db.execute(
+            "INSERT INTO projects (id, name, created_at, modified_at, last_opened_at, revision, source_kind, original_name, original_extension, original_size, original_sha256, state) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("cadp_00000000000000aa", "Old drawing", "2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z", 3, "upload", "old.dwg", "dwg", len(DWG), sha, '{"schemaVersion":1}'),
+        )
+        db.execute("PRAGMA user_version = 1")
+        db.commit()
+        db.close()
+        self.root = legacy
+        self.start()
+        old = self.summary("cadp_00000000000000aa")
+        self.assertEqual((old["versions"], old["referenceVersionId"], old["revision"]), (1, None, 3))
+        [v1] = self.cad.versions(old["id"])["versions"]
+        self.assertEqual((v1["number"], v1["createdAt"], v1["source"]["original"]["name"], v1["source"]["original"]["available"]), (1, "2026-11-01T00:00:00Z", "old.dwg", True))
 
 
 if __name__ == "__main__":

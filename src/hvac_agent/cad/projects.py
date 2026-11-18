@@ -7,7 +7,11 @@ which shows that a file looks like DWG or DXF, nothing more. The server has no t
 logic: it checks the saved state's shape, types, ranges and size, and the dashboard
 validates the review in full.
 
-Every save and rename names the revision it started from, so a stale tab cannot overwrite
+A project keeps a history of immutable versions: uploaded revisions (each original kept byte
+for byte) and frozen reviews. One version may be the approved reference; it is chosen and
+changed only explicitly (set_reference), never by adding a version.
+
+Every save, rename and reference change names the revision it started from, so a stale tab cannot overwrite
 newer work (CONFLICT, with the current summary in the error details). Names are stored
 trimmed and returned as given; the dashboard renders them as text. The store is injected
 (apps/api composes it): integrations/cad_store.py.
@@ -38,6 +42,8 @@ VIEWS = ("drawing", "model", "compare")
 LAYERS = ("cw", "chw", "valves", "instruments", "names")
 COLOUR_BY = ("medium", "review")
 PROJECT_ID = re.compile(r"cadp_[0-9a-f]{16}")
+VERSION_ID = re.compile(r"cadv_[0-9a-f]{16}")
+MAX_LABEL = 120
 DWG_SIGNATURE = re.compile(rb"AC10[0-9]{2}")
 DXF_BINARY = b"AutoCAD Binary DXF\r\n\x1a\x00"
 
@@ -250,6 +256,28 @@ class CadProjectService:
             "revision": row["revision"],
             "source": source,
             "review": None if row["open_findings"] is None else {"openFindings": row["open_findings"]},
+            "versions": row.get("version_count") or 0,
+            "referenceVersionId": row.get("reference_version"),
+        }
+
+    def _original(self, row: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "name": row["original_name"],
+            "extension": row["original_extension"],
+            "sizeBytes": row["original_size"],
+            "sha256": row["original_sha256"],
+            "available": self.store.has_original(row["original_sha256"]),
+        }
+
+    def _version(self, row: dict[str, Any]) -> dict[str, Any]:
+        upload = row["source_kind"] == "upload"
+        return {
+            "id": row["id"],
+            "number": row["number"],
+            "createdAt": row["created_at"],
+            "label": row["label"],
+            "source": {"kind": "upload", "original": self._original(row)} if upload else {"kind": "review"},
+            "review": None if row["open_findings"] is None else {"openFindings": row["open_findings"]},
         }
 
     @staticmethod
@@ -258,6 +286,34 @@ class CadProjectService:
         if not isinstance(project_id, str) or not PROJECT_ID.fullmatch(project_id):
             raise ServiceError("NOT_FOUND", "There is no CAD project with this ID.")
         return project_id
+
+    @staticmethod
+    def _known_version(version_id: Any) -> str:
+        if not isinstance(version_id, str) or not VERSION_ID.fullmatch(version_id):
+            raise ServiceError("NOT_FOUND", "There is no version with this ID in the project.")
+        return version_id
+
+    def _staged_upload(self, file_name: Any, stream: Any) -> tuple[Any, str, str, str]:
+        """An upload streamed to a temporary file and checked by its signature: the staged
+        file, its file name, extension and the project name it gives. The caller discards it."""
+        name, extension, project_name = _file_name(file_name)
+        staged = self.store.stage(stream, MAX_UPLOAD_BYTES)
+        try:
+            if not staged.size:
+                raise _invalid("The file is empty.")
+            if not _looks_like(extension, staged.head):
+                raise ServiceError("UNSUPPORTED", f"The file does not look like a {extension.upper()} drawing.")
+        except BaseException:
+            self.store.discard(staged)
+            raise
+        return staged, name, extension, project_name
+
+    def _upload_version(self, staged: Any, name: str, extension: str) -> dict[str, Any]:
+        """A new upload version's row (its number is given by the store)."""
+        return {
+            "id": f"cadv_{secrets.token_hex(8)}", "created_at": self.clock(), "label": None, "source_kind": "upload",
+            "original_name": name, "original_extension": extension, "original_size": staged.size, "original_sha256": staged.sha256,
+        }
 
     def _new(self, name: str, **fields: Any) -> dict[str, Any]:
         now = self.clock()
@@ -286,23 +342,94 @@ class CadProjectService:
         return {"project": self._summary(row), "state": state}
 
     def upload(self, file_name: Any, stream: Any) -> dict[str, Any]:
-        """A project from a drawing's bytes, streamed and hashed, capped at MAX_UPLOAD_BYTES."""
-        name, extension, project_name = _file_name(file_name)
-        staged = self.store.stage(stream, MAX_UPLOAD_BYTES)
+        """A project from a drawing's bytes, streamed and hashed, capped at MAX_UPLOAD_BYTES.
+        The drawing is also the project's version 1; no reference is chosen for it."""
+        staged, name, extension, project_name = self._staged_upload(file_name, stream)
         try:
-            if not staged.size:
-                raise _invalid("The file is empty.")
-            if not _looks_like(extension, staged.head):
-                raise ServiceError("UNSUPPORTED", f"The file does not look like a {extension.upper()} drawing.")
             state = _default_state()
             row = self._new(
                 project_name, source_kind="upload", original_name=name, original_extension=extension,
                 original_size=staged.size, original_sha256=staged.sha256, open_findings=None, state=json.dumps(state, separators=(",", ":")),
             )
-            self.store.insert(row, staged)
+            self.store.insert(row, staged, {**self._upload_version(staged, name, extension), "project_id": row["id"], "number": 1})
         finally:
             self.store.discard(staged)
-        return {"project": self._summary(row), "state": state}
+        return {"project": self._summary({**row, "version_count": 1}), "state": state}
+
+    # --- Versions and the approved reference ------------------------------------------------
+
+    def versions(self, project_id: Any) -> dict[str, Any]:
+        rows = self.store.versions(self._known(project_id))
+        if rows is None:
+            raise ServiceError("NOT_FOUND", "There is no CAD project with this ID.")
+        return {"versions": [self._version(r) for r in rows]}
+
+    def version(self, project_id: Any, version_id: Any) -> dict[str, Any]:
+        """One version, with its frozen review when it is a review."""
+        row = self.store.version(self._known(project_id), self._known_version(version_id))
+        if row is None:
+            raise ServiceError("NOT_FOUND", "There is no version with this ID in the project.")
+        return {"version": self._version(row), "review": json.loads(row["review"]) if row["review"] else None}
+
+    def _added(self, project_id: str, version: dict[str, Any] | None) -> dict[str, Any]:
+        if version is None:
+            raise ServiceError("NOT_FOUND", "There is no CAD project with this ID.")
+        return {"project": self._summary(self.store.get(project_id)), "version": self._version(version)}
+
+    def upload_version(self, project_id: Any, file_name: Any, stream: Any) -> dict[str, Any]:
+        """A new revision from a drawing's bytes, appended to the project's history. The approved
+        reference never changes here."""
+        project_id = self._known(project_id)
+        staged, name, extension, _ = self._staged_upload(file_name, stream)
+        try:
+            made = self.store.add_version(project_id, self._upload_version(staged, name, extension), self.clock(), staged)
+        finally:
+            self.store.discard(staged)
+        return self._added(project_id, made)
+
+    def add_review_version(self, project_id: Any, body: Any) -> dict[str, Any]:
+        """Freeze a review (the dashboard's topology) as a new version, with an optional label."""
+        project_id = self._known(project_id)
+        body = _body(body)
+        label = None if body.get("label") is None else _name(body["label"], "label", MAX_LABEL)
+        review = _object(body.get("review"), "review", {"topology"})
+        if not isinstance(review["topology"], dict):
+            raise _invalid("review.topology must be an object.")
+        try:
+            text = json.dumps(review, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+            size = len(text.encode())
+        except (ValueError, UnicodeEncodeError):
+            raise _invalid("review contains a number that is not finite or text that is not valid Unicode.") from None
+        if size > MAX_STATE_BYTES:
+            raise _invalid(f"review is larger than {MAX_STATE_BYTES // 1024:,} KB.")
+        row = {
+            "id": f"cadv_{secrets.token_hex(8)}", "created_at": self.clock(), "label": label, "source_kind": "review",
+            "review": text, "open_findings": _whole(body.get("openFindings"), "openFindings"),
+        }
+        return self._added(project_id, self.store.add_version(project_id, row, row["created_at"]))
+
+    def set_reference(self, project_id: Any, body: Any) -> dict[str, Any]:
+        """Choose the approved reference (a version of this project), or clear it with null.
+        Only this call changes it; it names the revision it started from, like a save."""
+        project_id = self._known(project_id)
+        body = _body(body)
+        revision = _whole(body.get("expectedRevision"), "expectedRevision", 1)
+        version_id = body.get("versionId")
+        if version_id is not None and self.store.version(project_id, self._known_version(version_id)) is None:
+            raise ServiceError("NOT_FOUND", "There is no version with this ID in the project.")
+        return self._update(project_id, revision, {"reference_version": version_id, "modified_at": self.clock()})
+
+    def version_original(self, project_id: Any, version_id: Any) -> tuple[BinaryIO, str]:
+        """An upload version's original drawing, open for reading, and its file name."""
+        row = self.store.version(self._known(project_id), self._known_version(version_id))
+        if row is None:
+            raise ServiceError("NOT_FOUND", "There is no version with this ID in the project.")
+        if row["source_kind"] != "upload":
+            raise ServiceError("NOT_FOUND", "This version is a saved review; it has no original drawing.")
+        f = self.store.open_original(row["original_sha256"])
+        if f is None:
+            raise ServiceError("NOT_FOUND", "The original drawing is missing from the CAD folder.")
+        return f, row["original_name"]
 
     def open(self, project_id: Any) -> dict[str, Any]:
         row = self.store.opened(self._known(project_id), self.clock())

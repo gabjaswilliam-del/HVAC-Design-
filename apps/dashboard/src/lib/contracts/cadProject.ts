@@ -30,8 +30,29 @@ export const projectSummary = z.object({
   ]),
   /** Null: no extraction (an uploaded drawing, which is never parsed). */
   review: z.object({ openFindings: z.number().int().nonnegative() }).nullable(),
+  /** How many versions the project's history holds (a service from before versions sends none). */
+  versions: z.number().int().nonnegative().default(0),
+  /** The approved reference: chosen explicitly, never moved by a new version. */
+  referenceVersionId: z.string().nullable().default(null),
 });
 export type ProjectSummary = z.infer<typeof projectSummary>;
+
+/** One immutable entry of a project's history: an uploaded revision or a frozen review. */
+export const projectVersion = z.object({
+  id: z.string().regex(/^cadv_[0-9a-f]{16}$/),
+  number: z.number().int().positive(),
+  createdAt: z.string(),
+  label: z.string().nullable(),
+  source: z.discriminatedUnion("kind", [z.object({ kind: z.literal("upload"), original }), z.object({ kind: z.literal("review") })]),
+  /** A frozen review's open findings; null for an upload, which has no extraction. */
+  review: z.object({ openFindings: z.number().int().nonnegative() }).nullable(),
+});
+export type ProjectVersion = z.infer<typeof projectVersion>;
+export const versionList = z.object({ versions: z.array(projectVersion) });
+/** A version with its frozen review (null: an upload, never parsed). */
+export const versionWithReview = z.object({ version: projectVersion, review: z.object({ topology }).nullable() });
+export const versionAdded = z.object({ project: projectSummary, version: projectVersion });
+export type VersionAdded = z.infer<typeof versionAdded>;
 
 const selection = z
   .union([
@@ -45,7 +66,7 @@ export const workspaceState = z.object({
   selection,
   /** The 2D viewport: its centre in drawing units and its scale. */
   drawing: z.object({ cx: z.number(), cy: z.number(), scale: z.number().positive() }).optional(),
-  /** The 3D camera as an orbit (schematic units, degrees, × the fit). */
+  /** Legacy: the removed 3D view's camera. Still accepted so older saved projects open; never written. */
   model: z
     .object({ target: z.tuple([z.number(), z.number(), z.number()]), azimuth: z.number(), polar: z.number().min(0).max(80), zoom: z.number().min(0.5).max(8) })
     .optional(),

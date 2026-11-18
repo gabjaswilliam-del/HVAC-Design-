@@ -27,6 +27,17 @@ interface PlantSceneProps {
   highlightIds?: string[];
   /** The highlight's colour (a located issue's own colour); the theme default otherwise. */
   highlightColor?: string;
+  /** Optional CAD trace and open-finding sets, without changing runtime selection defaults. */
+  traceIds?: ReadonlySet<string>;
+  findingIds?: ReadonlySet<string>;
+  /** Optional CAD review state for each topology link. */
+  reviewLinkStates?: Record<string, "confirmed" | "review" | "conflict" | "unknown">;
+  layers?: { cw: boolean; chw: boolean; valves: boolean; instruments: boolean; names: boolean };
+  showHeaderLabels?: boolean;
+  /** CAD sheets draw headers heavier than branches; the Overview keeps one weight. */
+  heavyHeaders?: boolean;
+  onSelectLink?: (id: string) => void;
+  pipeLabel?: (link: Topology["links"][number]) => string;
   /** Equipment with an open issue: never dimmed when something else is selected. */
   alarmIds?: string[];
   showTags?: boolean;
@@ -53,6 +64,14 @@ export function PlantScene({
   reviewLabels,
   highlightIds = [],
   highlightColor,
+  traceIds,
+  findingIds,
+  reviewLinkStates,
+  layers,
+  showHeaderLabels = false,
+  heavyHeaders = false,
+  onSelectLink,
+  pipeLabel,
   alarmIds = [],
   showTags = true,
   showLabels = true,
@@ -99,63 +118,72 @@ export function PlantScene({
     return { links, devices, buses };
   }, [topology, selectedId]);
 
+  const activeLinks = traceIds ?? related.links;
+  const activeDevices = traceIds ?? related.devices;
+  const activeBuses = traceIds ?? related.buses;
+  const systemVisible = (medium: "cw" | "chw") => !layers || layers[medium];
+  const namesVisible = !layers || layers.names;
   const flowingLinks = new Set(geometry.filter(({ link }) => devicesOf(link).every(isMoving)).map(({ link }) => link.id));
   const busFlowing = (busId: string) => topology.links.some((l) => flowingLinks.has(l.id) && busesOf(l).includes(busId));
-  const focus = selectedId !== null && topology.devices.some((d) => d.id === selectedId);
+  const focus = traceIds ? selectedId !== null || selectedLinkId !== null : selectedId !== null && topology.devices.some((d) => d.id === selectedId);
 
   return (
     <g className={`plant${focus ? " plant--focus" : ""}`}>
-      {Object.entries(layout.buses).map(([busId, polylines]) =>
+      {Object.entries(layout.buses).filter(([busId]) => systemVisible(BUS_MEDIUM[busId].startsWith("chw") ? "chw" : "cw")).map(([busId, polylines]) =>
         polylines.map((points, i) => (
           <Pipe
             key={`${busId}-${i}`}
             points={points}
             medium={BUS_MEDIUM[busId]}
             flowing={busFlowing(busId)}
-            active={related.buses.has(busId)}
+            active={activeBuses.has(busId)}
             linkId={busId}
+            weight={heavyHeaders ? "header" : "branch"}
           />
         )),
       )}
 
-      {Object.entries(layout.bypasses).map(([id, b]) => (
-        <Pipe key={id} points={b.points} medium={id.startsWith("cw") ? "cw-hot" : "chw-supply"} flowing={false} linkId={id} />
+      {Object.entries(layout.bypasses).filter(([id]) => systemVisible(id.startsWith("chw") ? "chw" : "cw")).map(([id, b]) => (
+        <Pipe key={id} points={b.points} medium={id.startsWith("cw") ? "cw-hot" : "chw-supply"} flowing={false} linkId={id} weight={heavyHeaders ? "header" : "branch"} />
       ))}
 
-      {geometry.map(({ link, points }) => (
+      {geometry.filter(({ link }) => systemVisible(link.medium)).map(({ link, points }) => (
         <Pipe
           key={link.id}
           points={points}
           medium={linkMedium(link)}
           flowing={flowingLinks.has(link.id)}
           evidence={link.evidence}
-          active={related.links.has(link.id) || selectedLinkId === link.id}
+          active={activeLinks.has(link.id) || selectedLinkId === link.id}
           linkId={link.id}
+          reviewState={reviewLinkStates?.[link.id]}
+          onSelect={onSelectLink}
+          label={pipeLabel?.(link)}
         />
       ))}
 
-      {layout.unconnected.map((u) => (
+      {systemVisible("chw") && layout.unconnected.map((u) => (
         <Pipe
           key={`${u.device}-${u.port}`}
           points={u.points}
           medium="chw-supply"
           flowing={false}
           evidence="unknown"
-          active={u.device === selectedId}
+          active={traceIds ? traceIds.has(u.device) : u.device === selectedId}
         />
       ))}
 
       {geometry
-        .filter((g) => g.busEnd && g.link.evidence !== "unknown")
+        .filter((g) => g.busEnd && g.link.evidence !== "unknown" && systemVisible(g.link.medium))
         .map(({ link, busEnd }) => (
           <Junction key={`j-${link.id}`} x={busEnd![0]} y={busEnd![1]} medium={linkMedium(link)} />
         ))}
 
-      {Object.entries(layout.bypasses).map(([id, b]) => (
+      {(!layers || layers.valves) && Object.entries(layout.bypasses).map(([id, b]) => (
         <BowtieValve key={id} x={b.valve[0]} y={b.valve[1]} vertical={b.vertical} state="stopped" />
       ))}
 
-      {Object.entries(layout.ringValves).map(([valveId, [x, y]]) => {
+      {(!layers || layers.valves) && Object.entries(layout.ringValves).map(([valveId, [x, y]]) => {
         const valve = topology.valves.find((v) => v.id === valveId);
         const at = valve?.at;
         const link = topology.links.find((l) => [l.from, l.to].some((e) => "device" in e && e.device === at?.device && e.port === at?.port));
@@ -187,13 +215,13 @@ export function PlantScene({
             state={s.state}
             stale={s.stale}
             selected={selectedId === device.id}
-            related={related.devices.has(device.id)}
+            related={activeDevices.has(device.id)}
             highlighted={highlightIds.includes(device.id)}
             highlightColor={highlightColor}
-            alarm={alarmIds.includes(device.id) || s.state === "fault"}
+            alarm={alarmIds.includes(device.id) || findingIds?.has(device.id) || s.state === "fault"}
             reviewState={reviewStates?.[device.id]}
             reviewLabel={reviewLabels?.[device.id]}
-            showLabel={showLabels}
+            showLabel={showLabels && namesVisible}
             showState={showStates}
             speedHz={readings.values[`${device.id}:frequency_hz`]?.value ?? undefined}
             onSelect={onSelect}
@@ -201,23 +229,29 @@ export function PlantScene({
         );
       })}
 
-      {layout.sensors.map((sensor, i) => (
+      {(!layers || layers.instruments) && layout.sensors.map((sensor, i) => (
         <Sensor key={i} x={sensor.at[0]} y={sensor.at[1]} letter={sensor.letter} side={sensor.side} />
       ))}
 
-      {showLabels &&
+      {showLabels && namesVisible &&
         layout.captions.map((c) => (
           <text key={c.text} x={c.at[0]} y={c.at[1]} className="scene-caption">
             {c.text}
           </text>
         ))}
 
-      {showTags &&
+      {showHeaderLabels && namesVisible && (layout.keyHeaders ?? []).map((header) => (
+        <text key={header.metric} className="cad-header-label" x={header.at[0]} y={header.at[1]} textAnchor={header.align === "end" ? "end" : "start"}>
+          {header.label}
+        </text>
+      ))}
+
+      {showTags && namesVisible &&
         layout.tags.map((tag) => {
           const reading = readings.values[tag.metric];
           const owner = tag.metric.split(":")[0];
-          const isRelated = related.devices.has(owner) || related.buses.has(owner);
-          const isAlarm = alarmIds.includes(owner) || readings.equipment[owner]?.state === "fault";
+          const isRelated = activeDevices.has(owner) || activeBuses.has(owner);
+          const isAlarm = alarmIds.includes(owner) || findingIds?.has(owner) || readings.equipment[owner]?.state === "fault";
           // A device's reading selects that device; header readings are display only.
           const selectable = onSelect && owner in layout.nodes;
           return (

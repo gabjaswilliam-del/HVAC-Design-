@@ -9,9 +9,9 @@ import "../monitoring/monitoring.css";
 import "./cadStudio.css";
 
 /**
- * CAD Studio: the Project Library when no project is open (or on a phone, when asked for), the
- * prepared sample's extraction replay the first time it opens, the Overview preview, and the
- * workbench. The page only renders the session (cadSession.ts), which outlives it.
+ * CAD Studio: Projects when no project is open, the prepared sample's extraction replay the
+ * first time it opens, the Overview preview, and an open project (Drawing | History | Compare).
+ * The page only renders the session (cadSession.ts), which outlives it.
  */
 export function CadStudioPage() {
   const copy = useStrings().cad;
@@ -30,12 +30,12 @@ export function CadStudioPage() {
   }, [steps, progress, screen]);
 
   const body = !project || screen === "library"
-    ? <ProjectLibrary variant="page" steps={steps} />
+    ? <ProjectLibrary steps={steps} />
     : screen === "extract"
       ? <ExtractionProgress progress={progress} onSkip={() => cad.skip(steps)} />
       : screen === "preview"
         ? <DraftPreview topology={session.topology} onBack={() => cad.show("studio")} onDeviceEvidence={cad.setDeviceEvidence} />
-        : <Workbench steps={steps} />;
+        : <Workbench />;
 
   return (
     <div className="cad-studio">

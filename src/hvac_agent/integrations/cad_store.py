@@ -54,9 +54,41 @@ MIGRATIONS: list[tuple[str, ...]] = [
         )""",
         "CREATE INDEX projects_original ON projects(original_sha256)",
     ),
+    # Version history. A version is immutable: an uploaded original (stored once under its
+    # SHA-256, like a project's own) or a frozen review. The approved reference is chosen
+    # explicitly (reference_version) and never moves when a version is added. An uploaded
+    # project's own original becomes its version 1; its reference stays unchosen.
+    (
+        """CREATE TABLE versions (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL,
+          number INTEGER NOT NULL,
+          created_at TEXT NOT NULL,
+          label TEXT,
+          source_kind TEXT NOT NULL CHECK (source_kind IN ('upload', 'review')),
+          original_name TEXT,
+          original_extension TEXT,
+          original_size INTEGER,
+          original_sha256 TEXT CHECK (source_kind = 'review' OR original_sha256 IS NOT NULL),
+          review TEXT CHECK (source_kind = 'upload' OR review IS NOT NULL),
+          open_findings INTEGER,
+          UNIQUE (project_id, number)
+        )""",
+        "CREATE INDEX versions_original ON versions(original_sha256)",
+        "ALTER TABLE projects ADD COLUMN reference_version TEXT",
+        """INSERT INTO versions (id, project_id, number, created_at, source_kind, original_name, original_extension, original_size, original_sha256)
+          SELECT 'cadv_' || lower(hex(randomblob(8))), id, 1, created_at, 'upload', original_name, original_extension, original_size, original_sha256
+          FROM projects WHERE source_kind = 'upload'""",
+    ),
 ]
 SUMMARY = """id, name, created_at, modified_at, last_opened_at, revision, source_kind, original_name,
-  original_extension, original_size, original_sha256, sample_id, scene_revision, config_revision, open_findings"""
+  original_extension, original_size, original_sha256, sample_id, scene_revision, config_revision, open_findings,
+  reference_version, (SELECT COUNT(*) FROM versions WHERE versions.project_id = projects.id) AS version_count"""
+VERSION = """id, project_id, number, created_at, label, source_kind, original_name, original_extension,
+  original_size, original_sha256, open_findings"""
+# Every original that a project or a version still needs.
+REFERENCED = """SELECT original_sha256 FROM projects WHERE original_sha256 IS NOT NULL
+  UNION SELECT original_sha256 FROM versions WHERE original_sha256 IS NOT NULL"""
 CHUNK = 1 << 20
 HEAD = 1024  # the first bytes, kept for the caller's signature check
 TEMP = ".tmp"
@@ -89,8 +121,8 @@ def _sync_dir(path: Path) -> None:
             os.close(fd)
 
 
-def _insert(db: sqlite3.Connection, row: dict[str, Any]) -> None:
-    db.execute(f"INSERT INTO projects ({', '.join(row)}) VALUES ({', '.join('?' for _ in row)})", tuple(row.values()))
+def _insert(db: sqlite3.Connection, row: dict[str, Any], table: str = "projects") -> None:
+    db.execute(f"INSERT INTO {table} ({', '.join(row)}) VALUES ({', '.join('?' for _ in row)})", tuple(row.values()))
 
 
 class CadStore:
@@ -139,7 +171,7 @@ class CadStore:
     def _sweep(self) -> None:
         """Remove temporary uploads and unreferenced originals that interrupted writes left."""
         with self.tx() as db:  # inside the write lock, so no write is placing a file meanwhile
-            referenced = {r[0] for r in db.execute("SELECT DISTINCT original_sha256 FROM projects WHERE original_sha256 IS NOT NULL")}
+            referenced = {r[0] for r in db.execute(REFERENCED)}
             for path in self.originals.glob(f"*{TEMP}"):
                 _remove(path)
             for path in self.originals.glob("??/*"):
@@ -201,20 +233,22 @@ class CadStore:
 
     def _drop_unreferenced(self, sha256: str) -> None:
         with self.tx() as db:  # inside the write lock, so no write can be taking this file meanwhile
-            if not db.execute("SELECT 1 FROM projects WHERE original_sha256 = ? LIMIT 1", (sha256,)).fetchone():
+            if not db.execute(f"SELECT 1 FROM ({REFERENCED}) WHERE original_sha256 = ? LIMIT 1", (sha256,)).fetchone():
                 _remove(self.original_path(sha256))
 
     # --- Projects ----------------------------------------------------------------------
 
-    def insert(self, row: dict[str, Any], staged: Staged | None = None) -> None:
-        """Add a project. With `staged`, its upload moves into place first and the row is
-        committed after it; if the row fails, the file goes again unless another project
-        references it. The caller discards `staged` afterwards either way."""
+    def insert(self, row: dict[str, Any], staged: Staged | None = None, version: dict[str, Any] | None = None) -> None:
+        """Add a project, with its first version if given. With `staged`, its upload moves into
+        place first and the rows are committed after it; if a row fails, the file goes again
+        unless another project references it. The caller discards `staged` afterwards either way."""
         try:
             with self.tx() as db:
                 if staged:
                     self._place(staged)
                 _insert(db, row)
+                if version:
+                    _insert(db, version, "versions")
         except BaseException:
             if staged:
                 with suppress(sqlite3.Error, OSError):  # never hide the original failure
@@ -249,23 +283,75 @@ class CadStore:
             return dict(db.execute(f"SELECT {SUMMARY} FROM projects WHERE id = ?", (project_id,)).fetchone())
 
     def copy(self, source_id: str, fields: dict[str, Any]) -> dict[str, Any] | None:
-        """A new project from an existing one: the same source, and so the same original file
-        (no second copy on disk), with `fields` replacing the rest. None if the source is gone."""
+        """A new project from an existing one: the same source and so the same original files
+        (no second copy on disk), its versions, and the same approved reference among them,
+        with `fields` replacing the rest. None if the source is gone."""
         with self.tx() as db:
             source = db.execute("SELECT * FROM projects WHERE id = ?", (source_id,)).fetchone()
             if not source:
                 return None
-            row = {**dict(source), **fields}
+            row = {**dict(source), **fields, "reference_version": None}
             _insert(db, row)
-            return row
+            db.execute(
+                """INSERT INTO versions (id, project_id, number, created_at, label, source_kind, original_name,
+                  original_extension, original_size, original_sha256, review, open_findings)
+                SELECT 'cadv_' || lower(hex(randomblob(8))), ?, number, created_at, label, source_kind, original_name,
+                  original_extension, original_size, original_sha256, review, open_findings
+                FROM versions WHERE project_id = ?""",
+                (row["id"], source_id),
+            )
+            db.execute(
+                """UPDATE projects SET reference_version = (SELECT id FROM versions WHERE project_id = ? AND number =
+                  (SELECT number FROM versions WHERE id = ?)) WHERE id = ?""",
+                (row["id"], source["reference_version"], row["id"]),
+            )
+            made = db.execute(f"SELECT {SUMMARY}, state FROM projects WHERE id = ?", (row["id"],)).fetchone()
+            return dict(made)
 
     def delete(self, project_id: str) -> bool:
-        """Remove a project, then its original once no other project references it."""
+        """Remove a project and its versions, then each of their originals once nothing else
+        references it."""
         with self.tx() as db:
             row = db.execute("SELECT original_sha256 FROM projects WHERE id = ?", (project_id,)).fetchone()
             if not row:
                 return False
+            shas = {r[0] for r in db.execute("SELECT original_sha256 FROM versions WHERE project_id = ? AND original_sha256 IS NOT NULL", (project_id,))}
+            db.execute("DELETE FROM versions WHERE project_id = ?", (project_id,))
             db.execute("DELETE FROM projects WHERE id = ?", (project_id,))
-        if row["original_sha256"]:
-            self._drop_unreferenced(row["original_sha256"])
+        for sha256 in shas | ({row["original_sha256"]} if row["original_sha256"] else set()):
+            self._drop_unreferenced(sha256)
         return True
+
+    # --- Versions ----------------------------------------------------------------------
+
+    def versions(self, project_id: str) -> list[dict[str, Any]] | None:
+        """A project's versions, oldest first, without their reviews; None if it is missing."""
+        with self.lock:
+            if not self.db.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone():
+                return None
+            return [dict(r) for r in self.db.execute(f"SELECT {VERSION} FROM versions WHERE project_id = ? ORDER BY number", (project_id,))]
+
+    def version(self, project_id: str, version_id: str) -> dict[str, Any] | None:
+        """One version with its review, or None."""
+        rows = self._all(f"SELECT {VERSION}, review FROM versions WHERE project_id = ? AND id = ?", (project_id, version_id))
+        return rows[0] if rows else None
+
+    def add_version(self, project_id: str, row: dict[str, Any], now: str, staged: Staged | None = None) -> dict[str, Any] | None:
+        """Append a version numbered after the last. The project's reference and revision are
+        untouched; its modified time moves. The new version without its review, or None if the
+        project is missing. A staged upload is placed, and dropped again on failure, as in `insert`."""
+        try:
+            with self.tx() as db:
+                if not db.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone():
+                    return None
+                number = db.execute("SELECT COALESCE(MAX(number), 0) + 1 FROM versions WHERE project_id = ?", (project_id,)).fetchone()[0]
+                if staged:
+                    self._place(staged)
+                _insert(db, {**row, "project_id": project_id, "number": number}, "versions")
+                db.execute("UPDATE projects SET modified_at = ? WHERE id = ?", (now, project_id))
+                return dict(db.execute(f"SELECT {VERSION} FROM versions WHERE id = ?", (row["id"],)).fetchone())
+        except BaseException:
+            if staged:
+                with suppress(sqlite3.Error, OSError):  # never hide the original failure
+                    self._drop_unreferenced(staged.sha256)
+            raise

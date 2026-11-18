@@ -393,10 +393,11 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   something to say: a connected local model ("Local model …") or "Assistant unavailable"
   in caution when the service fails; the offline rules carry none. There is no notice
   above the conversation and no context line; an answer is headed by the assistant's name
-  and its time, and a failed tool is caution. An answer arrives as a calm stream: the
-  question at once (with its attached files as chips), a quiet "Working" line (three
-  bars), plain step labels folding into one recessed "Used N tools" line, then
-  words fading in (320 ms) behind a still laminate caret. Answers shape themselves to
+  and its time. An answer arrives as a calm stream: the question at once (with its
+  attached files as chips), a quiet "Working" line (three bars) while the assistant works,
+  its tool calls included, then words fading in (320 ms) behind a still laminate caret.
+  The conversation shows no tool calls (2026-11-18): their names, statuses and results are
+  in the Agent map only, so nothing between question and answer repeats them. Answers shape themselves to
   their content: paragraphs by default, lists and tables only where they help. The
   conversation draws no charts: a chart is a link, or opens in the main display. A view
   the request asked to see opens there, and the answer ends with one quiet line between
@@ -411,6 +412,55 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   A question about the live run opens AI Pilot on it, never the main display; one about a
   recorded run ("How did the last simulation go?", "Show me the last simulation") opens its
   replay.
+  **Agent map** (2026-11-18): one control in the composer's bar, immediately left of Send
+  (or Stop), once the conversation has an execution that reported agents: a 36 px pill on a
+  faint green-tinted dark ground with a low-contrast green hairline, holding a network icon,
+  "Agent map" (500, 13.5 px) and a 26 px round badge counting the subagents running now
+  (never the root, never ended ones), 8 px apart. While subagents run, a 7 px green dot sits
+  on the icon's corner (ringed in the pill's colour, a slow 2.6 s fade, none with reduced
+  motion), the hairline strengthens and the badge turns green; while some only wait
+  (queued), the dot is hollow grey; with none, no dot and a neutral 0. Hover brightens
+  ground and hairline; open (`aria-expanded`) holds a stronger green hairline; focus is a
+  2 px outline. Send and Stop in the composer take the same 36 px pill height, so the row
+  reads as one. Below a 300 px bar it keeps the icon, dot and badge and drops the words
+  (container query). It appears once the conversation has a request; its count follows the
+  current execution (the latest request that reported agents). It opens a large modal
+  (native `<dialog>`, up to 1180 × 820 px, full screen on a phone; Escape or the close
+  button return to the conversation unchanged, focus back on the control). The header
+  names the conversation, its task count, how many subagents of the current execution run
+  or wait, and "Token usage not reported" once when no agent reported any. The map covers
+  the whole conversation (`agentLayout.ts`) on graphite (`#15181c`) with a faint dot grid:
+  one left-to-right branch per request, stacked top to bottom in the order asked, 40 px
+  apart and never joined. A branch starts with its task card on the left: the request,
+  carrying its execution (the turn's root agent: status, duration, tokens; "Executed by" in
+  the details), so there is no separate "AI Assistant" card. The tool calls and subagents
+  that execution reported branch to its right; a subagent's own tools and subagents branch
+  from it (`agentId`, `parentId`); a call or agent whose parent was not reported stays under
+  the task. A new request adds a branch below; earlier branches keep their stored steps,
+  results, times and statuses. Cards are one size (252 × 62), a column per depth 64 px
+  apart; leaves stack 14 px apart and each parent is centred on its first and last child.
+  One SVG behind the cards draws 1 px grey right angles: a stub from the parent's right edge
+  to a spine half a gap away, the spine across its children's centres, a branch to each
+  child (a single child is one straight line). Card: a kind tile (request, agent in a blue
+  tint, tool call) with an 8 px status dot on its corner, the name, one line (the agent's
+  task or error, the tool's result, "4 tools · 2 agents" for a task), and duration and
+  tokens on the right when reported. Running is blue (`#7aa2f7`) with a slow fade, complete
+  green, failed red, queued a hollow grey dot, cancelled grey; the word is in the card's
+  accessible name and the details. A branch's fold control sits on its right edge where the
+  connector leaves; folded it reads "+N", and the branch's cards and connectors are not
+  drawn. Above 60 nodes, branches from each task's third column on open folded. The map
+  opens showing all of it when that stays at 60 % or more, otherwise fitted to its width
+  (not below 60 %) and scrolled to the latest request, which is selected; −, +, the zoom
+  level and Fit (the whole map, down to 40 %) sit bottom right, and it scrolls. Up and Down
+  move through cards in map order; Right and Left open and fold. The 320 px details panel
+  shows, for a task, "Task N", status, error, who executed it, times, tokens, subagents
+  and tool calls; for an agent, its status, error, task, who started it (a link, the task
+  for the root's children), times, duration, tokens, agents started and tool calls; for a
+  tool call, the tool, who called it (a link), its result (or error, in caution), start,
+  end, duration and arguments; a tool card's line is its result and its meta its duration;
+  a failed call is caution. "Not reported" stands
+  for anything the harness did not report. The demo reports one agent per request (the
+  offline responder, shown as the task) and no tokens.
   The view follows the end until the reader scrolls or works above it; "Jump to latest" is a raised chip over the
   conversation. Reduced motion: no fades, no glides. While an answer streams, Cancel
   replaces Send, names its shortcut (Esc in the composer) and hands focus back to the
@@ -498,49 +548,50 @@ box-shadows, never borders that shift layout. No coloured side stripes.
   COP": its figures (now, average, range, change since midnight), a chart with a "Now"
   rule, Indicator details, and the other indicators as links. Labelled "Telemetry,
   scenario"; never a simulation.
-- **CAD Studio** (`/cad`, its own chunk; the open project's name is the h2): an industrial
-  CAD workbench laid out by its own width, not the window's. **Project Library**: the
-  prepared sample pinned (outline "Prepared sample"), then saved projects by last opened,
-  each with a thumbnail drawn from its own data (the sample plant in its media colours; a
-  drawing is a format tile, never a fake preview), its source and date, and its review
-  ("2 open findings", "Reviewed", "No extraction"); search, Import drawing (the one
-  primary action; a drawing dropped anywhere on the page imports too) and a row menu
-  (Rename, Duplicate, Download original, Delete… whose confirmation names what goes). It is
-  the page while no project is open; beside an open one it docks from 1366 px of CAD area,
-  and narrower it starts closed and Projects opens it as a column that narrows the canvas,
-  never over the drawing; on a phone Projects goes back to it. **Toolbar** (44 px): Projects,
-  the name (renamed in place; in File on a phone), "Prepared sample" or the drawing's
-  format, the save state ("Saved 14:32", "Unsaved changes", "Saving…", "Not saved"), Save
-  (laminate only while there are unsaved changes; the sample's first save asks for a name;
-  Ctrl+S), File (Save as…, Duplicate, Download original, Revert changes, Close project),
-  2D | 3D | Compare (a radio group) and Preview in Overview. In 3D, a "Schematic model"
-  tag distinguishes conventional geometry from engineering dimensions. **M3b scene**:
-  the prepared plant's 16 devices, all recorded branches and headers, two bypasses, 13
-  valves and seven sensors in an orthographic isometric view (Corner B). Four cooling
-  towers, three chillers, eight pumps and the lumped data hall use neutral painted steel;
-  pipes retain the four media colours. An engineering grid and equipment-only contact
-  shadows ground the model; no auto-rotation or fly-through. Left-drag orbits through
-  360 degrees, right- or middle-drag pans, and the wheel zooms; Shift+arrow keys orbit
-  and plain arrows pan. A short click selects; a drag beyond the threshold never does.
-  Targets and zoom are bounded, and Fit, Reset isometric and exact Plan are available.
-  Fit centres all projected mesh and visible-label bounds, with breathing room around the
-  data hall and outermost pipes. Selection, recorded-path trace and equipment names stay
-  synchronized with the Inspector and 2D views. Findings stay visible, standby roles are
-  labelled, and the layer menu controls CW, CHW, valves, instruments and names. Colour by
-  Medium and Colour by Review preserve their distinct meanings. Labels and short leaders
-  project and declutter in the same frame as the scene, with direct DOM transforms and no
-  delayed timer or CSS transition. Three.js and the model chunk load only when chosen.
-  WebGL2 absence, failure or context loss shows the 2D drawing. Camera persistence remains outside this approval gate. **Engineering Inspector** (320 px):
-  Findings, then every item of equipment with the review of its connections ("Needs review ·
-  2 inferred connections", "All connections confirmed"); a selection replaces them (‹ Back
-  to findings · n open), with the item's own evidence ("Equipment evidence") and its
-  connection review ("Connections needing review: 2 of 4") as two rows, then its
-  connections and nameplate. A drawing is stored and downloadable, never parsed: its file
-  sheet says "No extraction". Projects persist on the local project service (`cad=local`,
-  explicit Save, a save from a stale tab is refused and can be kept as a copy); without it
-  the review stays in this tab ("This tab only", Save disabled with the reason). Moving the
-  view never marks a project unsaved; the view, selection and divider are saved with it.
-  A saved 3D view reopens in 2D until camera persistence is completed in M4.
+- **CAD Studio** (`/cad`, its own chunk; 2D only since 2026-11-17; dark since 2026-11-18): a
+  dark drawing studio inside the graphite shell. `.cad-home`, `.cad-wb`, `.cad-entry` and
+  `.cad-studio__confirm` re-scope the dashboard's tokens (`cadStudio.css`, no invert filter):
+  charcoal-navy chrome (`#12171e`), slightly lighter panels (`#181e26`, raised `#1f2630`), a
+  dark slate sheet (`#151b23`) with a faint grid, soft white and muted grey text (`#e7ebf0`,
+  `#aab3be`, `#8e98a4`) and one restrained blue for selection, focus and the approved
+  reference (`#5b8def`; filled buttons `#3a6fd0`, 4.8:1 with white). Pipe media keep the
+  dashboard's own colours and meanings; pipe casings take the sheet colour, so crossings still
+  read as gaps. **Projects** (the page while nothing is open): Upload drawing is the one
+  primary action. One shared uploader (`Uploader.tsx`) serves this button, the project
+  header's Upload and dropping files anywhere on either; it accepts DWG and DXF only (what the
+  project service stores) and names every refused file. New project (a named review of the
+  prepared sample) and search sit beside it. There is no file-type filter: every project is a
+  drawing. Then cards (the prepared sample pinned first): a preview drawn from
+  the project's own data (the sample plan in its media colours, or the file's format, never a
+  fake preview), name, versions and date, review state, the approved-reference mark, and a menu
+  (Rename, Duplicate, Download original, Delete… with a confirmation naming what goes).
+  **An open project**: a 56 px header (back to Projects, the name renamed in place, Prepared
+  sample or the format, This tab only in demo mode, the save state) with **Drawing | History |
+  Compare** as tabs in the middle and Upload (a new version; the reference stays), Preview in Overview, Save (laminate blue
+  only with unsaved changes; Ctrl+S) and the project menu at the right. **Drawing** gives the
+  canvas the whole area (92–94 % of the CAD area at 1280–1920 px): Select | Pan top left;
+  the source drawing beside the extraction (one pan and zoom, a 25–75 % divider), Review (with
+  the open findings count), Layers and Legend top right; zoom and Fit bottom right. The review
+  panel (Properties, Findings, Evidence; 328 px; over the canvas below 1100 px) opens on a
+  selection or on Review, and closing it ends the inspection. A version opened from History is
+  read-only, with "Back to working review". An uploaded drawing is a file card ("No
+  extraction"), never parsed. **History**: newest first, the working review (dashed) above the
+  saved versions; each version has a revision delta with its number (filled blue for the
+  approved reference), a preview, its file name or label, date and size, its state, and Open,
+  Compare, Download and Set as reference. Only that action changes the reference; changing an
+  existing one asks first and says the old one stays; uploading a revision never moves it.
+  **Compare**: Reference (the approved one by default, badged) and Target (the working review
+  or a version), counts (+ added, − removed, ~ changed), Side by side | Overlay | Differences
+  and the Changes list, on one row (the mode names become icons when the CAD area is under
+  1120 px, a container query, so an open workspace dock does not wrap it). The panes share one
+  pan and zoom; Overlay draws the reference in grey under the target with an opacity slider;
+  Differences mutes the target. The sheet stays outside those faded layers. Marks come from the
+  two reviews (`diff.ts`): added connections green, removed ones red and dashed at the
+  reference's place, changed connections, equipment and ports amber, each with a revision
+  triangle carrying +, − or ~ so colour is never the only cue. Two uploads compare as files
+  (format, size, date, SHA-256: Identical or Different file), never as drawings. Projects
+  persist on the local project service (`cad=local`); in demo mode the same rules run in this
+  tab (`cadProjectsMemory.ts`). A saved 3D view (`view: "model"`) reopens on the 2D drawing.
 - **Knowledge** (`/knowledge`, the h1 is Knowledge): two systems on one page, **RAG Graph |
   Memory graph**, as raised-and-outlined tabs (arrow keys, Home, End; the address keeps the
   tab), with the local service's tag at the right when the page uses it (Local knowledge or

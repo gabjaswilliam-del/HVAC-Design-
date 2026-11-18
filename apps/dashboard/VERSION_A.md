@@ -2266,3 +2266,182 @@ status. No hardware-GPU comparison is implied. The viewport refinement evidence 
 left-mouse orbit, frame-synchronized labels, trace/finding behavior and 2D fallback. M4 camera/workspace/URL persistence, M5 project
 packages and M6 release hardening were not started. Arbitrary DWG/DXF parsing remains future
 work; uploaded files are stored and downloadable, not automatically rendered or extracted.
+
+## CAD Studio 2D: Projects, History and Compare (2026-11-17)
+
+On the owner's prompt ("CAD Studio 2D redesign", resumed after interruptions), CAD Studio became
+a 2D drawing management and comparison studio. It continues Kimi's unfinished 2D work (kept:
+the drawing toolbar's tools, the richer 2D scene, connection selection, layers and trace, the
+New project flow, the Properties | Findings | Evidence inspector; fixed: the missing `useId`
+import that crashed the inspector, a duplicate `connections` string, grid paths drawn with a
+black fill, and two shared-scene changes that altered the Overview).
+
+- **Projects, History, Compare.** See DESIGN.md's CAD Studio entry. The approved reference is
+  separate from ordinary uploads: only an explicit Set as reference (revision-checked) changes
+  it; a new upload or saved version never does.
+- **Versions (local service, additive).** Migration 2 adds a `versions` table (immutable uploads
+  and frozen reviews; originals stay content-addressed and byte-exact) and
+  `projects.reference_version`. Upload projects from before are backfilled with their own
+  original as version 1, with no reference chosen. New routes: `projects/{id}/versions` (GET,
+  POST a review), `versions/upload` (raw bytes), `versions/{versionId}[/original]`,
+  `projects/{id}/reference`. Copy keeps the history and the reference; delete and the startup
+  sweep keep every original a version still uses. No existing column, route or response field
+  changed meaning.
+- **Demo mode.** Uses `cadProjectsMemory.ts`, the same rules held in the tab, so Save, versions
+  and the reference work without the service (labelled "This tab only"; lost on reload). Before,
+  demo Save was disabled.
+- **Comparison.** `diff.ts` computes added, removed and changed connections (evidence, ends,
+  medium), equipment evidence changes and ports connected or left open, from the two reviews only.
+  Uploaded drawings are never parsed, so they compare as files (SHA-256), never as drawings.
+- **3D removed.** `src/features/cad-studio/model3d/` (13 files: renderer, camera, labels, fit,
+  plant model and their tests) and `e2e/cad-model3d*.spec.ts`; the 3D view switch, camera
+  presets and 3D strings. `three` stays installed: the Knowledge memory constellation uses it.
+  The trace test moved to `trace.test.ts`. Saved `view: "model"` reopens on 2D and the next save
+  drops the camera; saved `"compare"` reopens with the source drawing beside the extraction.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `npx tsc --noEmit` | Pass |
+| Vitest (whole dashboard) | 237 passed in 26 files |
+| Python `unittest discover -s tests` | 98 OK (CAD project and API: 35, including versions, reference, copy, sweep, legacy upgrade) |
+| Playwright CAD (`cad`, `cad-session`, `cad-projects-local` with the real Python service) | **14 passed** together: upload and history, explicit reference (never moved by a revision, change confirmed), the three Compare modes with shared pan and zoom, file comparison, the filter, read-only versions, persistence across reload and service restart with byte-exact revision downloads, stale-save conflict, 3 desktop sizes, axe serious/critical 0 (Projects, Compare, History, phone) |
+| Complete Playwright | 283 tests: **259 passed, 17 failed, 6 skipped, 1 did not run**. 16 failures are outside CAD Studio and match the record above (agent, display, Engineering hub, narrow monitoring, overlap ×6, scene label, shell ×2), with one more agent case (`agent.spec.ts:766`, speech-to-text expecting `/trend`), which no changed file touches and which also fails alone; not checked on HEAD. The 17th, the new CAD history test, timed out mid-click under the full parallel load (a stalled page) and passes alone and with all CAD specs |
+| `npm run build`, `npm run build:demo` | Pass. CAD Studio 97.4 kB JS, 37.3 kB CSS; no `Plant3DCanvas` chunk; demo entry 947.7 kB (971.0 kB before) |
+| Browser (scratchpad `flow.mjs`, demo build on 5173) | 1920×1080, 1440×900, 1280×800: the whole workflow, no console or page errors; drawing 92–94 % of the CAD area, Compare canvas 82–89 % |
+
+Run Node tooling from PowerShell here: under Git Bash the drive-letter case loads Vitest twice.
+Not done: the brief `src/features/cad-studio/README.md` still describes 3D; it is a brief, so its
+update is left to the owner (suggested: replace steps 3–4 and "M3b rendering boundary" with the
+Projects / History / Compare workflow above).
+
+### CAD Studio: dark theme and one upload workflow (2026-11-18)
+
+- **Dark theme.** `cadStudio.css` re-scopes the tokens to charcoal-navy chrome, lighter panels,
+  a dark slate sheet and one restrained blue (values in DESIGN.md); no invert filter, and the
+  pipe media colours are the dashboard's own. Filled buttons moved from `#3d74d6` (axe: 4.49:1
+  with white) to `#3a6fd0` (4.8:1).
+- **One upload.** `Uploader.tsx` is the only upload control: Projects' Upload drawing (new
+  projects), the project header's Upload (new versions; the reference never moves) and dropping
+  files on either. DWG and DXF only, matching `projects.py` `EXTENSIONS` and the in-tab service;
+  refused files are named. The All | Reviews | Drawings filter is gone: every project is a
+  drawing, so it separated nothing; search remains.
+- **Compare.** The bar stays on one row when the workspace dock narrows the CAD area (container
+  query); the sheet is drawn outside the faded Overlay and Differences layers, which had turned
+  its colour into a grey rectangle.
+- **Cleanup.** 27 lines of unused CAD strings (the old import entry, parser and 3D view
+  wording) removed from `en.ts`; the legacy `workspace.model` schema field is kept so older
+  saved projects still open, and is never written.
+
+| Check | Result |
+|---|---|
+| `npx tsc --noEmit` | Pass |
+| Vitest (whole dashboard) | 238 passed in 26 files (CAD Studio 26) |
+| Playwright `cad`, `cad-session`, `cad-projects-local` | **14 passed** (first run 11/14: a test that searched and then clicked a card its search had hidden, and the 4.49:1 button contrast twice) |
+| `npm run build`, `npm run build:demo` | Pass |
+| Browser (scratchpad script, demo on 5173) | 1920×1080, 1440×900, 1280×800: Projects with an upload and a refused PDF, Drawing and its review, Save version, History with the reference set, the three Compare modes and Changes; no console or page errors; drawing 92–94 % of the CAD area |
+
+### AI assistant: agent map (2026-11-18)
+
+The assistant had no agent hierarchy: one scripted responder per turn calling simulated tools,
+no subagents, no parent links, no token counts. The owner chose to add agent events to the
+harness contract rather than infer a hierarchy or ship mock agents.
+
+- **Contract (additive, `lib/contracts/agent.ts`).** Events `agent_start` (agentId, parentId
+  or null for the root, name, task, wall-clock time), `agent_usage` (input and output tokens
+  so far) and `agent_end` (status, time, usage, error); `tool_call` and stored tool parts may
+  name their `agentId`; a turn may store `agents` (`agentRun`). `applyEvent` folds them, so
+  the live stream and stored conversations give the same data; an agent the harness leaves
+  running takes the turn's outcome with no end time (duration not reported, not invented).
+  Older turns without agents simply offer no map.
+- **Demo harness (`fixtures/fixtureAgent.ts`).** Reports exactly what it is: one root agent,
+  "AI Assistant", tasked with the question, owning every tool call, ended just before
+  `turn_end` with the turn's outcome; no usage, since no model counts tokens.
+- **UI (`features/agent/AgentMap.tsx`, `agentTree.ts`, `agent.css`).** The chip in each
+  answer's header and the modal described in DESIGN.md. The tree is built only from
+  `parentId`; an unreported parent or a cycle puts the agent at the top level. Durations of
+  running agents tick each second only while the map is open; folded branches are not
+  rendered.
+
+| Check | Result |
+|---|---|
+| `npx tsc --noEmit` | Pass |
+| Vitest (whole dashboard) | 247 passed in 28 files: `agentTree.test.ts` (nesting, orphans and cycles, durations, live events), `AgentMap.test.tsx` (a nested 4-agent turn, test data only: hierarchy, fold, details, live updates, Escape and close), harness test (one root agent, tool ownership, no usage, stored, cancelled) |
+| Playwright `agent-map.spec.ts` | **2 passed**: a live answer's map from Running to Complete with its tool calls and axe serious/critical 0, then Escape back to the conversation; a stored demo conversation's map |
+| Playwright `agent-map`, `agent`, `workspace` together | 44 passed, 3 failed, none from the map: `agent.spec.ts:143` (the forecast answer now goes to the AI display, `view=display`, not Prediction) and `:191` (the Conversations list after a new answer) fail identically on a clean `git archive` of HEAD, so they predate this work; `:766` (speech-to-text) is the recorded failure |
+| `npm run build`, `npm run build:demo` | Pass |
+| Browser | 1440×900, 1280×800 and 390×844: the demo map, and the real component mounted from a scratchpad script with a scratch 15-agent nested turn (3 levels, running, failed, tokens) to check connectors, folding and details; no console errors |
+
+**Moved into the composer (owner's mock-up, same day).** The entry point is now one control
+in the composer's bar, left of Send/Stop (`ConversationView.tsx`); the chip in each answer's
+header is removed. Its badge counts subagents running now (`activeSubagents`: not the root,
+not ended ones), with a green dot while any run and a hollow dot while some only wait; it maps
+the conversation's live turn or else its latest turn with agents (`mapTurn`). The contract
+gained a `queued` status (`agent_start.status`) and `agent_status` (queued ⇄ running, with the
+time it starts running, so durations count run time). Closing the modal closes the `<dialog>`
+first, then returns focus to the control (the page behind a modal dialog is inert).
+
+| Check | Result |
+|---|---|
+| `npx tsc --noEmit`; Vitest | Pass; 249 passed in 28 files (count excludes root and ended agents, running/queued/idle states, queued → running → complete, latest execution chosen, focus back on close) |
+| Playwright `agent-map.spec.ts` | **3 passed**: control in the composer before Stop/Send and none in answers, demo shows 0 and no dot, opens with Enter, follows the live turn to Complete, axe 0 serious, Escape returns focus; a past conversation's map, and another conversation's own; at 390 px it sits left of Send, below the question box, badge visible, no horizontal scroll |
+| Playwright `agent-map`, `agent`, `workspace` | 45 passed; the same 3 pre-existing failures (`agent.spec.ts` 143, 191, 766) |
+| `npm run build`, `npm run build:demo` | Pass |
+| Browser | Dock 1440 and 1920 (composer 323 px), full page 1440 (708 px), phone 390 (366 px): label shown at all; idle, queued and running (3) states checked with scratch turns; no console errors |
+
+**Branching tree (owner, same day; their reference screenshot did not attach).** The indented
+list is replaced by a left-to-right tree: `agentLayout.ts` builds request → agents (by
+`parentId`) → tool calls (by `agentId`) and lays it out from subtree sizes (parents centred on
+their children, shared spines, right-angle SVG connectors behind absolutely placed cards);
+folded branches are not laid out, so their connectors go with them. `AgentMap.tsx` draws it
+with zoom, fit and scrolling, and the details panel covers requests, agents and tool calls.
+Modal, composer control, data model and live updates are unchanged.
+
+| Check | Result |
+|---|---|
+| `npx tsc --noEmit`; Vitest | Pass; 256 passed in 29 files, incl. `agentLayout.test.ts` (tools under their caller and unattributed ones under the request, one root with four tools, nested spines, single-child straight branch, fold removes cards and exactly its 4 connectors, a 7-column tree of several hundred nodes with no overlaps or loose segments, initial folding of a big tree) and the component test (parent keys, columns, 10 → 6 → 10 connectors on fold, details for each kind) |
+| Playwright `agent-map.spec.ts` | 3 passed (the demo tree: request → AI Assistant → its 2 tool calls, 6 connectors) |
+| Playwright `agent-map`, `agent`, `workspace` | 44 passed; the 3 pre-existing failures, plus `agent.spec.ts:380` (cancelling mid-answer) once under full parallel load, which passed twice alone |
+| `npm run build`, `npm run build:demo` | Pass |
+| Browser | 1920, 1440, 1280, 390: the demo tree, an example shaped like the owner's (request, AI Assistant, three agents with their own tools, one queued) with 0 card overlaps at every size, and a 123-node tree opening with 19 cards, "+13" folds, one opened; no console errors |
+
+**One branch per request, the whole conversation (owner's correction, same day).** The map now
+covers every request of the conversation, one left-to-right branch each, stacked in order and
+never joined. The turn's root agent is the task's execution, so it is the task card itself
+(status, duration, tokens; "Executed by" in the details); its tool calls and subagents branch
+straight from the task, and a subagent's tools and subagents from it. With no root agent, or
+several, the agents stay as cards. Keys are scoped per turn, so earlier branches keep their
+stored data and places when a new request arrives. The composer control takes the
+conversation's turns; its count still follows only the current execution.
+
+| Check | Result |
+|---|---|
+| `npx tsc --noEmit`; Vitest | Pass; 260 passed in 29 files: `agentLayout.test.ts` 9 (root agent merged into the task, turns without agents, several roots, unreported callers, one-task spine, nested subagent spines, fold, the owner's three-request scenario: stacked bands 40 px apart, task cards in one column, no vertical connector crossing between tasks, 14 connectors; a new request leaves earlier cards and connectors in place; a large deep conversation), component test 8 (badge counts only the current execution, task card with no separate root card, parent keys, 8 → 4 → 8 connectors, details for task/agent/tool, a second request added below while open, live updates, close) |
+| Playwright `agent-map.spec.ts` | **4 passed**, incl. the owner's scenario on the real assistant: "Calculate Chiller 1 COP.", "Check simulation.", "Compare temperatures." → 3 task cards in order, one column, each task's steps to its right and inside its own band, all scrollable into view |
+| Playwright `agent-map`, `agent`, `workspace` | 46 passed; the 3 pre-existing failures |
+| `npm run build`, `npm run build:demo` | Pass |
+| Browser | 1920, 1440, 1280: the real three-request conversation (COP: 4 tool calls; simulation: 1; temperatures: the demo calls none), 0 overlaps; 1440 and 390: a scratch three-task conversation where the second delegates to two subagents with their own tools, one failed, 0 overlaps; no console errors |
+
+**Tool calls leave the conversation; the agent map is the one execution view (owner's request,
+same day).** Answers no longer show the "Used N tools" disclosure or any tool row (name,
+status, summary, arguments): `TurnView` skips `tool` parts, and the "Working" line stays while
+a tool runs. Nothing else changes: the harness still calls the same tools, `applyEvent` still
+stores every call with its result in the turn, and stored conversations keep their records.
+The display line ("Shown on the AI display: … Show") and "Opened in the workspace" lines stay:
+they are the answer's way back to what it showed, not tool records. The contract gains an
+optional `at` on `tool_call` and `tool_result` (stored as the part's `startedAt`/`endedAt`),
+which the demo harness now sends, so the map shows each call's start, end and duration
+("Not reported" for older stored calls); a failed call's result reads as its error. Tool cards
+carry `data-tool`; `show_on_display` reads "Show on the AI display". Removed: `ToolGroup`,
+`ToolRow`, their CSS (`.agent-activity*`, `.agent-tool*` except the composer's spinner) and the
+strings `usingTools`, `usedTools`, `toolsFailed`, `toolRunning`, `toolOk`, `toolError`,
+`toolDetails`, `toolHideDetails`.
+
+| Check | Result |
+|---|---|
+| `tsc -b`; Vitest | Pass; 264 passed in 30 files, incl. new `TurnView.test.tsx` (ok, failed, several, long and empty results and a trailing display call render no tool UI and no empty container, only question and answer; "Working" while a tool runs; a stored turn keeps its tool record and renders the same) and a map test (a call's result, error, start/end/duration, "Not reported" without times) |
+| Playwright `agent-map`, `agent`, `workspace` | 46 passed; the 3 pre-existing failures (forecast URL, conversation history count at :231, speech-to-text URL). The specs that asserted tool rows now read the calls from the agent map (failed knowledge and history tools, cancelled with none left running, read-only tools only, no tools for unmatched or operating requests); stored conversation demo-1 shows no tool UI and its calls in the map |
+| `npm run build`, `npm run build:demo` | Pass |
+| Browser | 1440, 1280, 390 on the real assistant ("What's the system COP today?", "Show me COP today", "Is the plant meeting cooling demand?"): 0 tool elements in the conversation, 3 answers, 9 tool cards in the map; `show_on_display` details: result, start, end, 17 ms, arguments; no console errors |
+

@@ -95,15 +95,60 @@ export type AgentContext = z.infer<typeof agentContext>;
 
 const toolArgs = z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]));
 
+/** Tokens an agent used, as its harness counted them. Absent when nothing counts them (the
+ *  offline demo has no language model). */
+const tokenUsage = z.object({ input: z.number().int().nonnegative(), output: z.number().int().nonnegative() });
+export type TokenUsage = z.infer<typeof tokenUsage>;
+const agentEndStatus = z.enum(["complete", "cancelled", "error"]);
+
+/**
+ * One agent that worked on a turn, as the harness reported it. `parentId` is the agent that
+ * started it (null for the turn's root agent); the hierarchy is only ever this field, never
+ * worked out from names. Times are wall-clock, so a duration is `endedAt - startedAt`.
+ */
+export const agentRun = z.object({
+  id: z.string(),
+  parentId: z.string().nullable(),
+  name: z.string(),
+  task: z.string().optional(),
+  /** `queued`: started by its parent but waiting to run. */
+  status: z.enum(["queued", "running", "complete", "cancelled", "error"]),
+  /** When it was reported, then when it started running (`agent_status`). */
+  startedAt: isoTime,
+  endedAt: isoTime.optional(),
+  usage: tokenUsage.optional(),
+  error: z.string().optional(),
+});
+export type AgentRun = z.infer<typeof agentRun>;
+
 export const agentEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("turn_start"), turnId: z.string(), prompt: z.string(), at: isoTime }),
+  /** An agent starts on this turn: the root (parentId null) or one another agent started. */
+  z.object({
+    type: z.literal("agent_start"),
+    agentId: z.string(),
+    parentId: z.string().nullable(),
+    name: z.string(),
+    task: z.string().optional(),
+    at: isoTime,
+    /** Running unless the harness queued it. */
+    status: z.enum(["queued", "running"]).optional(),
+  }),
+  /** A queued agent starts running (or goes back to waiting). */
+  z.object({ type: z.literal("agent_status"), agentId: z.string(), status: z.enum(["queued", "running"]), at: isoTime }),
+  /** Token usage so far, while the agent runs. */
+  z.object({ type: z.literal("agent_usage"), agentId: z.string(), usage: tokenUsage }),
+  z.object({ type: z.literal("agent_end"), agentId: z.string(), status: agentEndStatus, at: isoTime, usage: tokenUsage.optional(), error: z.string().optional() }),
   z.object({ type: z.literal("text_delta"), text: z.string() }),
-  z.object({ type: z.literal("tool_call"), callId: z.string(), tool: z.string(), args: toolArgs, simulated: z.boolean() }),
+  /** `agentId`: the agent that called the tool, when the harness reports agents. `at`: when
+   *  the call started (and, on its result, ended), when the harness reports it. */
+  z.object({ type: z.literal("tool_call"), callId: z.string(), tool: z.string(), args: toolArgs, simulated: z.boolean(), agentId: z.string().optional(), at: isoTime.optional() }),
   z.object({
     type: z.literal("tool_result"),
     callId: z.string(),
     status: z.enum(["ok", "error"]),
     summary: z.string(),
+    at: isoTime.optional(),
   }),
   z.object({ type: z.literal("view"), view: dataView }),
   z.object({ type: z.literal("action"), action: workspaceAction }),
@@ -128,6 +173,9 @@ export const turnPart = z.discriminatedUnion("type", [
     simulated: z.boolean(),
     status: z.enum(["running", "ok", "error"]),
     summary: z.string().nullable(),
+    agentId: z.string().optional(),
+    startedAt: isoTime.optional(),
+    endedAt: isoTime.optional(),
   }),
   z.object({ type: z.literal("view"), view: dataView }),
   z.object({ type: z.literal("action"), action: workspaceAction }),
@@ -144,6 +192,8 @@ export const turn = z.object({
   parts: z.array(turnPart),
   status: z.enum(["running", "complete", "cancelled", "error"]),
   error: z.object({ code: z.string(), message: z.string() }).optional(),
+  /** The agents that worked on this turn, in start order; absent when none were reported. */
+  agents: z.array(agentRun).optional(),
 });
 export type Turn = z.infer<typeof turn>;
 
@@ -181,17 +231,36 @@ export function applyEvent(t: Turn, e: AgentEvent): Turn {
   switch (e.type) {
     case "turn_start":
       return t;
+    case "agent_start": {
+      const run: AgentRun = { id: e.agentId, parentId: e.parentId, name: e.name, ...(e.task ? { task: e.task } : {}), status: e.status ?? "running", startedAt: e.at };
+      return { ...t, agents: [...(t.agents ?? []).filter((a) => a.id !== e.agentId), run] };
+    }
+    case "agent_status":
+      // Its run time counts from when it starts running, not from when it was queued.
+      return { ...t, agents: t.agents?.map((a) => (a.id === e.agentId && (a.status === "queued" || a.status === "running") ? { ...a, status: e.status, startedAt: e.at } : a)) };
+    case "agent_usage":
+      return { ...t, agents: t.agents?.map((a) => (a.id === e.agentId ? { ...a, usage: e.usage } : a)) };
+    case "agent_end":
+      return {
+        ...t,
+        agents: t.agents?.map((a) =>
+          a.id === e.agentId ? { ...a, status: e.status, endedAt: e.at, ...(e.usage ? { usage: e.usage } : {}), ...(e.error ? { error: e.error } : {}) } : a,
+        ),
+      };
     case "text_delta": {
       const last = t.parts.at(-1);
       if (last?.type === "text") return { ...t, parts: [...t.parts.slice(0, -1), { type: "text", text: last.text + e.text }] };
       return { ...t, parts: [...t.parts, { type: "text", text: e.text }] };
     }
     case "tool_call":
-      return { ...t, parts: [...t.parts, { type: "tool", callId: e.callId, tool: e.tool, args: e.args, simulated: e.simulated, status: "running", summary: null }] };
+      return {
+        ...t,
+        parts: [...t.parts, { type: "tool", callId: e.callId, tool: e.tool, args: e.args, simulated: e.simulated, status: "running", summary: null, ...(e.agentId ? { agentId: e.agentId } : {}), ...(e.at ? { startedAt: e.at } : {}) }],
+      };
     case "tool_result":
       return {
         ...t,
-        parts: t.parts.map((p) => (p.type === "tool" && p.callId === e.callId ? { ...p, status: e.status, summary: e.summary } : p)),
+        parts: t.parts.map((p) => (p.type === "tool" && p.callId === e.callId ? { ...p, status: e.status, summary: e.summary, ...(e.at ? { endedAt: e.at } : {}) } : p)),
       };
     case "view":
       return { ...t, parts: [...t.parts, { type: "view", view: e.view }] };
@@ -206,6 +275,9 @@ export function applyEvent(t: Turn, e: AgentEvent): Turn {
         error: e.error,
         // A cancelled or failed turn leaves no tool shown as still running.
         parts: t.parts.map((p) => (p.type === "tool" && p.status === "running" ? { ...p, status: "error", summary: e.status === "cancelled" ? "Cancelled" : "Not completed" } : p)),
+        // Nor an agent: one the harness did not end takes the turn's outcome, with no end time
+        // (its duration is unknown, not invented).
+        ...(t.agents ? { agents: t.agents.map((a) => (a.status === "running" || a.status === "queued" ? { ...a, status: e.status === "complete" ? "error" : e.status } : a)) } : {}),
       };
   }
 }

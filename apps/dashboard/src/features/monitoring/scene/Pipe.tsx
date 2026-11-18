@@ -1,3 +1,4 @@
+import type { KeyboardEvent, MouseEvent } from "react";
 import type { Evidence } from "../../../lib/contracts";
 import type { Medium } from "../../../lib/topology";
 
@@ -21,6 +22,12 @@ interface PipeProps {
   active?: boolean;
   /** Topology link ID, exposed for tests and tooling. */
   linkId?: string;
+  /** Optional CAD review colour, without changing the medium palette by default. */
+  reviewState?: "confirmed" | "review" | "conflict" | "unknown";
+  /** Header runs may be heavier than equipment branches. */
+  weight?: "header" | "branch";
+  onSelect?: (id: string) => void;
+  label?: string;
 }
 
 /**
@@ -29,20 +36,38 @@ interface PipeProps {
  * pipe cuts a gap in any earlier pipe it crosses, the usual drawing convention for a
  * crossing without a connection.
  */
-export function Pipe({ points, medium, flowing, flowPeriod = 1, evidence = "confirmed", active = false, linkId }: PipeProps) {
+export function Pipe({ points, medium, flowing, flowPeriod = 1, evidence = "confirmed", active = false, linkId, reviewState, weight = "branch", onSelect, label }: PipeProps) {
   const d = points.map(([x, y], i) => `${i ? "L" : "M"}${x} ${y}`).join(" ");
   const unknown = evidence === "unknown";
+  const interactive = onSelect && linkId ? {
+    role: "button" as const,
+    tabIndex: 0,
+    "aria-label": label ?? linkId,
+    "aria-pressed": active,
+    onClick: (event: MouseEvent<SVGGElement>) => {
+      event.stopPropagation();
+      onSelect(linkId);
+    },
+    onKeyDown: (event: KeyboardEvent<SVGGElement>) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onSelect(linkId);
+      }
+    },
+  } : {};
 
   if (unknown) {
     const [ex, ey] = points[points.length - 1];
     return (
-      <g className={`pipe pipe--unknown${active ? " pipe--active" : ""}`} data-link-id={linkId}>
+      <g className={`pipe pipe--unknown${active ? " pipe--active" : ""}${onSelect ? " pipe--interactive" : ""}`} data-link-id={linkId} data-review={reviewState} {...interactive}>
+        {active && <path className="pipe__glow" d={d} fill="none" stroke="var(--state-unavailable)" strokeWidth={15} />}
         <path d={d} fill="none" stroke="var(--ink-scene)" strokeWidth={9} />
-        <path d={d} fill="none" stroke="var(--state-unavailable)" strokeWidth={3} strokeDasharray="7 6" />
+        <path className="pipe__body" d={d} fill="none" stroke="var(--state-unavailable)" strokeWidth={3} strokeDasharray="7 6" />
         <circle cx={ex} cy={ey} r={8} fill="var(--panel)" stroke="var(--state-unavailable)" strokeWidth={1.2} />
         <text x={ex} y={ey + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--text-muted)">
           ?
         </text>
+        {onSelect && <path className="pipe__hit" d={d} fill="none" stroke="transparent" strokeWidth={16} pointerEvents="stroke" />}
       </g>
     );
   }
@@ -61,13 +86,15 @@ export function Pipe({ points, medium, flowing, flowPeriod = 1, evidence = "conf
   const color = `var(--${medium})`;
   return (
     <g
-      className={`pipe pipe--${medium}${flowing ? " pipe--flowing" : ""}${active ? " pipe--active" : ""}`}
+      className={`pipe pipe--${medium}${flowing ? " pipe--flowing" : ""}${active ? " pipe--active" : ""}${onSelect ? " pipe--interactive" : ""}${reviewState ? ` pipe--review-${reviewState}` : ""}`}
       data-evidence={evidence}
       data-link-id={linkId}
+      data-review={reviewState}
+      {...interactive}
     >
       {active && <path className="pipe__glow" d={d} fill="none" stroke={color} strokeWidth={17} strokeLinejoin="round" />}
-      <path d={d} fill="none" stroke="var(--ink-scene)" strokeWidth={11} strokeLinejoin="round" />
-      <path d={d} fill="none" stroke={color} strokeWidth={5.5} strokeLinejoin="round" />
+      <path d={d} fill="none" stroke="var(--ink-scene)" strokeWidth={weight === "header" ? 13 : 11} strokeLinejoin="round" />
+      <path className="pipe__body" d={d} fill="none" stroke={color} strokeWidth={weight === "header" ? 7 : 5.5} strokeLinejoin="round" />
       <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.2} strokeWidth={1.6} strokeLinejoin="round" />
       {flowing && (
         <path
@@ -91,6 +118,7 @@ export function Pipe({ points, medium, flowing, flowPeriod = 1, evidence = "conf
           opacity={flowing ? 0.95 : 0.4}
         />
       ))}
+      {onSelect && <path className="pipe__hit" d={d} fill="none" stroke="transparent" strokeWidth={16} pointerEvents="stroke" />}
     </g>
   );
 }

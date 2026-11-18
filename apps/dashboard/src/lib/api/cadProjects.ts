@@ -5,6 +5,7 @@
  * back to fixtures.
  */
 import { z } from "zod";
+import type { Topology } from "../contracts";
 import { ApiError, validate, type ErrorCode } from "./client";
 import { localService } from "./local";
 import {
@@ -15,7 +16,12 @@ import {
   projectStatus,
   projectSummary,
   projectWithState,
+  versionAdded,
+  versionList,
+  versionWithReview,
   type ProjectState,
+  type ProjectVersion,
+  type VersionAdded,
   type ProjectStatus,
   type ProjectSummary,
   type ProjectWithState,
@@ -39,6 +45,17 @@ export interface CadProjectsClient {
   copy(id: string, name: string, saved?: { state: ProjectState; openFindings: number | null }): Promise<ProjectWithState>;
   remove(id: string): Promise<void>;
   originalUrl(id: string): string;
+  /** The project's history, oldest first. */
+  versions(id: string): Promise<ProjectVersion[]>;
+  /** One version with its frozen review (null for an upload: never parsed). */
+  version(id: string, versionId: string): Promise<{ version: ProjectVersion; review: { topology: Topology } | null }>;
+  /** A new revision from a drawing, stored as it is; the approved reference never moves. */
+  uploadVersion(id: string, file: File): Promise<VersionAdded>;
+  /** Freeze a review as a new version. */
+  addReviewVersion(id: string, body: { label: string | null; review: { topology: Topology }; openFindings: number }): Promise<VersionAdded>;
+  /** Choose (or clear) the approved reference; a project changed elsewhere is a CONFLICT. */
+  setReference(id: string, versionId: string | null, expectedRevision: number): Promise<ProjectSummary>;
+  versionOriginalUrl(id: string, versionId: string): string;
 }
 
 const copied = z.object({ project: projectSummary, state: projectState.optional() });
@@ -51,7 +68,7 @@ export function httpCadProjects(fetchImpl: typeof fetch = (...a) => fetch(...a))
     status: () => call(projectStatus, "/status"),
     list: async () => (await call(projectList, "/projects")).projects,
     create: (body) => call(projectWithState, "/projects", { method: "POST", body: { ...body, sampleId: CAD_SAMPLE_ID } }),
-    upload: (file) => upload(fetchImpl, file),
+    upload: (file) => upload(fetchImpl, file, `${CAD_API}/projects/upload`, projectWithState),
     open: (id) => call(projectWithState, `/projects/${id}/open`, { method: "POST", body: {} }),
     save: async (id, body) => (await call(projectOnly, `/projects/${id}`, { method: "PUT", body })).project,
     rename: async (id, name, expectedRevision) => (await call(projectOnly, `/projects/${id}/rename`, { method: "POST", body: { name, expectedRevision } })).project,
@@ -61,15 +78,22 @@ export function httpCadProjects(fetchImpl: typeof fetch = (...a) => fetch(...a))
     },
     remove: async (id) => void (await call(deleted, `/projects/${id}`, { method: "DELETE" })),
     originalUrl: (id) => `${CAD_API}/projects/${id}/original`,
+    versions: async (id) => (await call(versionList, `/projects/${id}/versions`)).versions,
+    version: (id, versionId) => call(versionWithReview, `/projects/${id}/versions/${versionId}`),
+    uploadVersion: (id, file) => upload(fetchImpl, file, `${CAD_API}/projects/${id}/versions/upload`, versionAdded),
+    addReviewVersion: (id, body) => call(versionAdded, `/projects/${id}/versions`, { method: "POST", body }),
+    setReference: async (id, versionId, expectedRevision) => (await call(projectOnly, `/projects/${id}/reference`, { method: "POST", body: { versionId, expectedRevision } })).project,
+    versionOriginalUrl: (id, versionId) => `${CAD_API}/projects/${id}/versions/${versionId}/original`,
   };
   return client;
 }
 
-async function upload(fetchImpl: typeof fetch, file: File): Promise<ProjectWithState> {
+/** A drawing's raw bytes to one of the service's upload paths (a new project, or a new version). */
+async function upload<T>(fetchImpl: typeof fetch, file: File, path: string, schema: z.ZodType<T>): Promise<T> {
   let response: Response;
   let body: unknown;
   try {
-    response = await fetchImpl(`${CAD_API}/projects/upload?name=${encodeURIComponent(file.name)}`, {
+    response = await fetchImpl(`${path}?name=${encodeURIComponent(file.name)}`, {
       method: "POST",
       // The service accepts writes only with this header, which a cross-site page cannot set.
       headers: { Accept: "application/json", "X-HVAC-Client": "dashboard", "Content-Type": "application/octet-stream" },
@@ -88,5 +112,5 @@ async function upload(fetchImpl: typeof fetch, file: File): Promise<ProjectWithS
     const code = CODES[err?.code ?? ""] ?? (response.status < 500 ? "INVALID_REQUEST" : "UNAVAILABLE");
     throw new ApiError(code, typeof err?.message === "string" ? err.message : `The CAD project service answered ${response.status}.`, err?.retryable === true, err?.details);
   }
-  return validate(projectWithState, body, "CAD project");
+  return validate(schema, body, "CAD project");
 }

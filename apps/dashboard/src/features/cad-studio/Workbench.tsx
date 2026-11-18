@@ -1,43 +1,24 @@
 /**
- * The workbench around an open project: toolbar, the Project Library (docked from 1366 px of
- * CAD area; narrower it starts closed and opens as a column that narrows the canvas, never over
- * the drawing), the drawing canvas and the Engineering Inspector. Laid out by the CAD area's
- * own width, not the window's.
+ * An open project: the header (name, Drawing | History | Compare, actions) over the chosen
+ * view. Drawing gives the canvas the whole area; the review (findings, properties, evidence)
+ * opens beside it only when something is selected or Review is chosen.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { CircleAlert, X } from "lucide-react";
+import { useEffect, useMemo } from "react";
+import { CircleAlert, Columns2, ListChecks, Undo2, X } from "lucide-react";
 import { demoScene } from "../../fixtures/demoPlant";
 import type { Topology } from "../../lib/contracts";
 import { useStrings } from "../../lib/i18n";
-import { cad, useCadSession, type Selection } from "./cadSession";
-import { CompareView, SyntheticDrawing } from "./Drawing2D";
-import { FileSheet } from "./FileSheet";
+import { cad, openFindings, useCadSession, type Selection } from "./cadSession";
+import { CompareView } from "./CompareView";
+import { SourceCompareView, SyntheticDrawing } from "./Drawing2D";
+import { DrawingToolbar } from "./DrawingToolbar";
+import { FileSheet, type DrawingFile } from "./FileSheet";
+import { HistoryView, versionTitle } from "./HistoryView";
 import { InspectorPanel } from "./InspectorPanel";
-import { Plant3D, canDrawWebGL2 } from "./model3d/Plant3D";
-import type { FindingBadge } from "./model3d/Plant3DCanvas";
-import { plantModel } from "./model3d/plantModel";
-import { ProjectLibrary } from "./ProjectLibrary";
-import { deviceReviewState, evidenceReviewState, firstDeviceId } from "./review";
 import { Toolbar } from "./Toolbar";
+import { DropOverlay, useDropUpload } from "./Uploader";
 
-/** Widths of the CAD area: the Library docks from WIDE; below PHONE it is its own page. */
-export const WIDE = 1366;
-export const PHONE = 640;
-
-function useWidth(ref: React.RefObject<HTMLElement | null>) {
-  const [width, setWidth] = useState(0);
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    setWidth(element.getBoundingClientRect().width);
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [ref]);
-  return width;
-}
-
+/** Everything the selection's recorded paths reach; an unknown connection reaches its own ends only. */
 export function traceFor(selection: Selection, topology: Topology) {
   const ids = new Set<string>();
   if (!selection) return ids;
@@ -83,114 +64,131 @@ export function traceFor(selection: Selection, topology: Topology) {
   return ids;
 }
 
-export function Workbench({ steps }: { steps: number }) {
+/** Equipment with an open finding: never dimmed by a selection. */
+export function findingIdsOf(topology: Topology) {
+  const ids = new Set<string>();
+  for (const link of topology.links) {
+    if (link.evidence !== "unknown") continue;
+    for (const end of [link.from, link.to]) if ("device" in end) ids.add(end.device);
+  }
+  for (const port of topology.unconnectedPorts) ids.add(port.device);
+  return ids;
+}
+
+export function Workbench() {
   const copy = useStrings().cad;
   const session = useCadSession();
-  const { project, view, topology, selection, locate, failure, busy } = session;
-  const root = useRef<HTMLElement>(null);
-  const width = useWidth(root);
-  const phone = width > 0 && width < PHONE;
-  const wide = width >= WIDE;
-  const libraryShown = !phone && (session.libraryOpen ?? wide);
-  const [modelFailure, setModelFailure] = useState<string | null>(null);
-  const model = useMemo(() => plantModel(topology, demoScene), [topology]);
-  const traceIds = useMemo(() => traceFor(selection, topology), [selection, topology]);
-  const findingIds = useMemo(() => {
-    const ids = new Set<string>();
-    const unknownLinks = topology.links.filter((candidate) => candidate.evidence === "unknown");
-    for (const link of unknownLinks) {
-      ids.add(link.id);
-      for (const end of [link.from, link.to]) if ("device" in end) ids.add(end.device);
-    }
-    for (const port of topology.unconnectedPorts) ids.add(port.device);
-    return ids;
-  }, [topology]);
-  const findings = useMemo<FindingBadge[]>(() => {
-    const unknown = topology.links.filter((link) => link.evidence === "unknown").map((link) => {
-      const deviceId = firstDeviceId(link)!;
-      const device = topology.devices.find((candidate) => candidate.id === deviceId)!;
-      return { id: link.id, deviceId, label: copy.unknownConnection, title: `${copy.unknownConnection}: ${copy.equipmentName(device.id, device.label)}`, onLocate: () => cad.locateFinding({ kind: "link", id: link.id }, deviceId) };
-    });
-    const ports = topology.unconnectedPorts.map((port) => {
-      const device = topology.devices.find((candidate) => candidate.id === port.device)!;
-      return { id: `port:${port.device}:${port.port}`, deviceId: port.device, label: copy.unconnectedPort, title: `${copy.unconnectedPort}: ${copy.equipmentName(device.id, device.label)} ${copy.portNames[port.port] ?? port.port}`, onLocate: () => cad.locateFinding({ kind: "port", deviceId: port.device, port: port.port }, port.device) };
-    });
-    return [...unknown, ...ports];
-  }, [topology, copy]);
-  const reviewStates = useMemo(() => Object.fromEntries([
-    ...topology.devices.map((device) => [device.id, deviceReviewState(device.id, topology)]),
-    ...topology.links.map((link) => [link.id, evidenceReviewState(link.evidence)]),
-  ]), [topology]);
-  useEffect(() => setModelFailure(null), [view]);
+  const { project, tab, failure, busy } = session;
+  const drop = useDropUpload("revision");
   if (!project) return null;
-  const selectedId = selection?.kind === "device" ? selection.id : selection?.kind === "port" ? selection.deviceId : null;
-  const selectedOwner = selection?.kind === "device" || selection?.kind === "link" ? selection.id : selectedId;
-  const selectDevice = (id: string) => cad.select({ kind: "device", id });
-  const selectOwner = (owner: string) => {
-    if (topology.devices.some((device) => device.id === owner)) cad.select({ kind: "device", id: owner });
-    else if (topology.links.some((link) => link.id === owner)) cad.select({ kind: "link", id: owner });
-  };
-  const unavailable = view === "model" ? modelFailure ?? (canDrawWebGL2() ? null : copy.webglUnavailable) : null;
 
   return (
-    <section ref={root} className="cad-wb" data-size={phone ? "phone" : wide ? "wide" : "medium"} data-library={libraryShown ? "open" : "closed"} aria-labelledby="cad-project-name">
-      <Toolbar
-        libraryShown={libraryShown}
-        columnToggle={!phone}
-        onProjects={() => (phone ? cad.show("library") : cad.toggleLibrary(!libraryShown))}
-      />
+    <section className="cad-wb" aria-labelledby="cad-project-name" {...drop.handlers}>
+      <Toolbar />
       {failure && (
         <div className="cad-notice" role="alert">
           <CircleAlert size={15} aria-hidden="true" />
           <span>{failure.conflict ? copy.conflict : failure.message}</span>
           {failure.conflict && (
-            <button type="button" className="tool-button tool-button--text" disabled={!!busy} onClick={() => void cad.saveAs(copy.copyName(project.name))}>
+            <button type="button" className="cad-text-button" disabled={!!busy} onClick={() => void cad.saveAs(copy.copyName(project.name))}>
               {copy.saveCopy}
             </button>
           )}
-          <button type="button" className="icon-button" aria-label={copy.dismiss} title={copy.dismiss} onClick={cad.dismissFailure}>
+          <button type="button" className="cad-icon-button" aria-label={copy.dismiss} title={copy.dismiss} onClick={cad.dismissFailure}>
             <X size={15} aria-hidden="true" />
           </button>
         </div>
       )}
-      <div className="cad-wb__body">
-        {libraryShown && <ProjectLibrary variant="column" steps={steps} />}
-        <div className="cad-wb__canvas">
-          {project.kind === "drawing" ? (
-            <FileSheet />
-          ) : view === "model" ? (
-            unavailable ? (
-              <div className="cad-3d-fallback">
-                <div className="cad-3d-fallback__note" role="status">{unavailable}</div>
-                <SyntheticDrawing scene={demoScene} selectedId={selectedId} locate={locate} onSelect={selectDevice} />
-              </div>
-            ) : (
-              <Plant3D
-                model={model}
-                selectedId={selectedOwner}
-                traceIds={traceIds}
-                findingIds={findingIds}
-                findings={findings}
-                layers={session.layers}
-                colourBy={session.colourBy}
-                reviewStates={reviewStates}
-                preset={session.preset}
-                presetRevision={session.presetRevision}
-                locate={locate}
-                onPreset={cad.setPreset}
-                onPick={selectOwner}
-                onLost={() => setModelFailure(copy.modelFailed)}
-                label={copy.model3dLabel}
-              />
-            )
-          ) : view === "drawing" ? (
-            <SyntheticDrawing scene={demoScene} selectedId={selectedId} locate={locate} onSelect={selectDevice} />
-          ) : (
-            <CompareView topology={topology} scene={demoScene} selection={selection} locate={locate} onSelect={selectDevice} />
-          )}
-        </div>
-        {project.kind === "sample" && <InspectorPanel />}
+      <div id="cad-tabpanel" className="cad-wb__body" role="tabpanel" aria-labelledby={`cad-tab-${tab}`} data-tab={tab}>
+        {tab === "drawing" && <DrawingView />}
+        {tab === "history" && <HistoryView />}
+        {tab === "compare" && <CompareView />}
       </div>
+      {drop.dropping && <DropOverlay label={copy.dropRevision} />}
     </section>
+  );
+}
+
+/** The drawing: the working review (or a saved version, read-only), or an uploaded file. */
+function DrawingView() {
+  const copy = useStrings().cad;
+  const session = useCadSession();
+  const { project, topology, selection, locate, viewing, reviews, history, reviewOpen, sourceCompare } = session;
+  const version = viewing ? history.versions.find((v) => v.id === viewing) : undefined;
+  const shown = viewing ? reviews[viewing] : topology;
+  const traceIds = useMemo(() => (shown ? traceFor(selection, shown) : new Set<string>()), [selection, shown]);
+  const findingIds = useMemo(() => (shown ? findingIdsOf(shown) : new Set<string>()), [shown]);
+  useEffect(() => {
+    if (viewing) void cad.loadReview(viewing);
+  }, [viewing]);
+  if (!project) return null;
+
+  const back = viewing && (
+    <span className="cad-banner">
+      <span>{copy.readOnlyVersion(version ? versionTitle(version, copy) : copy.savedReview)}</span>
+      <button type="button" className="cad-text-button" onClick={() => cad.viewVersion(null)}><Undo2 size={14} aria-hidden="true" />{copy.backToWorking}</button>
+    </span>
+  );
+
+  // An uploaded drawing (the project's, or a version viewed from History) is a file, never parsed.
+  const upload = version?.source.kind === "upload" ? version : null;
+  const latestUpload = [...history.versions].reverse().find((v) => v.source.kind === "upload");
+  if (upload || project.kind === "drawing") {
+    const source = upload ?? latestUpload;
+    const file: DrawingFile | null = source && source.source.kind === "upload"
+      ? { ...source.source.original, addedAt: source.createdAt, url: source.source.original.available ? cad.versionUrl(source.id) : null }
+      : project.original ? { ...project.original, addedAt: project.summary?.createdAt, url: project.id && project.original.available ? cad.originalUrl(project.id) : null } : null;
+    return (
+      <div className="cad-drawing">
+        {file && <FileSheet file={file} caption={(viewing || source) && <span className="cad-file__version">{source ? versionTitle(source, copy) : null}{back}</span>} />}
+      </div>
+    );
+  }
+
+  if (!shown) return <div className="cad-empty-state" role="status">{copy.loadingVersion}</div>;
+  const open = openFindings(shown);
+  const toolbar = (
+    <DrawingToolbar
+      layers={session.layers}
+      colourBy={session.colourBy}
+      onLayer={cad.setLayer}
+      onColour={cad.setColourBy}
+      banner={back}
+      actions={
+        <>
+          {!viewing && (
+            <button type="button" className="cad-chip-button" aria-pressed={sourceCompare} onClick={() => cad.setSourceCompare(!sourceCompare)} aria-label={copy.sourceBeside} title={copy.sourceBeside}>
+              <Columns2 size={15} aria-hidden="true" />
+            </button>
+          )}
+          <button type="button" className="cad-chip-button cad-chip-button--label" aria-pressed={reviewOpen} onClick={() => cad.toggleReview()} title={copy.review}>
+            <ListChecks size={15} aria-hidden="true" />
+            <span>{copy.review}</span>
+            {open > 0 && <span className="cad-count num" aria-label={copy.openFindingsCount(open)}>{open}</span>}
+          </button>
+        </>
+      }
+    />
+  );
+  const canvas = {
+    scene: demoScene,
+    topology: shown,
+    selection,
+    locate,
+    onSelect: (id: string) => cad.select({ kind: "device", id }),
+    onSelectLink: (id: string) => cad.select({ kind: "link", id }),
+    layers: session.layers,
+    colourBy: session.colourBy,
+    traceIds,
+    findingIds,
+    toolbar,
+  };
+  return (
+    <div className="cad-drawing" data-review={reviewOpen ? "open" : "closed"}>
+      <div className="cad-drawing__canvas">
+        {sourceCompare && !viewing ? <SourceCompareView {...canvas} /> : <SyntheticDrawing key={viewing ?? "working"} {...canvas} />}
+      </div>
+      {reviewOpen && <InspectorPanel topology={shown} readOnly={!!viewing} onClose={() => cad.toggleReview(false)} />}
+    </div>
   );
 }

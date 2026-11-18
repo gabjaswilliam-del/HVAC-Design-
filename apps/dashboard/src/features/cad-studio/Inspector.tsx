@@ -6,19 +6,22 @@ import { useStrings } from "../../lib/i18n";
 import type { Evidence, PortFinding } from "./cadSession";
 import { endDisplayLabel, evidenceReviewState, linkHasDevice } from "./review";
 
-export function Inspector({ device, link, port, topology, showDirectEvidence = false, onClose, onEvidence, onResolvePort }: {
+export function Inspector({ device, link, port, topology, showDirectEvidence = false, section = "evidence", readOnly = false, onClose, onEvidence, onResolvePort }: {
   device?: Device;
   link?: Link;
   port?: PortFinding;
   topology: Topology;
   showDirectEvidence?: boolean;
+  section?: "properties" | "evidence";
+  /** A saved version: shown, not edited. */
+  readOnly?: boolean;
   onClose: () => void;
   onEvidence: (value: Evidence) => void;
   onResolvePort?: (port: PortFinding, sourceDeviceId: string) => void;
 }) {
   const copy = useStrings().cad;
   if (port && device && onResolvePort) {
-    return <PortFindingInspector port={port} device={device} topology={topology} onClose={onClose} onResolve={onResolvePort} />;
+    return <PortFindingInspector port={port} device={device} topology={topology} section={readOnly ? "properties" : section} onClose={onClose} onResolve={onResolvePort} />;
   }
   const item = device ?? link;
   if (!item) return <div className="cad-empty">{copy.selectObject}</div>;
@@ -35,17 +38,18 @@ export function Inspector({ device, link, port, topology, showDirectEvidence = f
       <h3>{device ? copy.equipmentName(device.id, device.label) : link?.id}</h3>
       {device && <code>{item.id}</code>}
       {link && <dl><dt>{copy.from}</dt><dd>{endDisplayLabel(link.from, topology, copy.equipmentName)}</dd><dt>{copy.to}</dt><dd>{endDisplayLabel(link.to, topology, copy.equipmentName)}</dd><dt>{copy.medium}</dt><dd>{copy.mediumName(link.medium)}</dd></dl>}
-      <label className="cad-field">{device ? copy.equipmentEvidence : copy.evidence}<select value={item.evidence} onChange={(event) => onEvidence(event.target.value as Evidence)}><option value="confirmed">{copy.evidenceValues.confirmed}</option><option value="drawing">{copy.evidenceValues.drawing}</option><option value="inferred">{copy.evidenceValues.inferred}</option><option value="unknown">{copy.evidenceValues.unknown}</option></select></label>
-      {link?.note && <p className="cad-note">{copy.linkNote(link.note)}</p>}
+      {section === "evidence" && <label className="cad-field">{device ? copy.equipmentEvidence : copy.evidence}<select value={item.evidence} disabled={readOnly} onChange={(event) => onEvidence(event.target.value as Evidence)}><option value="confirmed">{copy.evidenceValues.confirmed}</option><option value="drawing">{copy.evidenceValues.drawing}</option><option value="inferred">{copy.evidenceValues.inferred}</option><option value="unknown">{copy.evidenceValues.unknown}</option></select></label>}
+      {section === "evidence" && link?.note && <p className="cad-note">{copy.linkNote(link.note)}</p>}
       {device && <div className="cad-connection-summary"><span className="cad-connection-summary__line" aria-hidden="true" /><span>{copy.connectionsHighlighted(connections.length)}</span>{unconnectedPorts.length > 0 && <strong>{copy.unresolvedPorts(unconnectedPorts.length)}</strong>}</div>}
     </div>
   );
 }
 
-function PortFindingInspector({ port, device, topology, onClose, onResolve }: {
+function PortFindingInspector({ port, device, topology, section, onClose, onResolve }: {
   port: PortFinding;
   device: Device;
   topology: Topology;
+  section: "properties" | "evidence";
   onClose: () => void;
   onResolve: (port: PortFinding, sourceDeviceId: string) => void;
 }) {
@@ -60,18 +64,22 @@ function PortFindingInspector({ port, device, topology, onClose, onResolve }: {
       </div>
       <h3>{copy.equipmentName(device.id, device.label)} · {port.port}</h3>
       <code>{port.device}:{port.port}</code>
-      <p className="cad-note">{copy.portNote(port.note)}</p>
-      <label className="cad-field">
-        {copy.connectFrom}
-        <select value={sourceDeviceId} onChange={(event) => setSourceDeviceId(event.target.value)}>
-          {candidates.map((candidate) => (
-            <option key={candidate.id} value={candidate.id}>{copy.equipmentName(candidate.id, candidate.label)} · evap_out</option>
-          ))}
-        </select>
-      </label>
-      <button type="button" className="button cad-resolve-button" disabled={!sourceDeviceId} onClick={() => onResolve(port, sourceDeviceId)}>
-        {copy.createConnection}
-      </button>
+      {section === "evidence" && (
+        <>
+          <p className="cad-note">{copy.portNote(port.note)}</p>
+          <label className="cad-field">
+            {copy.connectFrom}
+            <select value={sourceDeviceId} onChange={(event) => setSourceDeviceId(event.target.value)}>
+              {candidates.map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>{copy.equipmentName(candidate.id, candidate.label)} · evap_out</option>
+              ))}
+            </select>
+          </label>
+          <button type="button" className="button cad-resolve-button" disabled={!sourceDeviceId} onClick={() => onResolve(port, sourceDeviceId)}>
+            {copy.createConnection}
+          </button>
+        </>
+      )}
     </div>
   );
 }

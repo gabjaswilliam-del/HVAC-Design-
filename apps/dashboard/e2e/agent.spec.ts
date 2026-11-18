@@ -23,6 +23,26 @@ async function openMonitoring(page: Page, query = "") {
   await expect(viewport(page).locator("[data-equipment-id]")).toHaveCount(16);
 }
 
+/** The conversation does not show tool calls; the agent map does. Opens it and returns the
+ *  latest request's tool cards (`data-tool`, `data-status`); `closeMap` closes it again. */
+const agentMap = (page: Page) => page.getByRole("dialog", { name: "Agent map" });
+async function latestTools(page: Page) {
+  await page.locator(".agent-composer").getByRole("button", { name: /^Agent map/ }).click();
+  const key = await agentMap(page).locator('.agent-map__card[data-kind="task"]').last().getAttribute("data-node-key");
+  return agentMap(page).locator(`.agent-map__card[data-kind="tool"][data-task-key="${key}"]`);
+}
+async function closeMap(page: Page) {
+  await agentMap(page).getByRole("button", { name: "Close agent map" }).click();
+  await expect(agentMap(page)).toHaveCount(0);
+}
+/** Waits until the running answer, a new conversation's first, has called its first tool (its
+ *  turn id is not final yet, so any tool card). */
+async function firstToolCalled(page: Page) {
+  await page.locator(".agent-composer").getByRole("button", { name: /^Agent map/ }).click();
+  await expect(agentMap(page).locator('.agent-map__card[data-kind="tool"]').first()).toBeVisible({ timeout: 15_000 });
+  await closeMap(page);
+}
+
 async function ask(page: Page, question: string) {
   await page.getByRole("button", { name: question }).click();
   await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "complete", { timeout: 15_000 });
@@ -53,26 +73,26 @@ test("the assistant opens without engine labels and narrows the page instead of 
   await expect.poll(() => zoom(page)).toBeCloseTo(wide, 2);
 });
 
-test("an investigation streams its tool calls and a data-based answer", async ({ page }) => {
+test("an investigation runs its tool calls: the answer reads alone, the agent map holds the calls", async ({ page }) => {
   await openMonitoring(page, "&scenario=tower-fault");
   await ask(page, "What needs attention right now?");
   const turn = lastTurn(page);
-  await expect(turn.locator("[data-tool]")).toHaveCount(2);
-  // Once the answer is written the steps fold into one line that counts them.
-  const steps = turn.locator(".agent-activity__head");
-  await expect(steps).toHaveText("Used 2 tools");
-  await expect(steps).toHaveAttribute("aria-expanded", "false");
-  await expect(turn.locator('[data-tool="list_issues"]')).toContainText("2 open, 0 resolved.");
   await expect(turn.locator(".agent-prose")).toContainText("Cooling tower 4 fan fault (ISS-0142)");
-  await steps.click();
-  await expect(turn.locator('[data-tool="list_issues"]')).toBeVisible();
-  await expect(turn.locator('[data-tool="list_issues"] .agent-tool__label')).toHaveText("List open issues");
-  await expect(turn.locator('[data-tool="list_issues"] .agent-tool__status')).toHaveText("Complete");
-  await turn.locator('[data-tool="list_issues"] .agent-tool__head').click();
-  await expect(turn.locator('[data-tool="list_issues"]')).toContainText("Arguments");
-  await expect(turn.locator('[data-tool="list_issues"] .agent-tool__details code')).toHaveText("list_issues");
-  await expect(turn.locator('[data-tool="list_issues"]')).not.toContainText("simulated tool");
   await expect(page.getByRole("status").filter({ hasText: "Answer complete." })).toBeAttached();
+  // No tool card, disclosure, name or result in the conversation.
+  await expect(turn.locator("[data-tool], .agent-activity, .agent-tool")).toHaveCount(0);
+  await expect(turn).not.toContainText(/Used \d+ tools?|List open issues|list_issues|2 open, 0 resolved\./);
+  // The calls still ran: the agent map shows each one, with its result and time.
+  await drawer(page).locator(".agent-composer").getByRole("button", { name: /^Agent map/ }).click();
+  const map = page.getByRole("dialog", { name: "Agent map" });
+  await expect(map.locator('.agent-map__card[data-kind="tool"]')).toHaveCount(2);
+  const issues = map.locator('.agent-map__card[data-kind="tool"]').filter({ hasText: "List open issues" });
+  await expect(issues).toContainText("2 open, 0 resolved.");
+  await issues.click();
+  const details = map.getByRole("complementary", { name: "Agent details" });
+  await expect(details.locator("code")).toHaveText("list_issues");
+  await expect(details).toContainText("Complete");
+  await expect(details).toContainText(/Duration\s*\d/);
 });
 
 test("answers navigate to equipment, the plant and issue details, keeping the answer in view", async ({ page }) => {
@@ -114,13 +134,16 @@ test("asking from the equipment inspector investigates that equipment, with a fa
   await expect(lastTurn(page).locator(".agent-turn__prompt")).toContainText("Investigate Cooling tower 4");
   await expect(drawer(page).getByText("Context:", { exact: true })).toHaveCount(0);
   await expect(lastTurn(page).locator(".agent-prose")).toContainText("Cooling tower 4 is in fault");
-  await expect(lastTurn(page).locator('[data-tool="search_knowledge"]')).toHaveAttribute("data-tool-status", "error");
-  await expect(lastTurn(page).locator('[data-tool="search_knowledge"]')).toContainText("not available in this demo build");
   // The chat is not the chart surface: no chart here. Asked from its own Details, the
   // record is one link away and nothing else opens.
   await expect(lastTurn(page).locator(".ts-chart")).toHaveCount(0);
   await expect(lastTurn(page).getByRole("button", { name: "Cooling tower 4 record" })).toBeVisible();
   await expect(lastTurn(page).locator('[data-view="action"]')).toHaveCount(0);
+  // The failed knowledge tool is not shown in the answer; the agent map shows it.
+  await expect(lastTurn(page).locator("[data-tool]")).toHaveCount(0);
+  const knowledge = (await latestTools(page)).and(page.locator('[data-tool="search_knowledge"]'));
+  await expect(knowledge).toHaveAttribute("data-status", "error");
+  await expect(knowledge).toContainText("not available in this demo build");
 });
 
 test("asking from a KPI panel identifies a cooling shortfall", async ({ page }) => {
@@ -157,18 +180,19 @@ test("unmatched questions get an honest scripted reply; Enter sends", async ({ p
   await box.press("Enter");
   await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "complete", { timeout: 15_000 });
   await expect(lastTurn(page).locator(".agent-prose")).toContainText("no language model");
-  await expect(lastTurn(page).locator("[data-tool]")).toHaveCount(0);
+  await expect(await latestTools(page)).toHaveCount(0);
 });
 
 test("cancelling is confirmed and the composer works again", async ({ page }) => {
   await page.goto("/?scenario=tower-fault");
   await page.getByRole("button", { name: "Investigate Cooling tower 4" }).click();
-  await expect(drawer(page).locator("[data-tool]").first()).toBeVisible();
+  await firstToolCalled(page);
   await drawer(page).getByRole("button", { name: "Cancel" }).click();
   await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "cancelled");
   await expect(lastTurn(page)).toContainText("Cancelled by you");
-  await expect(lastTurn(page).locator('[data-tool-status="running"]')).toHaveCount(0);
   await expect(drawer(page).getByRole("button", { name: "Send" })).toBeVisible();
+  // No call is left running.
+  await expect((await latestTools(page)).and(page.locator('[data-status="running"]'))).toHaveCount(0);
 });
 
 test("an unavailable assistant is reported and the question is kept", async ({ page }) => {
@@ -184,8 +208,8 @@ test("an unavailable assistant is reported and the question is kept", async ({ p
 test("a failed data tool is shown and the answer continues with what is available", async ({ page }) => {
   await openMonitoring(page, "&scenario=pump-trip&time=14:12&fail=history:timeout");
   await ask(page, "Is the plant meeting cooling demand?");
-  await expect(lastTurn(page).locator('[data-tool="get_history"]')).toHaveAttribute("data-tool-status", "error");
   await expect(lastTurn(page).locator(".agent-prose")).toContainText("Today's history could not be retrieved");
+  await expect((await latestTools(page)).and(page.locator('[data-tool="get_history"]'))).toHaveAttribute("data-status", "error");
 });
 
 test("conversation history keeps recorded context; links follow it; new questions use the current one", async ({ page }) => {
@@ -279,21 +303,20 @@ async function askLong(page: Page) {
   await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "running");
 }
 
-test("a question shows at once, then a working line, the steps and an answer written in progressively", async ({ page }) => {
+test("a question shows at once, then a working line while the tools run, and an answer written in progressively", async ({ page }) => {
   await page.goto("/?scenario=tower-fault");
   await page.getByRole("button", { name: "What needs attention right now?" }).click();
   const turn = lastTurn(page);
-  // Before the harness has replied: the question and a quiet working line, no steps yet.
+  // The question and a quiet working line, which stays while the tool calls run (they are
+  // in the agent map, not here).
   await expect(turn.locator(".agent-turn__prompt")).toContainText("What needs attention right now?");
   await expect(turn.locator(".agent-working")).toHaveText("Working");
-  expect(await turn.locator("[data-tool]").count()).toBe(0);
-  // Each step says what it is doing while it runs.
-  await expect(turn.locator(".agent-tool--running .agent-tool__label").first()).toHaveText(/^(Listing open issues|Checking plant data)…$/);
-  // The answer: written in while the turn runs, the steps folded, a caret at the end.
+  await expect(page.locator(".agent-composer").getByRole("button", { name: /^Agent map/ })).toBeVisible();
+  // The answer: written in while the turn runs, a caret at the end, no tool cards before it.
   const prose = turn.locator(".agent-prose");
   await expect(turn.locator(".agent-word").first()).toBeVisible({ timeout: 10_000 });
   await expect(turn).toHaveAttribute("data-turn-status", "running");
-  await expect(turn.locator(".agent-activity__head")).toHaveAttribute("aria-expanded", "false");
+  await expect(turn.locator("[data-tool], .agent-activity")).toHaveCount(0);
   await expect(turn.locator(".agent-caret")).toHaveCount(1);
   // New words fade in; what is already shown stays as more arrives.
   await expect.poll(() => turn.locator(".agent-word").last().evaluate((el) => Number(getComputedStyle(el).opacity))).toBeLessThan(1);
@@ -329,7 +352,7 @@ test("the view follows the answer until the reader scrolls up; Jump to latest br
   await expect.poll(() => behindEnd(page)).toBeLessThan(4);
 });
 
-test("keyboard: Home stops following, Jump to latest keeps focus in the conversation, steps open with Enter and Space", async ({ page }) => {
+test("keyboard: Home stops following, Jump to latest keeps focus in the conversation", async ({ page }) => {
   await askLong(page);
   const turn = lastTurn(page);
   const log = drawer(page).getByRole("region", { name: "Conversation" });
@@ -345,16 +368,7 @@ test("keyboard: Home stops following, Jump to latest keeps focus in the conversa
   await expect(jump).toHaveCount(0);
   await expect(log).toBeFocused();
   await expect.poll(() => behindEnd(page)).toBeLessThan(4);
-  const steps = turn.locator(".agent-activity__head");
-  await steps.focus();
-  await page.keyboard.press("Enter");
-  await expect(steps).toHaveAttribute("aria-expanded", "true");
-  await expect(turn.locator('[data-tool="get_equipment"] .agent-tool__label')).toHaveText("Read equipment details");
-  await page.keyboard.press("Space");
-  await expect(steps).toHaveAttribute("aria-expanded", "false");
-  await expect(turn.locator('[data-tool="get_equipment"]')).toBeHidden();
-  // Opened steps and a finished answer meet the accessibility bar.
-  await page.keyboard.press("Enter");
+  // A finished answer meets the accessibility bar.
   const results = await new AxeBuilder({ page }).include("#assistant-panel").analyze();
   const serious = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(" | ")}`)).toEqual([]);
@@ -409,8 +423,8 @@ test("Cancel pressed before the first step still stops the answer", async ({ pag
   await drawer(page).getByRole("button", { name: "Cancel" }).click();
   await page.clock.resume();
   await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "cancelled");
-  await expect(lastTurn(page).locator("[data-tool]")).toHaveCount(0);
   await expect(drawer(page).getByRole("button", { name: "Send" })).toBeVisible();
+  await expect(await latestTools(page)).toHaveCount(0);
 });
 
 // M6 ---------------------------------------------------------------------------------
@@ -437,7 +451,7 @@ test("Stop from the keyboard: Escape in the composer stops the answer at once an
 test("the Stop button names its shortcut and hands focus back to the composer", async ({ page }) => {
   await page.goto("/?scenario=tower-fault");
   await page.getByRole("button", { name: "Investigate Cooling tower 4" }).click();
-  await expect(drawer(page).locator("[data-tool]").first()).toBeVisible();
+  await firstToolCalled(page);
   const stop = drawer(page).getByRole("button", { name: "Cancel" });
   await expect(stop).toHaveAttribute("aria-keyshortcuts", "Escape");
   await stop.focus();
@@ -505,8 +519,9 @@ test("simulation requests read the history and open recorded runs' replays, comp
 
   await askTyped(page, "tell me our simulation history");
   await expect(page).toHaveURL(/\/simulation$/);
-  await expect(lastTurn(page).locator('[data-tool="list_simulation_runs"]')).toHaveCount(1);
   await expect(lastTurn(page).locator(".agent-prose")).toContainText("Two simulation runs are recorded, all ended.");
+  await expect((await latestTools(page)).and(page.locator('[data-tool="list_simulation_runs"]'))).toHaveCount(1);
+  await closeMap(page);
 
   await askTyped(page, "How did the last simulation go?");
   await expect(page).toHaveURL(/\/simulation\/RUN-0002$/);
@@ -562,7 +577,6 @@ test("F10: asked to operate the simulation, the assistant points to the operator
     await page.getByRole("tab", { name: "Assistant" }).click();
     await askTyped(page, request);
     await expect(lastTurn(page).locator(".agent-prose")).toContainText(/^I can't /);
-    for (const tool of await lastTurn(page).locator("[data-tool]").evaluateAll((els) => els.map((e) => e.getAttribute("data-tool")))) expect(readOnly).toContain(tool);
     // The one action points: AI Pilot opens with the control outlined, named in a note
     // that takes focus; the control itself is neither pressed nor focused.
     await expect(lastTurn(page).locator('[data-view="action"]')).toHaveAttribute("data-action", "reveal");
@@ -572,6 +586,10 @@ test("F10: asked to operate the simulation, the assistant points to the operator
     await expect(pilotConsole(page).locator(`[data-pointer="${control}"]`)).toBeFocused();
     await expect(consoleState(page)).toHaveText("Paused");
     await expect(consoleBand(page).locator("[data-elapsed]")).toHaveText(elapsed);
+    // Only read-only tools were called (after the focus checks: the map takes focus).
+    await page.getByRole("tab", { name: "Assistant" }).click();
+    for (const tool of await (await latestTools(page)).evaluateAll((els) => els.map((e) => e.getAttribute("data-tool")))) expect(readOnly).toContain(tool);
+    await closeMap(page);
   }
   // Nothing to point to: said, and nothing opens.
   await page.getByRole("tab", { name: "Assistant" }).click();
@@ -583,7 +601,8 @@ test("F10: asked to operate the simulation, the assistant points to the operator
   await expect(lastTurn(page).locator('[data-view="action"]')).toHaveCount(0);
   await askTyped(page, "turn off chiller 1");
   await expect(lastTurn(page).locator(".agent-prose")).toContainText("I can't operate equipment, and nothing in this dashboard can");
-  await expect(lastTurn(page).locator("[data-tool]")).toHaveCount(0);
+  await expect(await latestTools(page)).toHaveCount(0);
+  await closeMap(page);
 
   await openConsole(page);
   await expect(consoleState(page)).toHaveText("Paused");
@@ -650,7 +669,7 @@ test("Stop before the action: a stopped answer opens nothing", async ({ page }) 
   const box = drawer(page).getByLabel("Question for the assistant");
   await box.fill("Show me COP today");
   await box.press("Enter");
-  await expect(lastTurn(page).locator("[data-tool]").first()).toBeVisible({ timeout: 15_000 });
+  await firstToolCalled(page);
   await box.press("Escape");
   await expect(lastTurn(page)).toHaveAttribute("data-turn-status", "cancelled");
   await page.waitForTimeout(1500); // past where the display would have come

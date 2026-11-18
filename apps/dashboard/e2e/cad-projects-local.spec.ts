@@ -100,15 +100,21 @@ async function open(page: Page) {
   await page.goto("/cad?cad=local");
   await expect(page.getByRole("heading", { name: /Projects/, level: 2 })).toBeVisible();
 }
-const toolbar = (page: Page) => page.locator(".cad-tb");
+const toolbar = (page: Page) => page.locator(".cad-head");
 const inspector = (page: Page) => page.getByRole("complementary", { name: "Object inspector" });
-const row = (page: Page, name: string) => page.locator(".cad-row", { hasText: name }).first();
+const card = (page: Page, name: string) => page.locator(".cad-card-item", { hasText: name }).first();
+const tab = (page: Page, name: string) => page.getByRole("tab", { name: new RegExp(`^${name}`) });
+const menu = async (page: Page, name: string, item: string) => {
+  await card(page, name).getByRole("button", { name: `${name} actions` }).click();
+  await card(page, name).getByRole("button", { name: item }).click();
+};
 
 /** A new project from the prepared sample, with one finding resolved, saved under `name`. */
 async function saveReview(page: Page, name: string) {
-  await row(page, "Water-cooled plant").click();
+  await card(page, "Water-cooled plant").getByRole("button").first().click();
   const skip = page.getByRole("button", { name: "Skip" });
   if (await skip.isVisible().catch(() => false)) await skip.click();
+  await page.getByRole("button", { name: /^Review/ }).click();
   await inspector(page).getByRole("button", { name: /Unknown connection/ }).click();
   await page.getByRole("combobox", { name: "Evidence" }).selectOption("confirmed");
   await expect(toolbar(page).getByText("Unsaved changes")).toBeVisible();
@@ -122,10 +128,11 @@ async function saveReview(page: Page, name: string) {
 
 test("a review saved to the local service comes back after a reload and a service restart", async ({ page }) => {
   await open(page);
-  await expect(page.getByText("No saved projects")).toBeVisible();
+  await expect(page.locator(".cad-card-item")).toHaveCount(1); // the prepared sample only
   await saveReview(page, "Plant review A");
 
-  // The divider is part of the saved view; moving it does not mark the project unsaved.
+  // The source view and its divider are part of the saved view; moving them does not mark the project unsaved.
+  await page.getByRole("button", { name: "Source drawing beside the extraction" }).click();
   const splitter = page.getByRole("separator", { name: "Resize comparison panels" });
   await splitter.press("ArrowRight");
   await expect(toolbar(page).getByText("Unsaved changes")).toHaveCount(0);
@@ -138,10 +145,10 @@ test("a review saved to the local service comes back after a reload and a servic
       await startService();
     }
     await page.reload();
-    await expect(row(page, "Plant review A")).toContainText("1 open finding");
-    await row(page, "Plant review A").click();
+    await expect(card(page, "Plant review A")).toContainText("1 open finding");
+    await card(page, "Plant review A").getByRole("button").first().click();
     await expect(page.getByRole("heading", { name: "Plant review A", level: 2 })).toBeVisible();
-    // The saved selection comes back (the connection that was reviewed), then the findings.
+    // The saved selection comes back with its review (the connection that was reviewed), then the findings.
     await expect(page.getByText("CW pump 4:discharge")).toBeVisible();
     await inspector(page).getByRole("button", { name: /Back to findings/ }).click();
     await expect(inspector(page).getByRole("button", { name: /Unknown connection/ })).toHaveCount(0);
@@ -150,7 +157,7 @@ test("a review saved to the local service comes back after a reload and a servic
   }
 });
 
-test("Save As, rename, duplicate and delete in the Project Library", async ({ page }) => {
+test("Save As, rename, duplicate and delete from Projects", async ({ page }) => {
   await open(page);
   await saveReview(page, "Plant review B");
   await page.getByRole("button", { name: "File", exact: true }).click();
@@ -160,65 +167,102 @@ test("Save As, rename, duplicate and delete in the Project Library", async ({ pa
   await prompt.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("heading", { name: "Plant review C", level: 2 })).toBeVisible();
 
-  await page.getByRole("button", { name: "Projects" }).click();
-  const column = page.locator(".cad-library--column");
-  await column.getByRole("button", { name: "Plant review C actions" }).click();
-  await column.getByRole("button", { name: "Rename" }).click();
-  const field = column.getByRole("textbox", { name: "Rename project" });
+  await page.getByRole("button", { name: "Back to projects" }).click();
+  await menu(page, "Plant review C", "Rename");
+  const field = page.getByRole("textbox", { name: "Rename project" });
   await field.fill("Plant review D");
   await field.press("Enter");
-  await expect(row(page, "Plant review D")).toBeVisible();
+  await expect(card(page, "Plant review D")).toBeVisible();
+
+  await menu(page, "Plant review D", "Duplicate");
+  await expect(card(page, "Plant review D copy")).toBeVisible();
+
+  await menu(page, "Plant review D copy", "Delete…");
+  await expect(card(page, "Plant review D copy").getByRole("alertdialog")).toContainText("Plant review D copy");
+  await card(page, "Plant review D copy").getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
+  await expect(page.locator(".cad-card-item", { hasText: "Plant review D copy" })).toHaveCount(0);
+
+  // Deleting the open project goes back to Projects.
+  await card(page, "Plant review D").getByRole("button").first().click();
   await expect(page.getByRole("heading", { name: "Plant review D", level: 2 })).toBeVisible();
-
-  await column.getByRole("button", { name: "Plant review D actions" }).click();
-  await column.getByRole("button", { name: "Duplicate" }).click();
-  await expect(row(page, "Plant review D copy")).toBeVisible();
-
-  await column.getByRole("button", { name: "Plant review D copy actions" }).click();
-  await column.getByRole("button", { name: "Delete…" }).click();
-  await expect(column.getByRole("alertdialog")).toContainText("Plant review D copy");
-  await column.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
-  await expect(column.locator(".cad-row", { hasText: "Plant review D copy" })).toHaveCount(0);
-
-  // Deleting the open project goes back to the Library.
-  await column.getByRole("button", { name: "Plant review D actions" }).click();
-  await column.getByRole("button", { name: "Delete…" }).click();
-  await column.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
+  await page.getByRole("button", { name: "Back to projects" }).click();
+  await menu(page, "Plant review D", "Delete…");
+  await card(page, "Plant review D").getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
   await expect(page.getByRole("heading", { name: /Projects/, level: 2 })).toBeVisible();
-  await expect(page.locator(".cad-row", { hasText: "Plant review D" })).toHaveCount(0);
-  await expect(row(page, "Plant review B")).toBeVisible();
+  await expect(page.locator(".cad-card-item", { hasText: "Plant review D" })).toHaveCount(0);
+  await expect(card(page, "Plant review B")).toBeVisible();
 });
+
+/** Fetch a download link's address as the browser would: its exact bytes and headers. */
+async function fetched(page: Page, href: string | null) {
+  return page.evaluate(async (url) => {
+    const r = await fetch(url!);
+    return { type: r.headers.get("content-type"), disposition: r.headers.get("content-disposition"), bytes: Array.from(new Uint8Array(await r.arrayBuffer())) };
+  }, href);
+}
 
 test("an uploaded drawing is stored as it is, downloads byte for byte, and is never parsed", async ({ page }) => {
   await open(page);
   const { createHash, randomBytes } = await builtin("node:crypto");
   const { Buffer } = await builtin("node:buffer");
   const bytes = Buffer.concat([Buffer.from("AC1032"), randomBytes(20_000)]);
-  await page.locator('.cad-library input[type="file"]').setInputFiles({ name: "mech-room.dwg", mimeType: "application/octet-stream", buffer: bytes });
+  await page.locator('.cad-home input[type="file"]').setInputFiles({ name: "mech-room.dwg", mimeType: "application/octet-stream", buffer: bytes });
   await expect(page.getByRole("heading", { name: "mech-room.dwg", level: 3 })).toBeVisible();
   await expect(page.locator(".cad-file")).toContainText("Stored, not parsed");
   await expect(page.locator(".cad-file")).toContainText("No extraction");
-  await expect(page.getByRole("radio", { name: "Compare" })).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Plant scene" })).toHaveCount(0);
 
   // The link downloads the stored original (a routed request cannot become a browser download in
   // the test harness, so its address is fetched as the link would): exact bytes, as an attachment.
   const link = page.locator(".cad-file").getByRole("link", { name: "Download original" });
   await expect(link).toHaveAttribute("download", "mech-room.dwg");
   const href = await link.getAttribute("href");
-  expect(href).toMatch(/^\/api\/cad\/v1\/projects\/cadp_[0-9a-f]{16}\/original$/);
-  const got = await page.evaluate(async (url) => {
-    const r = await fetch(url!);
-    return { type: r.headers.get("content-type"), disposition: r.headers.get("content-disposition"), bytes: Array.from(new Uint8Array(await r.arrayBuffer())) };
-  }, href);
+  expect(href).toMatch(/^\/api\/cad\/v1\/projects\/cadp_[0-9a-f]{16}\/versions\/cadv_[0-9a-f]{16}\/original$/);
+  const got = await fetched(page, href);
   expect(got.type).toBe("application/octet-stream");
   expect(got.disposition).toContain("attachment");
   expect(createHash("sha256").update(Buffer.from(got.bytes)).digest("hex")).toBe(createHash("sha256").update(bytes).digest("hex"));
 
   // A file that does not look like a drawing is refused, with the service's reason.
-  await page.getByRole("button", { name: "File", exact: true }).click();
-  await page.getByRole("button", { name: "Close project" }).click();
-  await page.locator('.cad-library input[type="file"]').setInputFiles({ name: "notes.dwg", mimeType: "application/octet-stream", buffer: Buffer.from("not a drawing") });
-  await expect(page.locator(".cad-library").getByRole("alert")).toContainText("does not look like a DWG drawing");
+  await page.getByRole("button", { name: "Back to projects" }).click();
+  await page.locator('.cad-home input[type="file"]').setInputFiles({ name: "notes.dwg", mimeType: "application/octet-stream", buffer: Buffer.from("not a drawing") });
+  await expect(page.locator(".cad-home").getByRole("alert")).toContainText("does not look like a DWG drawing");
+});
+
+test("a project's history and approved reference survive a reload and a service restart; revisions keep their bytes", async ({ page }) => {
+  await open(page);
+  const { createHash } = await builtin("node:crypto");
+  const { Buffer } = await builtin("node:buffer");
+  const first = Buffer.from("AC1032 ground floor, issued for construction");
+  const second = Buffer.from("AC1032 ground floor, revision B with the CHW reroute");
+  await page.locator('.cad-home input[type="file"]').setInputFiles({ name: "ground-floor.dwg", mimeType: "application/octet-stream", buffer: first });
+  await expect(page.getByRole("heading", { name: "ground-floor.dwg", level: 3 })).toBeVisible();
+  await tab(page, "History").click();
+  await page.getByRole("button", { name: "Set ground-floor.dwg as the approved reference" }).click();
+  await page.locator('.cad-head input[type="file"]').setInputFiles({ name: "ground-floor-rev-b.dwg", mimeType: "application/octet-stream", buffer: second });
+  await expect(page.locator(".cad-version")).toHaveCount(2);
+
+  for (const restart of [false, true]) {
+    if (restart) {
+      await stopService();
+      await startService();
+    }
+    await page.reload();
+    await expect(card(page, "ground-floor")).toContainText("2 versions");
+    await card(page, "ground-floor").getByRole("button").first().click();
+    await tab(page, "History").click();
+    const versions = page.locator(".cad-version");
+    await expect(versions).toHaveCount(2);
+    await expect(versions.last()).toContainText("Approved reference"); // version 1, never moved by version 2
+    await expect(versions.first()).not.toContainText("Approved reference");
+    for (const [index, data] of [[0, second], [1, first]] as const) {
+      const href = await versions.nth(index).getByRole("link", { name: /^Download/ }).getAttribute("href");
+      const got = await fetched(page, href);
+      expect(createHash("sha256").update(Buffer.from(got.bytes)).digest("hex")).toBe(createHash("sha256").update(data).digest("hex"));
+    }
+    await tab(page, "Compare").click();
+    await expect(page.locator(".cad-filecmp")).toContainText("Different file");
+  }
 });
 
 test("a save from a stale tab is refused, and its work is kept as a copy", async ({ browser }) => {
@@ -227,10 +271,11 @@ test("a save from a stale tab is refused, and its work is kept as a copy", async
   await open(a);
   await saveReview(a, "Shared review");
   await open(b);
-  await row(b, "Shared review").click();
+  await card(b, "Shared review").getByRole("button").first().click();
   await expect(b.getByRole("heading", { name: "Shared review", level: 2 })).toBeVisible();
 
   // A saves again; B, still at the older revision, then saves.
+  await a.getByRole("button", { name: "Source drawing beside the extraction" }).click();
   await a.getByRole("separator", { name: "Resize comparison panels" }).press("ArrowLeft");
   await a.getByRole("button", { name: "Save", exact: true }).click();
   await expect(toolbar(a).getByText(/^Saved \d/)).toBeVisible();

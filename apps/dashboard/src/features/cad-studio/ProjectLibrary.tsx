@@ -1,45 +1,45 @@
 /**
- * The Project Library: the prepared sample (pinned), then the saved projects by when they were
- * last opened (or, in demo mode, the drawings added in this tab). The landing page when no
- * project is open; a column beside an open one.
+ * Projects: where CAD Studio opens. Upload drawing is the one primary action (the shared
+ * uploader; a drawing dropped anywhere on the page uploads too); the prepared sample is pinned
+ * first, then every project by when it was last opened, each with its preview, versions, date
+ * and review state. Search narrows them. Every project is a drawing (DWG or DXF, or the
+ * prepared sample's review), so there is no file-type filter.
  */
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { CircleAlert, CircleCheck, CircleMinus, FileUp, MoreHorizontal, RotateCw, Search } from "lucide-react";
+import { BadgeCheck, CircleAlert, CircleCheck, CircleMinus, Ellipsis, Plus, RotateCw, Search } from "lucide-react";
 import type { ProjectSummary } from "../../lib/contracts/cadProject";
 import { useStrings } from "../../lib/i18n";
 import { useDismissOutside, useEscapeLayer } from "../../components/escape";
 import { cad, isDirty, openFindings, SAMPLE_FILENAME, SAMPLE_KEY, useCadSession, type OpenTarget } from "./cadSession";
-import { formatBytes } from "./review";
 import { Thumbnail } from "./Thumbnail";
+import { DropOverlay, UploadAction, useDropUpload } from "./Uploader";
 
-interface Row {
+interface Card {
   key: string;
   target: OpenTarget;
   name: string;
-  /** Set for drawings: their format tile and download. */
+  /** Set for uploaded drawings: their format tile and download. */
   extension?: string;
   meta: string;
   status: { tone: "review" | "ok" | "none"; text: string } | null;
   summary?: ProjectSummary;
-  file?: File;
   sample?: boolean;
 }
 
 const when = (iso: string) => new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 
-export function ProjectLibrary({ variant, steps }: { variant: "page" | "column"; steps: number }) {
+export function ProjectLibrary({ steps }: { steps: number }) {
   const copy = useStrings().cad;
   const session = useCadSession();
-  const { mode, library, project, drawings, busy } = session;
+  const { mode, library, project } = session;
   const [query, setQuery] = useState("");
-  const [dropping, setDropping] = useState(false);
-  const input = useRef<HTMLInputElement>(null);
-  const page = variant === "page";
+  const [creating, setCreating] = useState(false);
+  const drop = useDropUpload("projects");
 
-  const rows = useMemo<Row[]>(() => {
+  const cards = useMemo<Card[]>(() => {
     const sampleOpen = project?.key === SAMPLE_KEY;
     const open = sampleOpen ? openFindings(session.topology) : null;
-    const sample: Row = {
+    const sample: Card = {
       key: SAMPLE_KEY,
       target: { kind: "sample" },
       name: copy.sampleName,
@@ -47,90 +47,95 @@ export function ProjectLibrary({ variant, steps }: { variant: "page" | "column";
       status: open === null ? null : open ? { tone: "review", text: copy.openFindingsCount(open) } : { tone: "ok", text: copy.reviewed },
       sample: true,
     };
-    const saved: Row[] = library.projects.map((p) => {
+    const saved: Card[] = library.projects.map((p) => {
       const upload = p.source.kind === "upload" ? p.source.original : null;
       return {
         key: p.id,
         target: { kind: "saved", id: p.id },
         name: p.name,
         extension: upload?.extension,
-        meta: `${upload ? copy.format(upload.extension) : copy.preparedSample} · ${when(p.modifiedAt)}`,
+        meta: `${copy.versionsCount(p.versions)} · ${when(p.modifiedAt)}`,
         status: upload
           ? upload.available ? { tone: "none", text: copy.noExtraction } : { tone: "review", text: copy.originalMissing }
           : p.review?.openFindings ? { tone: "review", text: copy.openFindingsCount(p.review.openFindings) } : { tone: "ok", text: copy.reviewed },
         summary: p,
       };
     });
-    const local: Row[] = drawings.map((d) => {
-      const ext = d.file.name.split(".").pop()?.toLowerCase() ?? "";
-      return { key: d.key, target: { kind: "drawing", key: d.key }, name: d.file.name, extension: ext, meta: `${copy.format(ext)} · ${formatBytes(d.file.size)}`, status: { tone: "none", text: copy.noExtraction }, file: d.file };
-    });
-    return [sample, ...saved, ...local];
-  }, [copy, library.projects, drawings, project?.key, session.topology]);
+    return [sample, ...saved];
+  }, [copy, library.projects, project?.key, session.topology]);
 
-  const shown = query.trim() ? rows.filter((row) => row.name.toLowerCase().includes(query.trim().toLowerCase())) : rows;
-  const importFiles = (files: File[]) => void cad.importFiles(files, steps);
+  const needle = query.trim().toLowerCase();
+  const shown = needle ? cards.filter((card) => card.name.toLowerCase().includes(needle)) : cards;
 
   return (
-    <section
-      className={`cad-library cad-library--${variant}${dropping ? " is-dropping" : ""}`}
-      aria-labelledby={`cad-library-${variant}`}
-      onDragOver={page ? (event) => { event.preventDefault(); setDropping(true); } : undefined}
-      onDragLeave={page ? (event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropping(false); } : undefined}
-      onDrop={page ? (event) => { event.preventDefault(); setDropping(false); importFiles(Array.from(event.dataTransfer.files)); } : undefined}
-    >
-      <div className="cad-library__head">
-        {page ? <h2 id={`cad-library-${variant}`}>{copy.projects} <span className="cad-library__count num">{rows.length}</span></h2>
-          : <h3 id={`cad-library-${variant}`}>{copy.projects} <span className="cad-library__count num">{rows.length}</span></h3>}
-        {mode === "demo" && <span className="tag-chip" title={copy.savingNeedsService}>{copy.thisTabOnly}</span>}
-        <button
-          type="button"
-          className={page ? "button button--primary cad-library__import" : "icon-button"}
-          onClick={() => input.current?.click()}
-          disabled={busy === "upload"}
-          aria-label={page ? undefined : copy.importDrawing}
-          title={copy.importDrawing}
-        >
-          <FileUp size={page ? 16 : 17} aria-hidden="true" />
-          {page && (busy === "upload" ? copy.importing : copy.importDrawing)}
+    <section className={`cad-home${drop.dropping ? " is-dropping" : ""}`} aria-labelledby="cad-home-title" {...drop.handlers}>
+      <header className="cad-home__head">
+        <h2 id="cad-home-title">{copy.projects} <span className="cad-home__count num">{cards.length}</span></h2>
+        {mode === "demo" && <span className="cad-tag cad-tag--quiet" title={copy.savingNeedsService}>{copy.thisTabOnly}</span>}
+        <label className="cad-search">
+          <Search size={15} aria-hidden="true" />
+          <input type="search" placeholder={copy.searchProjects} aria-label={copy.searchProjects} value={query} onChange={(event) => setQuery(event.target.value)} />
+        </label>
+        <button type="button" className="cad-icon-button cad-icon-button--outlined" onClick={() => setCreating(true)} aria-label={copy.newProject} title={copy.newProjectTitle}>
+          <Plus size={17} aria-hidden="true" />
         </button>
-        <input ref={input} type="file" multiple hidden accept=".dwg,.dxf" onChange={(event) => {
-          importFiles(Array.from(event.currentTarget.files ?? []));
-          event.currentTarget.value = "";
-        }} />
-      </div>
-      <label className="field cad-library__search">
-        <Search size={15} aria-hidden="true" />
-        <input type="search" placeholder={copy.searchProjects} aria-label={copy.searchProjects} value={query} onChange={(event) => setQuery(event.target.value)} />
-      </label>
-      {page && session.failure && (
-        <div className="cad-library__notice" role="alert">
+        <UploadAction into="projects" label={copy.uploadDrawing} />
+      </header>
+
+      {session.failure && (
+        <div className="cad-notice" role="alert">
           <CircleAlert size={15} aria-hidden="true" />
           <span>{session.failure.message}</span>
-          <button type="button" className="tool-button tool-button--text" onClick={cad.dismissFailure}>{copy.dismiss}</button>
+          <button type="button" className="cad-text-button" onClick={cad.dismissFailure}>{copy.dismiss}</button>
         </div>
       )}
       {library.status === "unavailable" && (
-        <div className="cad-library__notice" role="alert">
+        <div className="cad-notice" role="alert">
           <CircleAlert size={15} aria-hidden="true" />
           <span>{copy.serviceUnavailable}</span>
-          <button type="button" className="tool-button tool-button--text" onClick={() => void cad.loadLibrary()}>
-            <RotateCw size={14} aria-hidden="true" /> {copy.retry}
-          </button>
+          <button type="button" className="cad-text-button" onClick={() => void cad.loadLibrary()}><RotateCw size={14} aria-hidden="true" /> {copy.retry}</button>
         </div>
       )}
-      <ul className="cad-library__list" aria-busy={library.status === "loading" || undefined}>
-        {shown.map((row) => <LibraryRow key={row.key} row={row} steps={steps} />)}
-        {library.status === "loading" && <li className="cad-library__empty">{copy.loadingProjects}</li>}
-        {mode === "local" && library.status === "ready" && !library.projects.length && !query && <li className="cad-library__empty">{copy.noSavedProjects}</li>}
-        {query && !shown.length && <li className="cad-library__empty">{copy.noMatches}</li>}
+
+      <ul className="cad-grid-cards" aria-busy={library.status === "loading" || undefined}>
+        {shown.map((card) => <ProjectCard key={card.key} card={card} steps={steps} />)}
       </ul>
-      {dropping && <div className="cad-library__drop" aria-hidden="true"><span>{copy.dropToImport}</span></div>}
+      {library.status === "loading" && <p className="cad-home__empty" role="status">{copy.loadingProjects}</p>}
+      {needle && !shown.length && <p className="cad-home__empty">{copy.noMatches}</p>}
+
+      {creating && <NewProjectForm onCancel={() => setCreating(false)} onSubmit={(name) => { setCreating(false); void cad.newProject(name, steps); }} />}
+      {drop.dropping && <DropOverlay label={copy.dropToUpload} />}
     </section>
   );
 }
 
-function LibraryRow({ row, steps }: { row: Row; steps: number }) {
+function NewProjectForm({ onCancel, onSubmit }: { onCancel: () => void; onSubmit: (name: string) => void }) {
+  const copy = useStrings().cad;
+  const field = useRef<HTMLInputElement>(null);
+  useEscapeLayer(true, onCancel);
+  useEffect(() => {
+    field.current?.focus();
+    field.current?.select();
+  }, []);
+  return (
+    <form className="cad-prompt" role="dialog" aria-label={copy.newProject} onSubmit={(event) => {
+      event.preventDefault();
+      const name = field.current?.value.trim();
+      if (name) onSubmit(name);
+    }}>
+      <label className="cad-prompt__field">
+        {copy.projectName}
+        <input ref={field} name="project-name" autoComplete="off" defaultValue={copy.newProjectName(copy.sampleName)} maxLength={120} required />
+      </label>
+      <div className="cad-prompt__actions">
+        <button type="submit" className="cad-button cad-button--primary">{copy.createProject}</button>
+        <button type="button" className="cad-button" onClick={onCancel}>{copy.cancel}</button>
+      </div>
+    </form>
+  );
+}
+
+function ProjectCard({ card, steps }: { card: Card; steps: number }) {
   const copy = useStrings().cad;
   const session = useCadSession();
   const [menu, setMenu] = useState(false);
@@ -138,58 +143,51 @@ function LibraryRow({ row, steps }: { row: Row; steps: number }) {
   const [confirming, setConfirming] = useState(false);
   const box = useRef<HTMLLIElement>(null);
   const menuId = useId();
-  const current = session.project?.key === row.key || (!!row.summary && session.project?.id === row.summary.id);
+  const current = session.project?.key === card.key;
   const unsaved = current && isDirty(session);
   useEscapeLayer(menu, () => setMenu(false));
   useDismissOutside(menu, box, () => setMenu(false));
-  const id = row.summary?.id;
-  const download = row.extension ? (id ? (row.summary?.source.kind === "upload" && row.summary.source.original.available ? cad.originalUrl(id) : null) : row.file ? "file" : null) : null;
-  const StatusIcon = row.status?.tone === "ok" ? CircleCheck : row.status?.tone === "review" ? CircleAlert : CircleMinus;
+  const id = card.summary?.id;
+  const download = id && card.summary?.source.kind === "upload" && card.summary.source.original.available ? cad.originalUrl(id) : null;
+  const StatusIcon = card.status?.tone === "ok" ? CircleCheck : card.status?.tone === "review" ? CircleAlert : CircleMinus;
 
   const saveName = (name: string) => {
     setRenaming(false);
     const next = name.trim();
-    if (next && id && next !== row.name) void cad.rename(next, id);
+    if (next && id && next !== card.name) void cad.rename(next, id);
   };
 
   return (
-    <li ref={box} className="cad-library__item">
-      {renaming ? (
-        <div className="cad-row cad-row--editing">
-          <Thumbnail extension={row.extension} />
-          <RenameField name={row.name} label={copy.renameProject} onDone={saveName} onCancel={() => setRenaming(false)} />
-        </div>
-      ) : (
-        <button type="button" className="cad-row" aria-current={current || undefined} onClick={() => cad.request(row.target, steps)} disabled={session.busy === "open"}>
-          <Thumbnail extension={row.extension} />
-          <span className="cad-row__text">
-            <span className="cad-row__name">
-              <span>{row.name}</span>
-              {unsaved ? <span className="cad-row__aside">{copy.unsavedChanges}</span> : current ? <span className="cad-row__aside">{copy.openNow}</span> : null}
-            </span>
-            {row.sample ? <span><span className="tag-chip cad-row__tag">{copy.preparedSample}</span></span> : <span className="cad-row__meta">{row.meta}</span>}
-            {row.status && <span className={`cad-state cad-state--${row.status.tone}`}><StatusIcon size={13} aria-hidden="true" />{row.status.text}</span>}
+    <li ref={box} className="cad-card-item">
+      <button type="button" className="cad-card" aria-current={current || undefined} onClick={() => !renaming && cad.request(card.target, steps)} disabled={session.busy === "open"}>
+        <span className="cad-card__preview"><Thumbnail extension={card.extension} /></span>
+        <span className="cad-card__body">
+          <span className="cad-card__name">{renaming ? "" : card.name}</span>
+          <span className="cad-card__meta">{card.sample ? <span className="cad-tag">{copy.preparedSample}</span> : card.meta}</span>
+          <span className="cad-card__foot">
+            {card.status && <span className={`cad-state cad-state--${card.status.tone}`}><StatusIcon size={13} aria-hidden="true" />{card.status.text}</span>}
+            {card.summary?.referenceVersionId && <span className="cad-ref-badge" title={copy.approvedReference}><BadgeCheck size={14} aria-hidden="true" /><span className="visually-hidden">{copy.approvedReference}</span></span>}
+            {unsaved ? <span className="cad-card__aside">{copy.unsavedChanges}</span> : current ? <span className="cad-card__aside">{copy.openNow}</span> : null}
           </span>
+        </span>
+      </button>
+      {renaming && <div className="cad-card__rename"><RenameField name={card.name} label={copy.renameProject} onDone={saveName} onCancel={() => setRenaming(false)} /></div>}
+      {id && !renaming && (
+        <button type="button" className="cad-icon-button cad-card__menu" aria-label={copy.projectActions(card.name)} aria-expanded={menu} aria-controls={menuId} onClick={() => setMenu(!menu)}>
+          <Ellipsis size={16} aria-hidden="true" />
         </button>
       )}
-      {(id || download) && !renaming && (
-        <button type="button" className="icon-button cad-row__menu" aria-label={copy.projectActions(row.name)} aria-expanded={menu} aria-controls={menuId} onClick={() => setMenu(!menu)}>
-          <MoreHorizontal size={16} aria-hidden="true" />
-        </button>
-      )}
-      {menu && (
-        <div id={menuId} className="cad-menu cad-menu--row">
-          {id && <button type="button" onClick={() => { setMenu(false); setRenaming(true); }}>{copy.rename}</button>}
-          {id && <button type="button" onClick={() => { setMenu(false); void cad.duplicate(id, copy.copyName(row.name)); }}>{copy.duplicate}</button>}
-          {download && (download === "file"
-            ? <button type="button" onClick={() => { setMenu(false); if (row.file) downloadFile(row.file); }}>{copy.downloadOriginal}</button>
-            : <a href={download} download onClick={() => setMenu(false)}>{copy.downloadOriginal}</a>)}
-          {id && <button type="button" className="cad-menu__danger" onClick={() => { setMenu(false); setConfirming(true); }}>{copy.deleteProject}</button>}
+      {menu && id && (
+        <div id={menuId} className="cad-menu cad-menu--card">
+          <button type="button" onClick={() => { setMenu(false); setRenaming(true); }}>{copy.rename}</button>
+          <button type="button" onClick={() => { setMenu(false); void cad.duplicate(id, copy.copyName(card.name)); }}>{copy.duplicate}</button>
+          {download && <a href={download} download={card.summary?.source.kind === "upload" ? card.summary.source.original.name : undefined} onClick={() => setMenu(false)}>{copy.downloadOriginal}</a>}
+          <button type="button" className="cad-menu__danger" onClick={() => { setMenu(false); setConfirming(true); }}>{copy.deleteProject}</button>
         </div>
       )}
       {confirming && id && (
         <ConfirmBox
-          message={copy.deleteConfirm(row.name)}
+          message={copy.deleteConfirm(card.name)}
           confirm={copy.delete}
           busy={session.busy === "delete"}
           onConfirm={() => { setConfirming(false); void cad.remove(id); }}
@@ -198,13 +196,6 @@ function LibraryRow({ row, steps }: { row: Row; steps: number }) {
       )}
     </li>
   );
-}
-
-/** A drawing held in this tab (demo mode), saved through a short-lived object URL. */
-export function downloadFile(file: File) {
-  const url = URL.createObjectURL(file);
-  Object.assign(document.createElement("a"), { href: url, download: file.name }).click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 /** An inline name field: Enter keeps it, Escape (or leaving it empty) cancels. */
@@ -226,6 +217,8 @@ export function RenameField({ name, label, onDone, onCancel }: { name: string; l
     <input
       ref={ref}
       className="cad-rename"
+      name="rename-project"
+      autoComplete="off"
       defaultValue={name}
       maxLength={120}
       aria-label={label}
@@ -237,8 +230,8 @@ export function RenameField({ name, label, onDone, onCancel }: { name: string; l
   );
 }
 
-/** An inline confirmation for a destructive choice: what will happen, then the choice (Cancel focused). */
-export function ConfirmBox({ message, confirm, busy, onConfirm, onCancel }: { message: string; confirm: string; busy?: boolean; onConfirm: () => void; onCancel: () => void }) {
+/** An inline confirmation: what will happen, then the choice (Cancel focused). */
+export function ConfirmBox({ message, confirm, busy, tone = "danger", onConfirm, onCancel }: { message: string; confirm: string; busy?: boolean; tone?: "danger" | "primary"; onConfirm: () => void; onCancel: () => void }) {
   const copy = useStrings().cad;
   const cancel = useRef<HTMLButtonElement>(null);
   useEscapeLayer(true, onCancel);
@@ -247,8 +240,8 @@ export function ConfirmBox({ message, confirm, busy, onConfirm, onCancel }: { me
     <div className="cad-confirm" role="alertdialog" aria-label={confirm}>
       <p>{message}</p>
       <div className="cad-confirm__actions">
-        <button type="button" className="button button--small cad-confirm__danger" onClick={onConfirm} disabled={busy}>{confirm}</button>
-        <button ref={cancel} type="button" className="button button--small" onClick={onCancel} disabled={busy}>{copy.cancel}</button>
+        <button type="button" className={`cad-button ${tone === "danger" ? "cad-button--danger" : "cad-button--primary"}`} onClick={onConfirm} disabled={busy}>{confirm}</button>
+        <button ref={cancel} type="button" className="cad-button" onClick={onCancel} disabled={busy}>{copy.cancel}</button>
       </div>
     </div>
   );

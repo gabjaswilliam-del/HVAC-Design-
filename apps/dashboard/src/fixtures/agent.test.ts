@@ -71,6 +71,21 @@ describe("offline agent harness", () => {
     expect(results.map((r) => r.callId)).toEqual(toolCalls.map((c) => c.callId));
   });
 
+  it("reports the one agent that answers: the root, owning every tool call, ended before the turn, with no tokens", async () => {
+    const { agent, conv, events, toolCalls } = await ask(ctx("tower-fault", 15, 15), "What needs attention right now?");
+    const starts = events.filter((e) => e.type === "agent_start") as Extract<AgentEvent, { type: "agent_start" }>[];
+    expect(starts).toHaveLength(1);
+    expect(starts[0]).toMatchObject({ parentId: null, name: "AI Assistant", task: "What needs attention right now?" });
+    expect(events[1]).toBe(starts[0]);
+    expect(toolCalls.every((c) => c.agentId === starts[0].agentId)).toBe(true);
+    expect(events.at(-2)).toMatchObject({ type: "agent_end", agentId: starts[0].agentId, status: "complete" });
+    expect(events.some((e) => e.type === "agent_usage" || (e.type === "agent_end" && e.usage))).toBe(false);
+    // Stored with the turn, so a past answer's map shows the same.
+    const [stored] = (await agent.getConversation(conv.id)).turns;
+    expect(stored.agents).toEqual([expect.objectContaining({ id: starts[0].agentId, status: "complete", endedAt: expect.any(String) })]);
+    expect(stored.agents![0].usage).toBeUndefined();
+  });
+
   it("reports the scenario's actual open issues and links to them", async () => {
     const { text, views } = await ask(ctx("tower-fault", 15, 15), "What needs attention right now?");
     expect(text).toContain("Two issues are open at 15:15 UTC+8, one of them critical.");
@@ -306,6 +321,7 @@ describe("offline agent harness", () => {
     const stored = await agent.getConversation(conv.id);
     expect(stored.turns[0].status).toBe("cancelled");
     expect(stored.turns[0].parts.some((p) => p.type === "tool" && p.status === "running")).toBe(false);
+    expect(stored.turns[0].agents?.map((a) => a.status)).toEqual(["cancelled"]);
   });
 
   it("reports an unavailable assistant instead of answering", async () => {
